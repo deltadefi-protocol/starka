@@ -1,4 +1,4 @@
-# Auth Token - One Shot
+# Oracle NFT - One Shot
 
 ## Parameter
 
