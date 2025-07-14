@@ -22,4 +22,4 @@
 
 2. ProcessWithdrawal
 
-   - `ProcessDepositIntent` is burnt
+   - `ProcessWithdrawalIntent` is burnt
