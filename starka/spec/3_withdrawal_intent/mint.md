@@ -12,7 +12,7 @@
 
 2. Burn - Redeemer `RBurn (Pairs<Int,Int>, ByteArray, ByteArray)`
 
-   - `DepositIntent` is burnt with total batched amount
+   - `WithdrawalIntent` is burnt with total batched amount
    - `LP Token` is burnt with calculation of total batched value amount and signed message, assetname = `pluggable_logic`
    - `WithdrawalIntent` input datum is correspond to withdraw output value
    - oracle input with datum

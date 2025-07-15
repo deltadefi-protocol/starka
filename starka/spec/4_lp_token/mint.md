@@ -6,10 +6,10 @@
 
 ## User Action
 
-1. Mint - Redeemer `RMint`
+1. ProcessDeposit
 
-   - There is input with `oracle_nft` with redeemer `ProcessDeposit`
+   - `DepositIntent` is burnt
 
-2. Burn - Redeemer `RBurn`
+2. ProcessWithdrawal
 
-   - There is input with `oracle_nft` with redeemer `ProcessWithdrawal`
+   - `WithdrawalIntent` is burnt

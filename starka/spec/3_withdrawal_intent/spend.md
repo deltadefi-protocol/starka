@@ -7,7 +7,7 @@
 ## Datum
 
 - `address`: receiver of vault value
-- `amount`: `MValue` - marking the withdrawal balance
+- `amount`: `Int` - marking the withdrawal balance
 
 ## User Action
 

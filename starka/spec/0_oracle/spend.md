@@ -1,8 +1,6 @@
-# Specification - Vault
+# Specification - AppOracle
 
 ## Parameter
-
-- `oracle_nft`: The policy id of `OracleNFT`
 
 ## Datum
 
@@ -18,8 +16,8 @@
 
 1. ProcessDeposit
 
-   - `ProcessDepositIntent` is burnt
+   - `DepositIntent` is burnt
 
 2. ProcessWithdrawal
 
-   - `ProcessWithdrawalIntent` is burnt
+   - `WithdrawalIntent` is burnt
