@@ -1,0 +1,212 @@
+{
+  "preamble": {
+    "title": "deltadefi-protocol/starka",
+    "description": "Aiken contracts for project 'deltadefi-protocol/starka'",
+    "version": "0.0.0",
+    "plutusVersion": "v3",
+    "compiler": {
+      "name": "Aiken",
+      "version": "v1.1.7+e2fb28b"
+    },
+    "license": "Apache-2.0"
+  },
+  "validators": [
+    {
+      "title": "oracle/mint.oracle_nft.mint",
+      "redeemer": {
+        "title": "redeemer",
+        "schema": {
+          "$ref": "#/definitions/types~1MintPolarity"
+        }
+      },
+      "parameters": [
+        {
+          "title": "utxo_ref",
+          "schema": {
+            "$ref": "#/definitions/cardano~1transaction~1OutputReference"
+          }
+        }
+      ],
+      "compiledCode": "5901770101003232323232323222533300332323232325332330093001300a3754004264646464a66601a600a0022a666020601e6ea801c0085854ccc034c00c00454ccc040c03cdd50038010b0b18069baa006132325333010301300213232533300f3007301037540122a66601e646600200200444a66602800229404cc894ccc04ccdd7980c180a9baa00201214a2266008008002602c002602e0022600a00429404cdc3801240026eb0c04cc040dd50049bad300f00116301100132533300c3002300d3754002297adef6c60137566022601c6ea8004c8cc004004dd59808980918091809180918071baa00722533301000114c103d87a80001323332225333011337220100062a66602266e3c02000c4cdd2a40006602a6e980092f5c02980103d87a8000133006006001375c601e0026eacc040004c050008c048004dc3a40046eb8c038c02cdd50011b874800058c030c03400cc02c008c028008c028004c014dd50008a4c26cacae6955ceaab9e5573eae815d0aba21",
+      "hash": "a5415b8df863848b7c9c9c9826a86f83852d90608c3bd1a00ad1b6ad"
+    },
+    {
+      "title": "oracle/mint.oracle_nft.else",
+      "redeemer": {
+        "schema": {}
+      },
+      "parameters": [
+        {
+          "title": "utxo_ref",
+          "schema": {
+            "$ref": "#/definitions/cardano~1transaction~1OutputReference"
+          }
+        }
+      ],
+      "compiledCode": "5901770101003232323232323222533300332323232325332330093001300a3754004264646464a66601a600a0022a666020601e6ea801c0085854ccc034c00c00454ccc040c03cdd50038010b0b18069baa006132325333010301300213232533300f3007301037540122a66601e646600200200444a66602800229404cc894ccc04ccdd7980c180a9baa00201214a2266008008002602c002602e0022600a00429404cdc3801240026eb0c04cc040dd50049bad300f00116301100132533300c3002300d3754002297adef6c60137566022601c6ea8004c8cc004004dd59808980918091809180918071baa00722533301000114c103d87a80001323332225333011337220100062a66602266e3c02000c4cdd2a40006602a6e980092f5c02980103d87a8000133006006001375c601e0026eacc040004c050008c048004dc3a40046eb8c038c02cdd50011b874800058c030c03400cc02c008c028008c028004c014dd50008a4c26cacae6955ceaab9e5573eae815d0aba21",
+      "hash": "a5415b8df863848b7c9c9c9826a86f83852d90608c3bd1a00ad1b6ad"
+    },
+    {
+      "title": "oracle/spend.vault_oracle.spend",
+      "datum": {
+        "title": "datum_opt",
+        "schema": {
+          "$ref": "#/definitions/types~1VaultOracleDatum"
+        }
+      },
+      "redeemer": {
+        "title": "redeemer",
+        "schema": {
+          "$ref": "#/definitions/types~1VaultOracleRedeemer"
+        }
+      },
+      "compiledCode": "5901d5010100323232323232322533300232323232325332330083001300937540042646644646464a66601c60060022a66602260206ea80240085854ccc038c01c00454ccc044c040dd50048010b0b18071baa008132533300d3002300e375400626464646464646464a66602a60140022a666030602e6ea800c0085854ccc054c0380044c8c8c8c8c8c94ccc078c0840084c8cc00400401888c94ccc08400802c4c8c8c8c010c09c014dd698110011bad30200013023002300200216375c603e002603e0046eb8c074004c074008dd5980d800980b9baa00316301537540042a666026601860286ea80045288a50323300100100722533301700114c0103d87a800013233322253330183375e00e006260106603800497ae013300600600130160013017001301b00230190015333011300630123754018260026602a6ea400d2f5c0260026602a6ea40092f5c06e952000375c6028602a0046eb8c04c004c04cc04cc04cc04cc04cc04cc04cc04cc03cdd5180918079baa00314a06eacc044c048c048c048c048c048c048c048c048c048c038dd50041b8748000c038004c038c03c004c028dd50011b874800858c02cc03000cc028008c024008c024004c010dd50008a4c26cacae6955ceaab9e5573eae815d0aba21",
+      "hash": "f844b3fb384e67ee1aa3c7cb1099e110ecfae28b04726aeb7db3b8bd"
+    },
+    {
+      "title": "oracle/spend.vault_oracle.else",
+      "redeemer": {
+        "schema": {}
+      },
+      "compiledCode": "5901d5010100323232323232322533300232323232325332330083001300937540042646644646464a66601c60060022a66602260206ea80240085854ccc038c01c00454ccc044c040dd50048010b0b18071baa008132533300d3002300e375400626464646464646464a66602a60140022a666030602e6ea800c0085854ccc054c0380044c8c8c8c8c8c94ccc078c0840084c8cc00400401888c94ccc08400802c4c8c8c8c010c09c014dd698110011bad30200013023002300200216375c603e002603e0046eb8c074004c074008dd5980d800980b9baa00316301537540042a666026601860286ea80045288a50323300100100722533301700114c0103d87a800013233322253330183375e00e006260106603800497ae013300600600130160013017001301b00230190015333011300630123754018260026602a6ea400d2f5c0260026602a6ea40092f5c06e952000375c6028602a0046eb8c04c004c04cc04cc04cc04cc04cc04cc04cc04cc03cdd5180918079baa00314a06eacc044c048c048c048c048c048c048c048c048c048c038dd50041b8748000c038004c038c03c004c028dd50011b874800858c02cc03000cc028008c024008c024004c010dd50008a4c26cacae6955ceaab9e5573eae815d0aba21",
+      "hash": "f844b3fb384e67ee1aa3c7cb1099e110ecfae28b04726aeb7db3b8bd"
+    }
+  ],
+  "definitions": {
+    "ByteArray": {
+      "dataType": "bytes"
+    },
+    "Int": {
+      "dataType": "integer"
+    },
+    "List$VerificationKey": {
+      "dataType": "list",
+      "items": {
+        "$ref": "#/definitions/VerificationKey"
+      }
+    },
+    "PolicyId": {
+      "title": "PolicyId",
+      "dataType": "bytes"
+    },
+    "VerificationKey": {
+      "title": "VerificationKey",
+      "dataType": "bytes"
+    },
+    "VerificationKeyHash": {
+      "title": "VerificationKeyHash",
+      "dataType": "bytes"
+    },
+    "cardano/transaction/OutputReference": {
+      "title": "OutputReference",
+      "description": "An `OutputReference` is a unique reference to an output on-chain. The `output_index`\n corresponds to the position in the output list of the transaction (identified by its id)\n that produced that output",
+      "anyOf": [
+        {
+          "title": "OutputReference",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": [
+            {
+              "title": "transaction_id",
+              "$ref": "#/definitions/ByteArray"
+            },
+            {
+              "title": "output_index",
+              "$ref": "#/definitions/Int"
+            }
+          ]
+        }
+      ]
+    },
+    "types/MintPolarity": {
+      "title": "MintPolarity",
+      "anyOf": [
+        {
+          "title": "RMint",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": []
+        },
+        {
+          "title": "RBurn",
+          "dataType": "constructor",
+          "index": 1,
+          "fields": []
+        }
+      ]
+    },
+    "types/VaultOracleDatum": {
+      "title": "VaultOracleDatum",
+      "anyOf": [
+        {
+          "title": "VaultOracleDatum",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": [
+            {
+              "title": "app_oracle",
+              "$ref": "#/definitions/PolicyId"
+            },
+            {
+              "title": "pluggable_logic",
+              "$ref": "#/definitions/ByteArray"
+            },
+            {
+              "title": "node_pub_key",
+              "$ref": "#/definitions/List$VerificationKey"
+            },
+            {
+              "title": "total_lp",
+              "$ref": "#/definitions/Int"
+            },
+            {
+              "title": "hwm_lp_value",
+              "$ref": "#/definitions/Int"
+            },
+            {
+              "title": "operator_charge",
+              "$ref": "#/definitions/Int"
+            },
+            {
+              "title": "operator_key",
+              "$ref": "#/definitions/VerificationKeyHash"
+            },
+            {
+              "title": "vault_cost",
+              "$ref": "#/definitions/Int"
+            },
+            {
+              "title": "deposit_intent_script_hash",
+              "$ref": "#/definitions/ByteArray"
+            },
+            {
+              "title": "withdrawal_intent_script_hash",
+              "$ref": "#/definitions/ByteArray"
+            },
+            {
+              "title": "lp_token",
+              "$ref": "#/definitions/PolicyId"
+            }
+          ]
+        }
+      ]
+    },
+    "types/VaultOracleRedeemer": {
+      "title": "VaultOracleRedeemer",
+      "anyOf": [
+        {
+          "title": "ProcessDeposit",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": []
+        },
+        {
+          "title": "ProcessWithdrawal",
+          "dataType": "constructor",
+          "index": 1,
+          "fields": []
+        }
+      ]
+    }
+  }
+}

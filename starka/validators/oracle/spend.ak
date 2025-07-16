@@ -1,22 +1,38 @@
-use cardano/transaction.{
-  Mint, OutputReference, Redeemer, Transaction, find_input,
+use cardano/transaction.{Mint, OutputReference, Transaction}
+use types.{
+  ProcessDeposit, ProcessWithdrawal, VaultOracleDatum, VaultOracleRedeemer,
 }
-use types.{VaultOracleDatum, VaultOracleRedeemer}
+use utils.{check_mint_redeemer_is_burn}
 
-validator app_oracle {
+validator vault_oracle {
   spend(
     datum_opt: Option<VaultOracleDatum>,
     redeemer: VaultOracleRedeemer,
-    input: OutputReference,
+    _input: OutputReference,
     self: Transaction,
   ) {
-    let Transaction { mint, redeemers, .. } = self
+    let Transaction { redeemers, .. } = self
 
-    let mint_purpose = Mint(mint_script_hash)
+    when datum_opt is {
+      Some(datum) -> {
+        let VaultOracleDatum {
+          deposit_intent_script_hash,
+          withdrawal_intent_script_hash,
+          ..
+        } = datum
 
-    let mint_redeemer: Redeemer = redeemers |> pairs.get_first(mint_purpose)
+        let mint_purpose =
+          when redeemer is {
+            ProcessDeposit -> Mint(deposit_intent_script_hash)
 
-    let tokens = mint |> assets.tokens(mint_script_hash)
+            ProcessWithdrawal -> Mint(withdrawal_intent_script_hash)
+          }
+
+        check_mint_redeemer_is_burn(mint_purpose, redeemers)?
+      }
+
+      None -> False
+    }
   }
 
   else(_) {
