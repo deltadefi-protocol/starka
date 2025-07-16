@@ -7,7 +7,7 @@
 ## Datum
 
 - `address`: receiver of vault value
-- `amount`: `Int` - marking the withdrawal balance
+- `amount`: `Int` - marking the withdrawal lp tokens
 
 ## User Action
 

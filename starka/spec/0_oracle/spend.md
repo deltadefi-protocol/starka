@@ -1,4 +1,4 @@
-# Specification - AppOracle
+# Specification - VaultOracle
 
 ## Parameter
 
@@ -8,9 +8,10 @@
 - `pluggable_logic`: ByteArray
 - `operator_pub_key`: List<VerificationKey>
 - `total_lp`: Int
-- `lp_value`: Int
+- `hwm_lp_value`: Int
 - `operator_charge`: Int
 - `operator_key`: VerificationKeyHash
+- `vault_cost`: Int
 
 ## User Action
 
