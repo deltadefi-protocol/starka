@@ -58,7 +58,7 @@ pub type VaultOracleDatum {
   lp_token: PolicyId,
 }
 
-pub type VaultOracleRedeemer {
+pub type ProcessRedeemer {
   ProcessDeposit
   ProcessWithdrawal
 }

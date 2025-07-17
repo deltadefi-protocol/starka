@@ -1,15 +1,10 @@
 use cardano/assets.{PolicyId}
-use cardano/transaction.{Mint, OutputReference, Transaction}
+use cardano/transaction.{Mint, Transaction}
 use types.{ProcessDeposit, ProcessRedeemer, ProcessWithdrawal, VaultOracleDatum}
 use utils.{check_mint_redeemer_is_burn, get_vault_oracle_datum}
 
-validator vault_oracle(oracle_nft: PolicyId) {
-  spend(
-    _d: Option<VaultOracleDatum>,
-    redeemer: ProcessRedeemer,
-    _input: OutputReference,
-    self: Transaction,
-  ) {
+validator lp_token(oracle_nft: PolicyId) {
+  mint(redeemer: ProcessRedeemer, _p, self: Transaction) {
     let Transaction { redeemers, inputs, .. } = self
     let vault_oracle_input_datum: VaultOracleDatum =
       inputs |> get_vault_oracle_datum(oracle_nft)
