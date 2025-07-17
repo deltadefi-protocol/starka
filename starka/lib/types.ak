@@ -68,6 +68,6 @@ pub type VaultOracleRedeemer {
 // 2 - DepositIntent
 pub type IntentRedeemer {
   MintIntent
-  BurnIntent(Pairs<Int, Int>, ByteArray, ByteArray)
+  BurnIntent(Pairs<Int, Int>, ByteArray, List<ByteArray>)
 }
 // 3 - WithdrawalIntent

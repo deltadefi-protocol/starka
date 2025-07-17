@@ -54,8 +54,7 @@ pub fn check_mint_redeemer_is_burn(
   mint_purpose: ScriptPurpose,
   redeemers: Pairs<ScriptPurpose, Redeemer>,
 ) -> Bool {
-  let mint_redeemer_data: Redeemer = redeemers |> pairs.get_first(mint_purpose)
-
+  expect Some(mint_redeemer_data) = redeemers |> pairs.get_first(mint_purpose)
   expect mint_redeemer: IntentRedeemer = mint_redeemer_data
 
   when mint_redeemer is {
