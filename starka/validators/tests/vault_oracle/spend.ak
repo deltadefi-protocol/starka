@@ -13,12 +13,17 @@ use types.{MintIntent, ProcessDeposit, ProcessWithdrawal}
 use vault_oracle/spend as vault_oracle_spend
 
 type ProcessIntentTestCase {
+  is_vault_oracle_inputed: Bool,
   is_deposit: Bool,
   is_mint_redeemer_correct: Bool,
 }
 
 fn mock_process_intent_tx(test_case: ProcessIntentTestCase) -> Transaction {
-  let ProcessIntentTestCase { is_deposit, is_mint_redeemer_correct } = test_case
+  let ProcessIntentTestCase {
+    is_vault_oracle_inputed,
+    is_deposit,
+    is_mint_redeemer_correct,
+  } = test_case
 
   let mint_redeemer: Data =
     if is_mint_redeemer_correct {
@@ -33,7 +38,11 @@ fn mock_process_intent_tx(test_case: ProcessIntentTestCase) -> Transaction {
       mock_withdrawal_intent_script_hash
     }
   let input_value =
-    from_asset(mock_vault_oracle, "", 1) |> add("", "", 2_000_000)
+    if is_vault_oracle_inputed {
+      from_asset(mock_vault_oracle, "", 1) |> add("", "", 2_000_000)
+    } else {
+      from_asset("", "", 1) |> add("", "", 1)
+    }
 
   mocktail_tx()
     |> tx_in(True, mock_tx_hash(0), 0, input_value, mock_vault_oracle_address)
@@ -49,10 +58,15 @@ test s0_spend_success_process_deposit_intent() {
   let redeemer = ProcessDeposit
   let tx =
     mock_process_intent_tx(
-      ProcessIntentTestCase { is_deposit: True, is_mint_redeemer_correct: True },
+      ProcessIntentTestCase {
+        is_vault_oracle_inputed: True,
+        is_deposit: True,
+        is_mint_redeemer_correct: True,
+      },
     )
 
   vault_oracle_spend.vault_oracle.spend(
+    mock_vault_oracle,
     Some(datum),
     redeemer,
     mock_utxo_ref(0, 0),
@@ -66,12 +80,35 @@ test s0_spend_success_process_withdrawal_intent() {
   let tx =
     mock_process_intent_tx(
       ProcessIntentTestCase {
+        is_vault_oracle_inputed: True,
         is_deposit: False,
         is_mint_redeemer_correct: True,
       },
     )
 
   vault_oracle_spend.vault_oracle.spend(
+    mock_vault_oracle,
+    Some(datum),
+    redeemer,
+    mock_utxo_ref(0, 0),
+    tx,
+  )
+}
+
+test s0_spend_fail_process_intent_with_no_vault_oracle_inputed() fail {
+  let datum = mock_vault_oracle_datum
+  let redeemer = ProcessDeposit
+  let tx =
+    mock_process_intent_tx(
+      ProcessIntentTestCase {
+        is_vault_oracle_inputed: False,
+        is_deposit: True,
+        is_mint_redeemer_correct: False,
+      },
+    )
+
+  vault_oracle_spend.vault_oracle.spend(
+    mock_vault_oracle,
     Some(datum),
     redeemer,
     mock_utxo_ref(0, 0),
@@ -85,12 +122,14 @@ test s0_spend_fail_process_intent_with_incorrect_mint_redeemer() fail {
   let tx =
     mock_process_intent_tx(
       ProcessIntentTestCase {
+        is_vault_oracle_inputed: True,
         is_deposit: True,
         is_mint_redeemer_correct: False,
       },
     )
 
   vault_oracle_spend.vault_oracle.spend(
+    mock_vault_oracle,
     Some(datum),
     redeemer,
     mock_utxo_ref(0, 0),
