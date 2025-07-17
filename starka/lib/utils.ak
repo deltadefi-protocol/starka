@@ -4,7 +4,7 @@ use cardano/assets.{PolicyId, quantity_of}
 use cardano/transaction.{
   DatumHash, InlineDatum, Input, NoDatum, Redeemer, ScriptPurpose,
 }
-use types.{AppOracleDatum, BurnIntent, IntentRedeemer}
+use types.{AppOracleDatum, BurnIntent, IntentRedeemer, VaultOracleDatum}
 
 pub fn get_app_oracle_datum(
   reference_inputs: List<Input>,
@@ -31,7 +31,7 @@ pub fn get_app_oracle_datum(
 pub fn get_vault_oracle_datum(
   inputs: List<Input>,
   oracle_nft: PolicyId,
-) -> AppOracleDatum {
+) -> VaultOracleDatum {
   expect Some(oracle_input) =
     inputs
       |> list.find(
@@ -46,7 +46,7 @@ pub fn get_vault_oracle_datum(
       DatumHash(_) -> fail @"Oracle input datum must be inlined"
       InlineDatum(data) -> data
     }
-  expect oracle_input_datum: AppOracleDatum = oracle_input_data
+  expect oracle_input_datum: VaultOracleDatum = oracle_input_data
   oracle_input_datum
 }
 
