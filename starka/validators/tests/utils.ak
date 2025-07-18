@@ -1,8 +1,10 @@
 use cardano/address.{from_script}
-use mocktail.{mock_policy_id, mock_pub_key_hash, mock_script_hash}
-use mocktail/virgin_address.{mock_script_address}
+use mocktail.{
+  mock_policy_id, mock_pub_key_address, mock_pub_key_hash, mock_script_address,
+  mock_script_hash,
+}
 use types.{
-  AppOracleDatum, BurnIntent, HydraInfo, VaultOracleDatum,
+  AppOracleDatum, BurnIntent, DepositIntentDatum, HydraInfo, VaultOracleDatum,
   WithdrawalScriptHashes,
 }
 
@@ -114,9 +116,11 @@ pub const mock_operator_key = mock_pub_key_hash(10)
 
 pub const mock_vault_cost = 1000000
 
-pub const mock_deposit_intent_script_hash = mock_script_hash(10)
+pub const mock_vault_script_hash = mock_script_hash(10)
 
-pub const mock_withdrawal_intent_script_hash = mock_script_hash(11)
+pub const mock_deposit_intent_script_hash = mock_script_hash(11)
+
+pub const mock_withdrawal_intent_script_hash = mock_script_hash(12)
 
 pub const mock_lp_token = mock_policy_id(11)
 
@@ -130,9 +134,22 @@ pub const mock_vault_oracle_datum: VaultOracleDatum =
     operator_charge: mock_operator_charge,
     operator_key: mock_operator_key,
     vault_cost: mock_vault_cost,
+    vault_script_hash: mock_vault_script_hash,
     deposit_intent_script_hash: mock_deposit_intent_script_hash,
     withdrawal_intent_script_hash: mock_withdrawal_intent_script_hash,
     lp_token: mock_lp_token,
   }
 
 pub const mock_burn_intent_redeemer = BurnIntent([Pair(0, 0)], "", [])
+
+pub const mock_deposit_intent_datum =
+  DepositIntentDatum {
+    lp_address: mock_pub_key_address(0, None),
+    amount: [
+      Pair("", [Pair("", 1749190790)]),
+      Pair(
+        #"c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c913",
+        [Pair(#"5553444d", 143533706)],
+      ),
+    ],
+  }
