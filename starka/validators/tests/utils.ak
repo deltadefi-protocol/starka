@@ -1,11 +1,13 @@
+use aiken/cbor
 use cardano/address.{from_script}
+use cardano/assets.{Value}
 use mocktail.{
   mock_policy_id, mock_pub_key_address, mock_pub_key_hash, mock_script_address,
   mock_script_hash,
 }
 use types.{
-  AppOracleDatum, BurnIntent, DepositIntentDatum, HydraInfo, VaultOracleDatum,
-  WithdrawalScriptHashes,
+  AppOracleDatum, BurnIntent, DepositIntentDatum, HydraInfo, MValue,
+  VaultOracleDatum, WithdrawalScriptHashes,
 }
 
 pub const mock_operation_key = mock_pub_key_hash(0)
@@ -142,14 +144,24 @@ pub const mock_vault_oracle_datum: VaultOracleDatum =
 
 pub const mock_burn_intent_redeemer = BurnIntent([Pair(0, 0)], "", [])
 
+pub const mock_deposit_m_value =
+  [
+    Pair("", [Pair("", 1749190790)]),
+    Pair(
+      #"c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c913",
+      [Pair(#"5553444d", 143533706)],
+    ),
+  ]
+
 pub const mock_deposit_intent_datum =
   DepositIntentDatum {
     lp_address: mock_pub_key_address(0, None),
-    amount: [
-      Pair("", [Pair("", 1749190790)]),
-      Pair(
-        #"c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c913",
-        [Pair(#"5553444d", 143533706)],
-      ),
-    ],
+    amount: mock_deposit_m_value,
   }
+
+pub fn to_mvalue(value: Value) -> MValue {
+  let data = cbor.serialise(value)
+  expect Some(mvalue_raw): Option<Data> = cbor.deserialise(data)
+  expect mvalue: MValue = mvalue_raw
+  mvalue
+}

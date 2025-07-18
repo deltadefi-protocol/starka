@@ -72,7 +72,7 @@ pub type IntentRedeemer {
   BurnIntent(Pairs<Int, Int>, ByteArray, List<ByteArray>)
 }
 
-pub type SignedMessage {
+pub type Message {
   vault_balance: Int,
   price: Pairs<Int, Int>,
   timestamp: Int,
