@@ -55,7 +55,7 @@ validator deposit_intent(oracle_nft: PolicyId) {
           )
         is_value_deposited? && is_mint_value_correct?
       }
-      (BurnIntent(index_pairs, message, signatures), _) -> {
+      (BurnIntent(indices, message, signatures), _) -> {
         let vault_oracle_input_datum: VaultOracleDatum =
           inputs |> get_vault_oracle_datum(oracle_nft)
         let VaultOracleDatum { app_oracle, node_pub_key, .. } =
