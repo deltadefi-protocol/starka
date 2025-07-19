@@ -1,5 +1,8 @@
 use aiken/collection/list
 use aiken/collection/pairs
+use aiken/crypto.{
+  VerificationKey, VerificationKeyHash, blake2b_224, verify_ed25519_signature,
+}
 use cardano/assets.{PolicyId, quantity_of}
 use cardano/transaction.{
   DatumHash, InlineDatum, Input, NoDatum, Redeemer, ScriptPurpose,
@@ -61,4 +64,39 @@ pub fn check_mint_redeemer_is_burn(
     BurnIntent(_, _, _) -> True
     _ -> False
   }
+}
+
+pub fn verify_pub_keys(
+  keys: List<VerificationKey>,
+  pkhs: List<VerificationKeyHash>,
+) -> Bool {
+  list.map2(
+    keys,
+    pkhs,
+    fn(key: VerificationKey, pkh: VerificationKeyHash) {
+      blake2b_224(key) == pkh
+    },
+  )
+    |> list.all(fn(x: Bool) { x })
+}
+
+pub fn verify_signatures(
+  keys: List<VerificationKey>,
+  msg: ByteArray,
+  sigs: List<ByteArray>,
+) -> Bool {
+  when keys is {
+    [key, ..rest_keys] -> {
+      expect [sig, ..rest_sigs] = sigs
+      when verify_ed25519_signature(key, msg, sig) is {
+        True -> verify_signatures(rest_keys, msg, rest_sigs)?
+        False -> False
+      }
+    }
+    [] -> True
+  }
+}
+
+pub fn deposit_intent_validation_logic() {
+  todo
 }

@@ -1,3 +1,4 @@
+use aiken/cbor
 use cardano/address.{Script, from_script}
 use cardano/assets.{PolicyId, add, from_asset_list}
 use cardano/transaction.{Mint, OutputReference, Transaction, find_input}
@@ -6,9 +7,13 @@ use cocktail.{
   policy_only_minted_token,
 }
 use types.{
-  BurnIntent, DepositIntentDatum, IntentRedeemer, MintIntent, VaultOracleDatum,
+  AppOracleDatum, BurnIntent, DepositIntentDatum, HydraInfo, IntentRedeemer,
+  Message, MintIntent, VaultOracleDatum,
 }
-use utils.{check_mint_redeemer_is_burn, get_vault_oracle_datum}
+use utils.{
+  check_mint_redeemer_is_burn, get_app_oracle_datum, get_vault_oracle_datum,
+  verify_pub_keys, verify_signatures,
+}
 
 validator deposit_intent(oracle_nft: PolicyId) {
   spend(
@@ -30,7 +35,7 @@ validator deposit_intent(oracle_nft: PolicyId) {
   }
 
   mint(redeemer: IntentRedeemer, policy_id: PolicyId, self: Transaction) {
-    let Transaction { inputs, outputs, mint, .. } = self
+    let Transaction { inputs, outputs, mint, reference_inputs, .. } = self
 
     when
       (
@@ -50,7 +55,27 @@ validator deposit_intent(oracle_nft: PolicyId) {
           )
         is_value_deposited? && is_mint_value_correct?
       }
-      (BurnIntent(index_pairs, message, signatures), _) -> True
+      (BurnIntent(index_pairs, message, signatures), _) -> {
+        let vault_oracle_input_datum: VaultOracleDatum =
+          inputs |> get_vault_oracle_datum(oracle_nft)
+        let VaultOracleDatum { app_oracle, node_pub_key, .. } =
+          vault_oracle_input_datum
+
+        let app_oracle_input_datum: AppOracleDatum =
+          reference_inputs |> get_app_oracle_datum(app_oracle)
+        let AppOracleDatum { hydra_info, .. } = app_oracle_input_datum
+        let HydraInfo { hydra_signers, .. } = hydra_info
+
+        let keys_check = verify_pub_keys(node_pub_key, hydra_signers)
+        let signatures_check =
+          verify_signatures(node_pub_key, message, signatures)
+
+        expect Some(signed_data) = cbor.deserialise(message)
+
+        expect Message { vault_balance }: Message = signed_data
+
+        keys_check? && signatures_check?
+      }
       _ -> False
     }
   }

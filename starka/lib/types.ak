@@ -73,10 +73,11 @@ pub type IntentRedeemer {
 }
 
 pub type Message {
-  vault_balance: Int,
-  price: Pairs<Int, Int>,
-  timestamp: Int,
+  vault_balance: MValue,
 }
+
+// price: Pairs<Int, Int>,
+// timestamp: Int,
 
 pub type DepositIntentDatum {
   lp_address: Address,
