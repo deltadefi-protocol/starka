@@ -142,7 +142,7 @@ pub const mock_vault_oracle_datum: VaultOracleDatum =
     lp_token: mock_lp_token,
   }
 
-pub const mock_burn_intent_redeemer = BurnIntent([Pair(0, 0)], "", [])
+pub const mock_burn_intent_redeemer = BurnIntent([0], "", [])
 
 pub const mock_deposit_m_value =
   [

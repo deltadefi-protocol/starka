@@ -1,15 +1,22 @@
+use aiken/collection/dict
 use aiken/collection/list
 use aiken/collection/pairs
 use aiken/crypto.{
   ScriptHash, VerificationKey, VerificationKeyHash, blake2b_224,
   verify_ed25519_signature,
 }
+use aiken/primitive/bytearray
 use cardano/address.{Script}
-use cardano/assets.{PolicyId, quantity_of}
+use cardano/assets.{AssetName, PolicyId, quantity_of}
 use cardano/transaction.{
   DatumHash, InlineDatum, Input, NoDatum, Output, Redeemer, ScriptPurpose,
 }
-use types.{AppOracleDatum, BurnIntent, IntentRedeemer, VaultOracleDatum}
+use cocktail.{outputs_at_with_policy}
+use cocktail/vodka_outputs.{output_inline_datum}
+use types.{
+  AppOracleDatum, BurnIntent, DepositIntentDatum, IntentRedeemer, MValue,
+  VaultOracleDatum,
+}
 
 pub fn get_app_oracle_datum(
   reference_inputs: List<Input>,
@@ -134,79 +141,175 @@ pub fn list_foldl4(
   }
 }
 
+pub fn combine_m_value(left_m_value: MValue, right_m_value: MValue) -> MValue {
+  let left_dict = dict.from_pairs(left_m_value)
+  let right_dict = dict.from_pairs(right_m_value)
+
+  dict.union_with(
+    left_dict,
+    right_dict,
+    fn(_k, v1, v2) {
+      let v1_dict = dict.from_pairs(v1)
+      let v2_dict = dict.from_pairs(v2)
+      let all =
+        dict.union_with(
+          v1_dict,
+          v2_dict,
+          fn(_k, v_v_1, v_v_2) { Some(v_v_1 + v_v_2) },
+        )
+          |> dict.to_pairs()
+      Some(all)
+    },
+  )
+    |> dict.to_pairs()
+}
+
+pub fn convert_m_value_to_usdm(
+  m_value: MValue,
+  prices: Pairs<PolicyId, Int>,
+) -> Int {
+  list.foldl(
+    m_value,
+    0,
+    fn(policy_pair: Pair<PolicyId, Pairs<AssetName, Int>>, acc: Int) {
+      list.foldl(
+        policy_pair.2nd,
+        acc,
+        fn(asset_pair: Pair<AssetName, Int>, nested_acc: Int) {
+          expect Some(price) =
+            prices
+              |> pairs.get_first(bytearray.concat(policy_pair.1st, asset_pair.1st))
+          nested_acc + price * 1000000 * asset_pair.2nd
+        },
+      )
+    },
+  )
+}
+
+pub fn cal_lp_token_amount(
+  usdm_value: Int,
+  vault_balance: Int,
+  total_lp: Int,
+) -> Int {
+  usdm_value / vault_balance * total_lp
+}
+
+// 1. sum up intent_datum_m_value
+// 2. sum up intent_datum_m_value in usdm
+// 3. sum up lp_token sent
+// 4. output lp_token to address in intent_datum
+
 pub fn process_batched_deposit_intent_validation(
   inputs: List<Input>,
   outputs: List<Output>,
-  indices: Pairs<Int, Int>,
+  indices: List<Int>,
   vault_balance: Int,
   total_lp: Int,
+  prices: Pairs<ByteArray, Int>,
   script_hash: ScriptHash,
-) -> Bool {
+  lp_token: PolicyId,
+  pluggable_logic: ByteArray,
+) -> (MValue, Int, Int) {
+  let empty_m_value: MValue = []
   let
     processed_indices,
-    _,
-    _,
-    _,
+    total_intent_datum_m_value,
+    total_intent_datum_usdm_value,
+    total_lp_token_sent,
   <-
     list_foldl4(
       inputs,
       indices,
-      -1,
-      -1,
+      empty_m_value,
       0,
-      fn(input, remaining_indices, in0, out0, i, return) {
-        let next_i = i + 1
+      0,
+      fn(
+        input,
+        remaining_indices,
+        cal_intent_datum_m_value,
+        cal_intent_datum_usdm_value,
+        cal_lp_token_sent,
+        return,
+      ) {
         when input.output.address.payment_credential is {
           Script(script) ->
             if script == script_hash {
               when remaining_indices is {
                 [] -> fail @"More UTxOs are spent than specified"
-                [Pair(in1, out1), ..rest_of_indices] ->
-                  if i == in1 && in1 > in0 && out1 > out0 {
-                    expect Some(out_utxo) = outputs |> list.at(out1)
-                    if deposit_intent_validation_logic(
-                      in1,
-                      input,
-                      out1,
-                      out_utxo,
+                [output_index, ..rest_of_indices] -> {
+                  expect Some(out_utxo) = outputs |> list.at(output_index)
+                  expect output_datum: DepositIntentDatum =
+                    output_inline_datum(out_utxo)
+
+                  let DepositIntentDatum { lp_address, amount } = output_datum
+
+                  let new_cal_intent_datum_m_value =
+                    combine_m_value(cal_intent_datum_m_value, amount)
+
+                  let intent_datum_usdm_value =
+                    convert_m_value_to_usdm(amount, prices)
+                  let new_cal_intent_datum_usdm_value =
+                    cal_intent_datum_usdm_value + intent_datum_usdm_value
+
+                  let cal_lp_sent =
+                    cal_lp_token_amount(
+                      cal_intent_datum_usdm_value,
                       vault_balance,
                       total_lp,
-                    ) {
-                      return(rest_of_indices, in1, out1, next_i)
-                    } else {
-                      fail @"Validation failed"
-                    }
+                    )
+                  let new_cal_lp_token_sent = cal_lp_sent + cal_lp_token_sent
+
+                  let output_check =
+                    quantity_of(out_utxo.value, lp_token, pluggable_logic) == cal_lp_sent && out_utxo.address == lp_address
+                  if output_check {
+                    return(
+                      rest_of_indices,
+                      new_cal_intent_datum_m_value,
+                      new_cal_intent_datum_usdm_value,
+                      new_cal_lp_token_sent,
+                    )
                   } else {
-                    fail @"Input and output indices must be in ascending orders"
+                    fail @"Deposit intent output incorrect"
                   }
+                }
               }
             } else {
-              return(remaining_indices, in0, out0, next_i)
+              return(
+                remaining_indices,
+                cal_intent_datum_m_value,
+                cal_intent_datum_usdm_value,
+                cal_lp_token_sent,
+              )
             }
-          _ -> return(remaining_indices, in0, out0, next_i)
+          _ ->
+            return(
+              remaining_indices,
+              cal_intent_datum_m_value,
+              cal_intent_datum_usdm_value,
+              cal_lp_token_sent,
+            )
         }
       },
     )
-  (processed_indices == [])?
+  when processed_indices is {
+    [] ->
+      (
+        total_intent_datum_m_value,
+        total_intent_datum_usdm_value,
+        total_lp_token_sent,
+      )
+    _ -> fail @"Batch deposit intent UTxOs not fully processed"
+  }
 }
 
-pub fn deposit_intent_validation_logic(
-  in_utxo: Output,
-  out_utxo: Output,
+pub fn cal_operator_fee(
   vault_balance: Int,
-  total_lp: Int,
-) -> Bool {
-  expect Output {
-    value: in_val,
-    datum: in_dat,
-    address: in_addr,
-    reference_script: None,
-  } = in_utxo
-  expect Output {
-    value: out_val,
-    datum: out_dat,
-    address: out_addr,
-    reference_script: None,
-  } = out_utxo
-  True
+  hwm_lp_value: Int,
+  operator_charge,
+) -> Int {
+  if vault_balance <= hwm_lp_value {
+    0
+  } else {
+    ( vault_balance - hwm_lp_value ) * operator_charge
+  }
 }

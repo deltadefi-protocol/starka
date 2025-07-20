@@ -69,15 +69,15 @@ pub type ProcessRedeemer {
 // 2 - DepositIntent
 pub type IntentRedeemer {
   MintIntent
-  BurnIntent(Pairs<Int, Int>, ByteArray, List<ByteArray>)
+  BurnIntent(List<Int>, ByteArray, List<ByteArray>)
 }
 
 pub type Message {
-  vault_balance: MValue,
+  vault_balance: Int,
+  vault_ratio: Int,
+  prices: Pairs<ByteArray, Int>,
+  timestamp: Int,
 }
-
-// price: Pairs<Int, Int>,
-// timestamp: Int,
 
 pub type DepositIntentDatum {
   lp_address: Address,
