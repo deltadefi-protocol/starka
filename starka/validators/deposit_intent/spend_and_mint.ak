@@ -4,7 +4,7 @@ use cardano/assets.{PolicyId, add, from_asset_list}
 use cardano/transaction.{Mint, OutputReference, Transaction, find_input}
 use cocktail.{
   output_inline_datum, outputs_at_with_policy, outputs_with_policy,
-  policy_only_minted_token,
+  policy_only_minted_token, valid_after,
 }
 use types.{
   AppOracleDatum, BurnIntent, DepositIntentDatum, HydraInfo, IntentRedeemer,
@@ -36,7 +36,14 @@ validator deposit_intent(oracle_nft: PolicyId) {
   }
 
   mint(redeemer: IntentRedeemer, policy_id: PolicyId, self: Transaction) {
-    let Transaction { inputs, outputs, mint, reference_inputs, .. } = self
+    let Transaction {
+      inputs,
+      outputs,
+      mint,
+      reference_inputs,
+      validity_range,
+      ..
+    } = self
 
     when
       (
@@ -133,12 +140,16 @@ validator deposit_intent(oracle_nft: PolicyId) {
             vault_cost: vault_cost + total_intent_datum_usdm_value,
           }
 
-        keys_check? && signatures_check? && app_deposit_request_output_check? && vault_oracle_output_datum_check? && policy_only_minted_token(
-          mint,
-          policy_id,
-          pluggable_logic,
-          total_lp_token_sent,
-        )
+        let lp_mint_check =
+          policy_only_minted_token(
+            mint,
+            policy_id,
+            pluggable_logic,
+            total_lp_token_sent,
+          )
+        let validity_check = valid_after(validity_range, timestamp)
+
+        keys_check? && signatures_check? && app_deposit_request_output_check? && vault_oracle_output_datum_check? && lp_mint_check? && validity_check?
       }
       _ -> False
     }
