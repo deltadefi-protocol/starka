@@ -6,14 +6,14 @@ use cocktail.{
   output_inline_datum, outputs_at_with_policy, outputs_with_policy,
   policy_only_minted_token, valid_after,
 }
+use deposit_utils.{process_batched_deposit_intent_validation}
 use types.{
   AppOracleDatum, BurnIntent, DepositIntentDatum, HydraInfo, IntentRedeemer,
   Message, MintIntent, VaultOracleDatum,
 }
 use utils.{
   cal_operator_fee, check_mint_redeemer_is_burn, get_app_oracle_datum,
-  get_vault_oracle_datum, process_batched_deposit_intent_validation,
-  verify_pub_keys, verify_signatures,
+  get_vault_oracle_datum, verify_pub_keys, verify_signatures,
 }
 
 validator deposit_intent(oracle_nft: PolicyId) {
@@ -96,6 +96,9 @@ validator deposit_intent(oracle_nft: PolicyId) {
 
         expect Message { vault_balance, prices, timestamp, .. }: Message =
           signed_data
+
+        let operator_fee =
+          cal_operator_fee(vault_balance, hwm_lp_value, operator_charge)
         let (
           total_intent_datum_m_value,
           total_intent_datum_usdm_value,
@@ -107,6 +110,7 @@ validator deposit_intent(oracle_nft: PolicyId) {
             indices,
             vault_balance,
             total_lp,
+            operator_fee,
             prices,
             policy_id,
             lp_token,
@@ -130,8 +134,6 @@ validator deposit_intent(oracle_nft: PolicyId) {
         expect vault_oracle_output_datum: VaultOracleDatum =
           output_inline_datum(vault_oracle_output)
 
-        let operator_fee =
-          cal_operator_fee(vault_balance, hwm_lp_value, operator_charge)
         let vault_oracle_output_datum_check =
           vault_oracle_output_datum == VaultOracleDatum {
             ..vault_oracle_input_datum,

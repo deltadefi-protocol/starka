@@ -110,9 +110,13 @@ pub const mock_node_pub_keys =
 
 pub const mock_total_lp = 1000000
 
-pub const mock_hwm_lp_value = 10000000
+pub const mock_vault_balance = 2000000
+
+pub const mock_hwm_lp_value = 1000000
 
 pub const mock_operator_charge = 50
+
+pub const mock_operator_fee = 500000
 
 pub const mock_operator_key = mock_pub_key_hash(10)
 
