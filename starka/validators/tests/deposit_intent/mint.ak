@@ -71,7 +71,7 @@ fn mock_mint_deposit_intent_tx(
     |> complete()
 }
 
-test s4_mint_success_mint_deposit_intent() {
+test s2_mint_success_mint_deposit_intent() {
   let redeemer = MintIntent
   let tx =
     mock_mint_deposit_intent_tx(
@@ -90,7 +90,7 @@ test s4_mint_success_mint_deposit_intent() {
   )
 }
 
-test s4_mint_fail_mint_deposit_intent_with_no_intent_minted() {
+test s2_mint_fail_mint_deposit_intent_with_no_intent_minted() {
   let redeemer = MintIntent
   let tx =
     mock_mint_deposit_intent_tx(
@@ -109,7 +109,7 @@ test s4_mint_fail_mint_deposit_intent_with_no_intent_minted() {
   )
 }
 
-test s4_mint_fail_mint_deposit_intent_with_intent_output_not_clean() {
+test s2_mint_fail_mint_deposit_intent_with_intent_output_not_clean() {
   let redeemer = MintIntent
   let tx =
     mock_mint_deposit_intent_tx(
@@ -128,7 +128,7 @@ test s4_mint_fail_mint_deposit_intent_with_intent_output_not_clean() {
   )
 }
 
-test s4_mint_fail_mint_deposit_intent_with_value_deposited_incorrect() {
+test s2_mint_fail_mint_deposit_intent_with_value_deposited_incorrect() {
   let redeemer = MintIntent
   let tx =
     mock_mint_deposit_intent_tx(
@@ -289,4 +289,257 @@ fn mock_burn_deposit_intent_tx(
     |> add_output(True, intent_output_a)
     |> add_output(True, intent_output_b)
     |> add_output(True, intent_output_c)
+}
+
+test s2_mint_success_burn_deposit_intent() {
+  let redeemer = MintIntent
+  let tx =
+    mock_burn_deposit_intent_tx(
+      BurnDepositIntentTestCase {
+        is_vault_oracle_inputed: True,
+        is_app_oracle_ref_inputed: True,
+        is_vault_output_datum_correct: True,
+        is_vault_output_value_clean: True,
+        is_lp_mint_amount_correct: True,
+        is_intent_burn_amount_correct: True,
+        is_app_deposit_request_output_correct: True,
+      },
+    )
+
+  deposit_intent_spend_and_mint.deposit_intent.mint(
+    mock_vault_oracle,
+    redeemer,
+    mock_deposit_intent_script_hash,
+    tx,
+  )
+}
+
+test s2_mint_fail_burn_deposit_intent_with_no_vault_oracle_input() fail {
+  let redeemer = MintIntent
+  let tx =
+    mock_burn_deposit_intent_tx(
+      BurnDepositIntentTestCase {
+        is_vault_oracle_inputed: False,
+        is_app_oracle_ref_inputed: True,
+        is_vault_output_datum_correct: True,
+        is_vault_output_value_clean: True,
+        is_lp_mint_amount_correct: True,
+        is_intent_burn_amount_correct: True,
+        is_app_deposit_request_output_correct: True,
+      },
+    )
+
+  deposit_intent_spend_and_mint.deposit_intent.mint(
+    mock_vault_oracle,
+    redeemer,
+    mock_deposit_intent_script_hash,
+    tx,
+  )
+}
+
+test s2_mint_fail_burn_deposit_intent_with_no_app_oracle_ref_input() fail {
+  let redeemer = MintIntent
+  let tx =
+    mock_burn_deposit_intent_tx(
+      BurnDepositIntentTestCase {
+        is_vault_oracle_inputed: True,
+        is_app_oracle_ref_inputed: False,
+        is_vault_output_datum_correct: True,
+        is_vault_output_value_clean: True,
+        is_lp_mint_amount_correct: True,
+        is_intent_burn_amount_correct: True,
+        is_app_deposit_request_output_correct: True,
+      },
+    )
+
+  deposit_intent_spend_and_mint.deposit_intent.mint(
+    mock_vault_oracle,
+    redeemer,
+    mock_deposit_intent_script_hash,
+    tx,
+  )
+}
+
+test s2_mint_fail_burn_deposit_intent_with_incorrect_vault_output_datum() {
+  let redeemer = MintIntent
+  let tx =
+    mock_burn_deposit_intent_tx(
+      BurnDepositIntentTestCase {
+        is_vault_oracle_inputed: True,
+        is_app_oracle_ref_inputed: True,
+        is_vault_output_datum_correct: False,
+        is_vault_output_value_clean: True,
+        is_lp_mint_amount_correct: True,
+        is_intent_burn_amount_correct: True,
+        is_app_deposit_request_output_correct: True,
+      },
+    )
+
+  !deposit_intent_spend_and_mint.deposit_intent.mint(
+    mock_vault_oracle,
+    redeemer,
+    mock_deposit_intent_script_hash,
+    tx,
+  )
+}
+
+test s2_mint_fail_burn_deposit_intent_with_incorrect_vault_output_value() {
+  let redeemer = MintIntent
+  let tx =
+    mock_burn_deposit_intent_tx(
+      BurnDepositIntentTestCase {
+        is_vault_oracle_inputed: True,
+        is_app_oracle_ref_inputed: True,
+        is_vault_output_datum_correct: True,
+        is_vault_output_value_clean: False,
+        is_lp_mint_amount_correct: True,
+        is_intent_burn_amount_correct: True,
+        is_app_deposit_request_output_correct: True,
+      },
+    )
+
+  !deposit_intent_spend_and_mint.deposit_intent.mint(
+    mock_vault_oracle,
+    redeemer,
+    mock_deposit_intent_script_hash,
+    tx,
+  )
+}
+
+test s2_mint_fail_burn_deposit_intent_with_incorrect_lp_mint_amount() {
+  let redeemer = MintIntent
+  let tx =
+    mock_burn_deposit_intent_tx(
+      BurnDepositIntentTestCase {
+        is_vault_oracle_inputed: True,
+        is_app_oracle_ref_inputed: True,
+        is_vault_output_datum_correct: True,
+        is_vault_output_value_clean: True,
+        is_lp_mint_amount_correct: False,
+        is_intent_burn_amount_correct: True,
+        is_app_deposit_request_output_correct: True,
+      },
+    )
+
+  !deposit_intent_spend_and_mint.deposit_intent.mint(
+    mock_vault_oracle,
+    redeemer,
+    mock_deposit_intent_script_hash,
+    tx,
+  )
+}
+
+test s2_mint_fail_burn_deposit_intent_with_incorrect_intent_burn_amount() {
+  let redeemer = MintIntent
+  let tx =
+    mock_burn_deposit_intent_tx(
+      BurnDepositIntentTestCase {
+        is_vault_oracle_inputed: True,
+        is_app_oracle_ref_inputed: True,
+        is_vault_output_datum_correct: True,
+        is_vault_output_value_clean: True,
+        is_lp_mint_amount_correct: True,
+        is_intent_burn_amount_correct: False,
+        is_app_deposit_request_output_correct: True,
+      },
+    )
+
+  !deposit_intent_spend_and_mint.deposit_intent.mint(
+    mock_vault_oracle,
+    redeemer,
+    mock_deposit_intent_script_hash,
+    tx,
+  )
+}
+
+test s2_mint_fail_burn_deposit_intent_with_incorrect_app_deposit_request_output() {
+  let redeemer = MintIntent
+  let tx =
+    mock_burn_deposit_intent_tx(
+      BurnDepositIntentTestCase {
+        is_vault_oracle_inputed: True,
+        is_app_oracle_ref_inputed: True,
+        is_vault_output_datum_correct: True,
+        is_vault_output_value_clean: True,
+        is_lp_mint_amount_correct: True,
+        is_intent_burn_amount_correct: True,
+        is_app_deposit_request_output_correct: False,
+      },
+    )
+
+  !deposit_intent_spend_and_mint.deposit_intent.mint(
+    mock_vault_oracle,
+    redeemer,
+    mock_deposit_intent_script_hash,
+    tx,
+  )
+}
+
+test s2_mint_fail_burn_deposit_intent_with_signed_utxo_not_spent() {
+  let redeemer = MintIntent
+  let tx =
+    mock_burn_deposit_intent_tx(
+      BurnDepositIntentTestCase {
+        is_vault_oracle_inputed: True,
+        is_app_oracle_ref_inputed: True,
+        is_vault_output_datum_correct: True,
+        is_vault_output_value_clean: True,
+        is_lp_mint_amount_correct: True,
+        is_intent_burn_amount_correct: True,
+        is_app_deposit_request_output_correct: True,
+      },
+    )
+
+  !deposit_intent_spend_and_mint.deposit_intent.mint(
+    mock_vault_oracle,
+    redeemer,
+    mock_deposit_intent_script_hash,
+    tx,
+  )
+}
+
+test s2_mint_fail_burn_deposit_intent_with_incorrect_keys() {
+  let redeemer = MintIntent
+  let tx =
+    mock_burn_deposit_intent_tx(
+      BurnDepositIntentTestCase {
+        is_vault_oracle_inputed: True,
+        is_app_oracle_ref_inputed: True,
+        is_vault_output_datum_correct: True,
+        is_vault_output_value_clean: True,
+        is_lp_mint_amount_correct: True,
+        is_intent_burn_amount_correct: True,
+        is_app_deposit_request_output_correct: True,
+      },
+    )
+
+  !deposit_intent_spend_and_mint.deposit_intent.mint(
+    mock_vault_oracle,
+    redeemer,
+    mock_deposit_intent_script_hash,
+    tx,
+  )
+}
+
+test s2_mint_fail_burn_deposit_intent_with_incorrect_signatures() {
+  let redeemer = MintIntent
+  let tx =
+    mock_burn_deposit_intent_tx(
+      BurnDepositIntentTestCase {
+        is_vault_oracle_inputed: True,
+        is_app_oracle_ref_inputed: True,
+        is_vault_output_datum_correct: True,
+        is_vault_output_value_clean: True,
+        is_lp_mint_amount_correct: True,
+        is_intent_burn_amount_correct: True,
+        is_app_deposit_request_output_correct: True,
+      },
+    )
+
+  !deposit_intent_spend_and_mint.deposit_intent.mint(
+    mock_vault_oracle,
+    redeemer,
+    mock_deposit_intent_script_hash,
+    tx,
+  )
 }
