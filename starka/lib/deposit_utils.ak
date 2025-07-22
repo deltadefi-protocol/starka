@@ -6,7 +6,7 @@ use aiken/primitive/bytearray
 use cardano/address.{Script}
 use cardano/assets.{AssetName, PolicyId, quantity_of}
 use cardano/transaction.{Input, Output}
-use cocktail.{output_inline_datum}
+use cocktail.{input_inline_datum}
 use types.{DepositIntentDatum, MValue}
 
 pub type Scott4<a, b, c, d, result> =
@@ -30,7 +30,7 @@ pub fn list_foldl4(
   }
 }
 
-// attention: sorted by policy id, asset name
+// attention: AssetName sorted in ascending lexicographic
 pub fn combine_m_value(left_m_value: MValue, right_m_value: MValue) -> MValue {
   let left_dict = dict.from_pairs(left_m_value)
   let right_dict = dict.from_pairs(right_m_value)
@@ -68,7 +68,9 @@ pub fn convert_m_value_to_usdm(
         fn(asset_pair: Pair<AssetName, Int>, nested_acc: Int) {
           expect Some(price) =
             prices
-              |> pairs.get_first(bytearray.concat(policy_pair.1st, asset_pair.1st))
+              |> pairs.get_first(
+                  bytearray.concat(policy_pair.1st, asset_pair.1st),
+                )
           nested_acc + price * asset_pair.2nd
         },
       )
@@ -76,13 +78,18 @@ pub fn convert_m_value_to_usdm(
   )
 }
 
+// attention: init mint value*10e6
 pub fn cal_lp_token_amount(
   usdm_value: Int,
   vault_balance: Int,
   total_lp: Int,
   operator_fee: Int,
 ) -> Int {
-  usdm_value / ( vault_balance - operator_fee ) * total_lp
+  if total_lp == 0 {
+    usdm_value * 1000000
+  } else {
+    usdm_value * total_lp / ( vault_balance - operator_fee )
+  }
 }
 
 // 1. sum up intent_datum_m_value
@@ -130,10 +137,10 @@ pub fn process_batched_deposit_intent_validation(
                 [] -> fail @"More UTxOs are spent than specified"
                 [output_index, ..rest_of_indices] -> {
                   expect Some(out_utxo) = outputs |> list.at(output_index)
-                  expect output_datum: DepositIntentDatum =
-                    output_inline_datum(out_utxo)
+                  expect input_datum: DepositIntentDatum =
+                    input_inline_datum(input)
 
-                  let DepositIntentDatum { lp_address, amount } = output_datum
+                  let DepositIntentDatum { lp_address, amount } = input_datum
 
                   let new_cal_intent_datum_m_value =
                     combine_m_value(cal_intent_datum_m_value, amount)
@@ -145,13 +152,12 @@ pub fn process_batched_deposit_intent_validation(
 
                   let cal_lp_sent =
                     cal_lp_token_amount(
-                      cal_intent_datum_usdm_value,
+                      intent_datum_usdm_value,
                       vault_balance,
                       total_lp,
                       operator_fee,
                     )
                   let new_cal_lp_token_sent = cal_lp_sent + cal_lp_token_sent
-
                   let output_check =
                     quantity_of(out_utxo.value, lp_token, pluggable_logic) == cal_lp_sent && out_utxo.address == lp_address
                   if output_check {
