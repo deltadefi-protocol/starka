@@ -7,23 +7,18 @@ use deposit_utils.{
 }
 use mocktail.{mock_output, mock_pub_key_address, mock_utxo_ref}
 use tests/utils.{
-  mock_deposit_intent_script_hash, mock_lp_token, mock_pluggable_logic,
+  mock_deposit_intent_script_hash, mock_lp_token, mock_operator_fee,
+  mock_pluggable_logic, mock_total_lp, mock_vault_balance,
 }
 use types.{DepositIntentDatum}
 
-const mock_total_lp = 1000000000000
-
-const mock_vault_balance = 1000000
-
-const mock_operator_fee = 0
-
-const prices: Pairs<ByteArray, Int> =
+pub const prices: Pairs<ByteArray, Int> =
   [
     Pair(#"", 2),
     Pair(#"c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c9135553444d", 1),
   ]
 
-const m_value_a =
+pub const m_value_a =
   [
     Pair("", [Pair("", 100)]),
     Pair(
@@ -32,7 +27,7 @@ const m_value_a =
     ),
   ]
 
-const m_value_b =
+pub const m_value_b =
   [
     Pair("", [Pair("", 200)]),
     Pair(
@@ -41,7 +36,7 @@ const m_value_b =
     ),
   ]
 
-const m_value_c =
+pub const m_value_c =
   [
     Pair("", [Pair("", 200)]),
     Pair(
@@ -90,7 +85,7 @@ const input_y =
     ),
   }
 
-const intent_input_a =
+pub const intent_input_a =
   Input {
     output_reference: mock_utxo_ref(0, 0),
     output: mock_output(
@@ -101,7 +96,7 @@ const intent_input_a =
     ),
   }
 
-const intent_input_b =
+pub const intent_input_b =
   Input {
     output_reference: mock_utxo_ref(1, 0),
     output: mock_output(
@@ -112,7 +107,7 @@ const intent_input_b =
     ),
   }
 
-const intent_input_c =
+pub const intent_input_c =
   Input {
     output_reference: mock_utxo_ref(2, 0),
     output: mock_output(
@@ -123,7 +118,7 @@ const intent_input_c =
     ),
   }
 
-const intent_output_a =
+pub const intent_output_a =
   mock_output(
     mock_pub_key_address(0, None),
     from_asset(
@@ -140,7 +135,7 @@ const intent_output_a =
     None,
   )
 
-const intent_output_b =
+pub const intent_output_b =
   mock_output(
     mock_pub_key_address(1, None),
     from_asset(
@@ -157,7 +152,7 @@ const intent_output_b =
     None,
   )
 
-const intent_output_c =
+pub const intent_output_c =
   mock_output(
     mock_pub_key_address(2, None),
     from_asset(

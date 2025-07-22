@@ -1,6 +1,7 @@
 use aiken/crypto.{ScriptHash, VerificationKey, VerificationKeyHash}
 use cardano/address.{Address}
 use cardano/assets.{AssetName, PolicyId}
+use cardano/transaction.{OutputReference}
 
 // Mint Redeemer
 
@@ -76,7 +77,7 @@ pub type Message {
   vault_balance: Int,
   vault_ratio: Int,
   prices: Pairs<ByteArray, Int>,
-  timestamp: Int,
+  utxo_ref: OutputReference,
 }
 
 pub type DepositIntentDatum {

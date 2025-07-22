@@ -1,10 +1,14 @@
 use aiken/cbor
+use aiken/collection/list
 use cardano/address.{Script, from_script}
 use cardano/assets.{PolicyId, add, from_asset_list}
-use cardano/transaction.{Mint, OutputReference, Transaction, find_input}
+use cardano/transaction.{
+  DatumHash, InlineDatum, Mint, NoDatum, OutputReference, Transaction,
+  find_input,
+}
 use cocktail.{
   output_inline_datum, outputs_at_with_policy, outputs_with_policy,
-  policy_only_minted_token, valid_after,
+  policy_only_minted_token, value_length,
 }
 use deposit_utils.{process_batched_deposit_intent_validation}
 use types.{
@@ -13,7 +17,7 @@ use types.{
 }
 use utils.{
   cal_operator_fee, check_mint_redeemer_is_burn, get_app_oracle_datum,
-  get_vault_oracle_datum, verify_pub_keys, verify_signatures,
+  get_vault_oracle_input, verify_pub_keys, verify_signatures,
 }
 
 validator deposit_intent(oracle_nft: PolicyId) {
@@ -36,14 +40,7 @@ validator deposit_intent(oracle_nft: PolicyId) {
   }
 
   mint(redeemer: IntentRedeemer, policy_id: PolicyId, self: Transaction) {
-    let Transaction {
-      inputs,
-      outputs,
-      mint,
-      reference_inputs,
-      validity_range,
-      ..
-    } = self
+    let Transaction { inputs, outputs, mint, reference_inputs, .. } = self
 
     when
       (
@@ -64,8 +61,17 @@ validator deposit_intent(oracle_nft: PolicyId) {
         is_value_deposited? && is_mint_value_correct?
       }
       (BurnIntent(indices, message, signatures), _) -> {
-        let vault_oracle_input_datum: VaultOracleDatum =
-          inputs |> get_vault_oracle_datum(oracle_nft)
+        let vault_oracle_input = get_vault_oracle_input(inputs, oracle_nft)
+
+        let vault_oracle_input_data: Data =
+          when vault_oracle_input.output.datum is {
+            NoDatum -> fail @"Vault oracle input does not contain any datum"
+            DatumHash(_) -> fail @"Vault oracle input datum must be inlined"
+            InlineDatum(data) -> data
+          }
+        expect vault_oracle_input_datum: VaultOracleDatum =
+          vault_oracle_input_data
+
         let VaultOracleDatum {
           app_oracle,
           pluggable_logic,
@@ -94,7 +100,7 @@ validator deposit_intent(oracle_nft: PolicyId) {
 
         expect Some(signed_data) = cbor.deserialise(message)
 
-        expect Message { vault_balance, prices, timestamp, .. }: Message =
+        expect Message { vault_balance, prices, utxo_ref, .. }: Message =
           signed_data
 
         let operator_fee =
@@ -134,6 +140,9 @@ validator deposit_intent(oracle_nft: PolicyId) {
         expect vault_oracle_output_datum: VaultOracleDatum =
           output_inline_datum(vault_oracle_output)
 
+        let is_vault_oracle_output_value_clean =
+          value_length(vault_oracle_output.value) == 2
+
         let vault_oracle_output_datum_check =
           vault_oracle_output_datum == VaultOracleDatum {
             ..vault_oracle_input_datum,
@@ -145,13 +154,16 @@ validator deposit_intent(oracle_nft: PolicyId) {
         let lp_mint_check =
           policy_only_minted_token(
             mint,
-            policy_id,
+            lp_token,
             pluggable_logic,
             total_lp_token_sent,
           )
-        let validity_check = valid_after(validity_range, timestamp)
 
-        keys_check? && signatures_check? && app_deposit_request_output_check? && vault_oracle_output_datum_check? && lp_mint_check? && validity_check?
+        let intent_burn_check =
+          policy_only_minted_token(mint, policy_id, "", -list.length(indices))
+
+        let utxo_ref_check = vault_oracle_input.output_reference == utxo_ref
+        keys_check? && signatures_check? && utxo_ref_check? && app_deposit_request_output_check? && vault_oracle_output_datum_check? && lp_mint_check? && intent_burn_check? && is_vault_oracle_output_value_clean?
       }
       _ -> False
     }

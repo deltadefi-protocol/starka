@@ -53,6 +53,20 @@ pub fn get_vault_oracle_datum(
   oracle_input_datum
 }
 
+pub fn get_vault_oracle_input(
+  inputs: List<Input>,
+  oracle_nft: PolicyId,
+) -> Input {
+  expect Some(oracle_input) =
+    inputs
+      |> list.find(
+          fn(ref_input: Input) {
+            quantity_of(ref_input.output.value, oracle_nft, "") == 1
+          },
+        )
+  oracle_input
+}
+
 pub fn check_mint_redeemer_is_burn(
   mint_purpose: ScriptPurpose,
   redeemers: Pairs<ScriptPurpose, Redeemer>,
