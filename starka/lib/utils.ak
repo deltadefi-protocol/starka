@@ -38,8 +38,8 @@ pub fn get_vault_oracle_datum(
   expect Some(oracle_input) =
     inputs
       |> list.find(
-          fn(ref_input: Input) {
-            quantity_of(ref_input.output.value, oracle_nft, "") == 1
+          fn(input: Input) {
+            quantity_of(input.output.value, oracle_nft, "") == 1
           },
         )
 

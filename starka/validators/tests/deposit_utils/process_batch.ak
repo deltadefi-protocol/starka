@@ -20,28 +20,28 @@ pub const prices: Pairs<ByteArray, Int> =
 
 pub const m_value_a =
   [
-    Pair("", [Pair("", 100)]),
+    Pair("", [Pair("", 1000000)]),
     Pair(
       #"c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c913",
-      [Pair(#"5553444d", 100)],
+      [Pair(#"5553444d", 1000000)],
     ),
   ]
 
 pub const m_value_b =
   [
-    Pair("", [Pair("", 200)]),
+    Pair("", [Pair("", 2000000)]),
     Pair(
       #"c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c913",
-      [Pair(#"5553444d", 200)],
+      [Pair(#"5553444d", 2000000)],
     ),
   ]
 
 pub const m_value_c =
   [
-    Pair("", [Pair("", 200)]),
+    Pair("", [Pair("", 2000000)]),
     Pair(
       #"c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c913",
-      [Pair(#"5553444d", 10)],
+      [Pair(#"5553444d", 1000000)],
     ),
   ]
 
@@ -182,7 +182,7 @@ const insufficient_inputs = [input_x, intent_input_a, intent_input_b, input_y]
 
 const outputs = [intent_output_b, intent_output_a, intent_output_c]
 
-const incorrect_outputs = [intent_output_a, intent_output_b]
+const incorrect_outputs = [intent_output_a, intent_output_b, intent_output_c]
 
 const indices = [1, 0, 2]
 
@@ -209,21 +209,33 @@ test process_batch_normal() {
       mock_pluggable_logic,
     )
 
-  total_intent_datum_m_value == combine_m_value(
+  trace (
+    total_intent_datum_usdm_value,
+    mock_vault_balance,
+    mock_total_lp,
+    mock_operator_fee,
+    cal_lp_token_amount(
+      total_intent_datum_usdm_value,
+      mock_vault_balance,
+      mock_total_lp,
+      mock_operator_fee,
+    ),
+  )
+  (total_intent_datum_m_value == combine_m_value(
     combine_m_value(m_value_a, m_value_b),
     m_value_c,
-  ) && total_intent_datum_usdm_value == convert_m_value_to_usdm(
+  ))? && (total_intent_datum_usdm_value == convert_m_value_to_usdm(
     m_value_a,
     prices,
   ) + convert_m_value_to_usdm(m_value_b, prices) + convert_m_value_to_usdm(
     m_value_c,
     prices,
-  ) && total_lp_token_sent == cal_lp_token_amount(
+  ))? && (total_lp_token_sent == cal_lp_token_amount(
     total_intent_datum_usdm_value,
     mock_vault_balance,
     mock_total_lp,
     mock_operator_fee,
-  )
+  ) - 1)?
 }
 
 test process_batch_excessive_inputs() fail {

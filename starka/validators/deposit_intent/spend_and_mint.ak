@@ -163,6 +163,13 @@ validator deposit_intent(oracle_nft: PolicyId) {
           policy_only_minted_token(mint, policy_id, "", -list.length(indices))
 
         let utxo_ref_check = vault_oracle_input.output_reference == utxo_ref
+        trace (
+          total_intent_datum_usdm_value,
+          vault_balance,
+          total_lp,
+          operator_fee,
+          total_lp_token_sent,
+        )
         keys_check? && signatures_check? && utxo_ref_check? && app_deposit_request_output_check? && vault_oracle_output_datum_check? && lp_mint_check? && intent_burn_check? && is_vault_oracle_output_value_clean?
       }
       _ -> False
