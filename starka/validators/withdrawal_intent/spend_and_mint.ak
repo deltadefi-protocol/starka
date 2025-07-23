@@ -155,11 +155,15 @@ validator withdrawal_intent(oracle_nft: PolicyId) {
           outputs_at(outputs, from_verification_key(operator_key))
 
         let operator_output_check =
-          check_output_value_equal_to_lp_usdm_value(
-            operator_output.value,
-            operator_fee,
-            prices,
-          )
+          when operator_fee > 0 is {
+            True ->
+              check_output_value_equal_to_lp_usdm_value(
+                operator_output.value,
+                operator_fee,
+                prices,
+              )
+            False -> True
+          }
 
         let value_unlock_from_vault =
           get_all_value_from(inputs, from_script(vault_script_hash))

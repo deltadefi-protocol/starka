@@ -55,20 +55,6 @@ pub fn check_output_value_equal_to_lp_usdm_value(
   ) == lp_usdm_value
 }
 
-// attention: init mint value*10e6
-pub fn cal_lp_token_amount(
-  usdm_value: Int,
-  vault_balance: Int,
-  total_lp: Int,
-  operator_fee: Int,
-) -> Int {
-  if total_lp == 0 {
-    usdm_value * 1000000
-  } else {
-    usdm_value * total_lp / ( vault_balance - operator_fee )
-  }
-}
-
 // 1. sum up intent_datum_lp_amount for mint and update total_lp
 // 2. sum up intent_datum_lp_value in usdm for update hwm_lp_value
 // 3. output usdm/ada to address in intent_datum
