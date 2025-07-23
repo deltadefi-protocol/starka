@@ -18,4 +18,3 @@
    - `DepositIntent` input datum is correspond to `LP Token` output amount
    - oracle input with datum
    - clean oracle output and updated datum
-   - vault total value changed += total batched datum value amount

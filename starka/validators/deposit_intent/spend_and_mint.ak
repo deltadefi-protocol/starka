@@ -100,7 +100,7 @@ validator deposit_intent(oracle_nft: PolicyId) {
 
         expect Some(signed_data) = cbor.deserialise(message)
 
-        expect Message { vault_balance, prices, utxo_ref, .. }: Message =
+        expect Message { vault_balance, prices, utxo_ref }: Message =
           signed_data
 
         let operator_fee =

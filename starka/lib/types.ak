@@ -75,7 +75,6 @@ pub type IntentRedeemer {
 
 pub type Message {
   vault_balance: Int,
-  vault_ratio: Int,
   prices: Pairs<ByteArray, Int>,
   utxo_ref: OutputReference,
 }
