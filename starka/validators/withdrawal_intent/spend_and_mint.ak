@@ -1,7 +1,8 @@
 use aiken/cbor
 use aiken/collection/list
 use cardano/address.{Script, from_script}
-use cardano/assets.{PolicyId, add, from_asset_list}
+use cardano/assets.{PolicyId,
+  add, from_asset, from_asset_list, without_lovelace}
 use cardano/transaction.{
   DatumHash, InlineDatum, Mint, NoDatum, OutputReference, Transaction,
   find_input,
@@ -12,17 +13,18 @@ use cocktail.{
 }
 use deposit_utils.{process_batched_deposit_intent_validation}
 use types.{
-  AppOracleDatum, BurnIntent, DepositIntentDatum, HydraInfo, IntentRedeemer,
-  Message, MintIntent, VaultOracleDatum,
+  AppOracleDatum, BurnIntent, HydraInfo, IntentRedeemer, Message, MintIntent,
+  VaultOracleDatum, WithdrawalIntentDatum,
 }
 use utils.{
   cal_operator_fee, check_mint_redeemer_is_burn, get_app_oracle_datum,
-  get_vault_oracle_input, verify_pub_keys, verify_signatures,
+  get_vault_oracle_datum, get_vault_oracle_input, verify_pub_keys,
+  verify_signatures,
 }
 
-validator deposit_intent(oracle_nft: PolicyId) {
+validator withdrawal_intent(oracle_nft: PolicyId) {
   spend(
-    _datum: Option<DepositIntentDatum>,
+    _datum: Option<WithdrawalIntentDatum>,
     _r,
     input: OutputReference,
     self: Transaction,
@@ -49,16 +51,22 @@ validator deposit_intent(oracle_nft: PolicyId) {
       )
     is {
       (MintIntent, [intent_output]) -> {
+        let vault_oracle_input_datum: VaultOracleDatum =
+          reference_inputs |> get_vault_oracle_datum(oracle_nft)
+
+        let VaultOracleDatum { lp_token, pluggable_logic, .. } =
+          vault_oracle_input_datum
         let is_mint_value_correct =
           policy_only_minted_token(mint, policy_id, "", 1)
-        expect DepositIntentDatum { amount, .. }: DepositIntentDatum =
+        expect WithdrawalIntentDatum { amount, .. }: WithdrawalIntentDatum =
           output_inline_datum(intent_output)
 
-        let is_value_deposited =
-          intent_output.value == (
-            from_asset_list(amount) |> add(policy_id, "", 1)
+        let is_lp_locked =
+          without_lovelace(intent_output.value) == (
+            from_asset(lp_token, pluggable_logic, amount)
+              |> add(policy_id, "", 1)
           )
-        is_value_deposited? && is_mint_value_correct?
+        is_lp_locked? && is_mint_value_correct?
       }
       (BurnIntent(indices, message, signatures), _) -> {
         let vault_oracle_input = get_vault_oracle_input(inputs, oracle_nft)

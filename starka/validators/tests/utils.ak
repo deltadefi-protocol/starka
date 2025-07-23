@@ -8,7 +8,7 @@ use mocktail.{
 }
 use types.{
   AppOracleDatum, BurnIntent, DepositIntentDatum, HydraInfo, MValue,
-  VaultOracleDatum, WithdrawalScriptHashes,
+  VaultOracleDatum, WithdrawalIntentDatum, WithdrawalScriptHashes,
 }
 use utils.{cal_operator_fee}
 
@@ -172,6 +172,12 @@ pub const mock_deposit_intent_datum =
   DepositIntentDatum {
     lp_address: mock_pub_key_address(0, None),
     amount: mock_deposit_m_value,
+  }
+
+pub const mock_withdrawal_intent_datum =
+  WithdrawalIntentDatum {
+    lp_address: mock_pub_key_address(0, None),
+    amount: 1000000,
   }
 
 pub fn to_mvalue(value: Value) -> MValue {

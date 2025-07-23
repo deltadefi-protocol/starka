@@ -39,28 +39,23 @@ fn mock_mint_deposit_intent_tx(
     is_value_deposited_correctly,
   } = test_case
 
-  let deposit_value: MValue = mock_deposit_m_value
-
-  let incorrect_deposit_value =
-    from_asset("A", "abc", 1)
-      |> add("C", "def", 10)
-      |> to_mvalue()
-
+  let deposit_value: MValue =
+    if is_value_deposited_correctly {
+      mock_deposit_m_value
+    } else {
+      from_asset("A", "abc", 1)
+        |> add("C", "def", 10)
+        |> to_mvalue()
+    }
   let output_datum = mock_deposit_intent_datum
   mocktail_tx()
     |> mint(is_deposit_intent_minted, 1, mock_deposit_intent_script_hash, "")
     |> tx_out(
-        is_value_deposited_correctly,
+        is_token_output_clean,
         from_script(mock_deposit_intent_script_hash),
         from_asset_list(deposit_value)
           |> add(mock_deposit_intent_script_hash, "", 1),
       )
-    |> tx_out(
-        !is_value_deposited_correctly,
-        from_script(mock_deposit_intent_script_hash),
-        from_asset_list(incorrect_deposit_value),
-      )
-    |> tx_out_inline_datum(True, output_datum)
     |> tx_out(
         !is_token_output_clean,
         from_script(mock_deposit_intent_script_hash),
@@ -68,7 +63,7 @@ fn mock_mint_deposit_intent_tx(
           |> add(mock_deposit_intent_script_hash, "", 1)
           |> add(mock_policy_id(999), "", 1),
       )
-    |> tx_out_inline_datum(!is_token_output_clean, output_datum)
+    |> tx_out_inline_datum(True, output_datum)
     |> complete()
 }
 

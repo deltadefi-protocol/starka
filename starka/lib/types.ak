@@ -87,6 +87,11 @@ pub type DepositIntentDatum {
 
 // 3 - WithdrawalIntent
 
+pub type WithdrawalIntentDatum {
+  lp_address: Address,
+  amount: Int,
+}
+
 // 4 - LPToken
 
 pub type MValue =
