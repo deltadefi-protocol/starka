@@ -1,10 +1,16 @@
+use aiken/cbor
+use aiken/crypto.{blake2b_224}
 use cardano/address.{from_script}
-use mocktail.{mock_policy_id, mock_pub_key_hash, mock_script_hash}
-use mocktail/virgin_address.{mock_script_address}
-use types.{
-  AppOracleDatum, BurnIntent, HydraInfo, VaultOracleDatum,
-  WithdrawalScriptHashes,
+use cardano/assets.{Value}
+use mocktail.{
+  mock_policy_id, mock_pub_key_address, mock_pub_key_hash, mock_script_address,
+  mock_script_hash,
 }
+use types.{
+  AppOracleDatum, BurnIntent, DepositIntentDatum, HydraInfo, MValue,
+  VaultOracleDatum, WithdrawalScriptHashes,
+}
+use utils.{cal_operator_fee}
 
 pub const mock_operation_key = mock_pub_key_hash(0)
 
@@ -57,11 +63,20 @@ pub const mock_hydra_initial_hash = mock_script_hash(999)
 
 pub const mock_hydra_script_address = mock_script_address(999, None)
 
-pub const mock_hydra_signer_1 = mock_pub_key_hash(100)
+pub const mock_hydra_signer_1 =
+  blake2b_224(
+    #"8a2447b9e7f1705aa5b2dcb16a7254db089fbac7e462cf6008e9a6dc8a7a6c21",
+  )
 
-pub const mock_hydra_signer_2 = mock_pub_key_hash(200)
+pub const mock_hydra_signer_2 =
+  blake2b_224(
+    #"312803d57366263f9e5310262fb9984f58dbc5602ad5ebdd5725719f4f913ced",
+  )
 
-pub const mock_hydra_signer_3 = mock_pub_key_hash(300)
+pub const mock_hydra_signer_3 =
+  blake2b_224(
+    #"fa357c31b2e47f49d4e0da6eac605a4dc068f4e72fbc56bfef2850e2da1ba3a3",
+  )
 
 pub const mock_hydra_signers =
   [mock_hydra_signer_1, mock_hydra_signer_2, mock_hydra_signer_3]
@@ -101,22 +116,28 @@ pub const mock_node_pub_keys =
     #"8a2447b9e7f1705aa5b2dcb16a7254db089fbac7e462cf6008e9a6dc8a7a6c21",
     #"312803d57366263f9e5310262fb9984f58dbc5602ad5ebdd5725719f4f913ced",
     #"fa357c31b2e47f49d4e0da6eac605a4dc068f4e72fbc56bfef2850e2da1ba3a3",
-    #"63c5d69570349e4233a0575811464f0e8a3fd329abe76e9bdc3d3f1b95982179",
   ]
 
-pub const mock_total_lp = 1000000
+pub const mock_total_lp = 3000000000000000
 
-pub const mock_hwm_lp_value = 10000000
+pub const mock_vault_balance = 3641915286
+
+pub const mock_hwm_lp_value = 3000000000
 
 pub const mock_operator_charge = 50
 
+pub const mock_operator_fee =
+  cal_operator_fee(mock_vault_balance, mock_hwm_lp_value, mock_operator_charge)
+
 pub const mock_operator_key = mock_pub_key_hash(10)
 
-pub const mock_vault_cost = 1000000
+pub const mock_vault_cost = 3000000000
 
-pub const mock_deposit_intent_script_hash = mock_script_hash(10)
+pub const mock_vault_script_hash = mock_script_hash(10)
 
-pub const mock_withdrawal_intent_script_hash = mock_script_hash(11)
+pub const mock_deposit_intent_script_hash = mock_script_hash(11)
+
+pub const mock_withdrawal_intent_script_hash = mock_script_hash(12)
 
 pub const mock_lp_token = mock_policy_id(11)
 
@@ -130,9 +151,42 @@ pub const mock_vault_oracle_datum: VaultOracleDatum =
     operator_charge: mock_operator_charge,
     operator_key: mock_operator_key,
     vault_cost: mock_vault_cost,
+    vault_script_hash: mock_vault_script_hash,
     deposit_intent_script_hash: mock_deposit_intent_script_hash,
     withdrawal_intent_script_hash: mock_withdrawal_intent_script_hash,
     lp_token: mock_lp_token,
   }
 
-pub const mock_burn_intent_redeemer = BurnIntent([Pair(0, 0)], "", [])
+pub const mock_burn_intent_redeemer = BurnIntent([0], "", [])
+
+pub const mock_deposit_m_value =
+  [
+    Pair("", [Pair("", 1749190790)]),
+    Pair(
+      #"c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c913",
+      [Pair(#"5553444d", 143533706)],
+    ),
+  ]
+
+pub const mock_deposit_intent_datum =
+  DepositIntentDatum {
+    lp_address: mock_pub_key_address(0, None),
+    amount: mock_deposit_m_value,
+  }
+
+pub fn to_mvalue(value: Value) -> MValue {
+  let data = cbor.serialise(value)
+  expect Some(mvalue_raw): Option<Data> = cbor.deserialise(data)
+  expect mvalue: MValue = mvalue_raw
+  mvalue
+}
+
+pub const mock_message =
+  #"d8799f1ad913379607a25820c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c9135553444d014002d8799f5820cd82a190d3b4ef95a50bd791882959f541e308adb69b12d022d94a6d9f02bcf000ffff"
+
+pub const mock_signatures =
+  [
+    #"76db59ceb64aa1bef629862fea16d02bbf6f0cce6086e4c453e3940832c110a3b51a3417953682d98fa4cea16cb537aed54fc25395bfcb4a8257e1c82c6e950a",
+    #"39eac6071a3f22f58368b22f4a6da9737e5803529afd81c41373fa71bf2450fd5a9915581f2427c60f8b3299cb83b29376dbe72da18e6909f36fe18686430405",
+    #"a3187eb1d8e0b3864b0dc048182db851db748c97026468a34a2928f66d7a456b986c9a15458f816a2b8fbea96d094e121e79e7bd750716dfe07c1e363089770f",
+  ]

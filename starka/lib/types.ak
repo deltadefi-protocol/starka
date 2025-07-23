@@ -1,6 +1,7 @@
 use aiken/crypto.{ScriptHash, VerificationKey, VerificationKeyHash}
 use cardano/address.{Address}
-use cardano/assets.{PolicyId}
+use cardano/assets.{AssetName, PolicyId}
+use cardano/transaction.{OutputReference}
 
 // Mint Redeemer
 
@@ -53,6 +54,7 @@ pub type VaultOracleDatum {
   operator_charge: Int,
   operator_key: VerificationKeyHash,
   vault_cost: Int,
+  vault_script_hash: ByteArray,
   deposit_intent_script_hash: ByteArray,
   withdrawal_intent_script_hash: ByteArray,
   lp_token: PolicyId,
@@ -68,6 +70,24 @@ pub type ProcessRedeemer {
 // 2 - DepositIntent
 pub type IntentRedeemer {
   MintIntent
-  BurnIntent(Pairs<Int, Int>, ByteArray, List<ByteArray>)
+  BurnIntent(List<Int>, ByteArray, List<ByteArray>)
 }
+
+pub type Message {
+  vault_balance: Int,
+  vault_ratio: Int,
+  prices: Pairs<ByteArray, Int>,
+  utxo_ref: OutputReference,
+}
+
+pub type DepositIntentDatum {
+  lp_address: Address,
+  amount: MValue,
+}
+
 // 3 - WithdrawalIntent
+
+// 4 - LPToken
+
+pub type MValue =
+  Pairs<PolicyId, Pairs<AssetName, Int>>

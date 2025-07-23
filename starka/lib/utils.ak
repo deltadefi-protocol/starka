@@ -1,8 +1,11 @@
 use aiken/collection/list
 use aiken/collection/pairs
+use aiken/crypto.{
+  VerificationKey, VerificationKeyHash, blake2b_224, verify_ed25519_signature,
+}
 use cardano/assets.{PolicyId, quantity_of}
 use cardano/transaction.{
-  DatumHash, InlineDatum, Input, NoDatum, Redeemer, ScriptPurpose,
+  DatumHash, InlineDatum, Input, NoDatum, Output, Redeemer, ScriptPurpose,
 }
 use types.{AppOracleDatum, BurnIntent, IntentRedeemer, VaultOracleDatum}
 
@@ -35,8 +38,8 @@ pub fn get_vault_oracle_datum(
   expect Some(oracle_input) =
     inputs
       |> list.find(
-          fn(ref_input: Input) {
-            quantity_of(ref_input.output.value, oracle_nft, "") == 1
+          fn(input: Input) {
+            quantity_of(input.output.value, oracle_nft, "") == 1
           },
         )
 
@@ -50,6 +53,20 @@ pub fn get_vault_oracle_datum(
   oracle_input_datum
 }
 
+pub fn get_vault_oracle_input(
+  inputs: List<Input>,
+  oracle_nft: PolicyId,
+) -> Input {
+  expect Some(oracle_input) =
+    inputs
+      |> list.find(
+          fn(ref_input: Input) {
+            quantity_of(ref_input.output.value, oracle_nft, "") == 1
+          },
+        )
+  oracle_input
+}
+
 pub fn check_mint_redeemer_is_burn(
   mint_purpose: ScriptPurpose,
   redeemers: Pairs<ScriptPurpose, Redeemer>,
@@ -60,5 +77,62 @@ pub fn check_mint_redeemer_is_burn(
   when mint_redeemer is {
     BurnIntent(_, _, _) -> True
     _ -> False
+  }
+}
+
+pub fn verify_pub_keys(
+  keys: List<VerificationKey>,
+  pkhs: List<VerificationKeyHash>,
+) -> Bool {
+  list.map2(
+    keys,
+    pkhs,
+    fn(key: VerificationKey, pkh: VerificationKeyHash) {
+      blake2b_224(key) == pkh
+    },
+  )
+    |> list.all(fn(x: Bool) { x })
+}
+
+pub fn verify_pub_keys_indexed(
+  keys: List<VerificationKey>,
+  pkhs: List<VerificationKeyHash>,
+) -> Bool {
+  list.indexed_foldr(
+    keys,
+    True,
+    fn(i: Int, key: VerificationKey, acc: Bool) {
+      expect Some(pkh) = list.at(pkhs, i)
+      acc && blake2b_224(key) == pkh
+    },
+  )
+}
+
+pub fn verify_signatures(
+  keys: List<VerificationKey>,
+  msg: ByteArray,
+  sigs: List<ByteArray>,
+) -> Bool {
+  when keys is {
+    [key, ..rest_keys] -> {
+      expect [sig, ..rest_sigs] = sigs
+      when verify_ed25519_signature(key, msg, sig) is {
+        True -> verify_signatures(rest_keys, msg, rest_sigs)?
+        False -> False
+      }
+    }
+    [] -> True
+  }
+}
+
+pub fn cal_operator_fee(
+  vault_balance: Int,
+  hwm_lp_value: Int,
+  operator_charge: Int,
+) -> Int {
+  if vault_balance <= hwm_lp_value {
+    0
+  } else {
+    ( vault_balance - hwm_lp_value ) * operator_charge / 100
   }
 }
