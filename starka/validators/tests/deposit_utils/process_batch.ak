@@ -231,11 +231,21 @@ test process_batch_normal() {
     m_value_c,
     prices,
   ))? && (total_lp_token_sent == cal_lp_token_amount(
-    total_intent_datum_usdm_value,
+    convert_m_value_to_usdm(m_value_a, prices),
     mock_vault_balance,
     mock_total_lp,
     mock_operator_fee,
-  ) - 1)?
+  ) + cal_lp_token_amount(
+    convert_m_value_to_usdm(m_value_b, prices),
+    mock_vault_balance,
+    mock_total_lp,
+    mock_operator_fee,
+  ) + cal_lp_token_amount(
+    convert_m_value_to_usdm(m_value_c, prices),
+    mock_vault_balance,
+    mock_total_lp,
+    mock_operator_fee,
+  ))?
 }
 
 test process_batch_excessive_inputs() fail {

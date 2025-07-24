@@ -1,12 +1,6 @@
 use cardano/assets.{add, from_asset}
-use mocktail.{mock_output, mock_pub_key_address}
+use tests/withdraw_utils/process_batch.{prices}
 use withdraw_utils.{check_output_value_equal_to_lp_usdm_value}
-
-pub const prices: Pairs<ByteArray, Int> =
-  [
-    Pair(#"", 2),
-    Pair(#"c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c9135553444d", 1),
-  ]
 
 const output_value_a =
   from_asset(

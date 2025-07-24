@@ -61,6 +61,7 @@ validator deposit_intent(oracle_nft: PolicyId) {
         is_value_deposited? && is_mint_value_correct?
       }
       (BurnIntent(indices, message, signatures), _) -> {
+        // - Get the vault oracle input datum
         let vault_oracle_input = get_vault_oracle_input(inputs, oracle_nft)
 
         let vault_oracle_input_data: Data =
@@ -84,6 +85,7 @@ validator deposit_intent(oracle_nft: PolicyId) {
           ..
         } = vault_oracle_input_datum
 
+        // - Get the app oracle input datum
         let app_oracle_input_datum: AppOracleDatum =
           reference_inputs |> get_app_oracle_datum(app_oracle)
         let AppOracleDatum {
@@ -94,6 +96,7 @@ validator deposit_intent(oracle_nft: PolicyId) {
         } = app_oracle_input_datum
         let HydraInfo { hydra_signers, .. } = hydra_info
 
+        // - Verify the node public keys and signatures
         let keys_check = verify_pub_keys(node_pub_key, hydra_signers)
         let signatures_check =
           verify_signatures(node_pub_key, message, signatures)
@@ -123,6 +126,8 @@ validator deposit_intent(oracle_nft: PolicyId) {
             pluggable_logic,
           )
 
+        // - Check the app deposit request output value == batched_intent_datum_m_value
+        // - Check the app deposit request output address == app_deposit_request_address
         expect [app_deposit_request_output] =
           outputs_at_with_policy(
             outputs,
@@ -136,6 +141,7 @@ validator deposit_intent(oracle_nft: PolicyId) {
               |> add(app_deposit_request_token, "", 1)
           )
 
+        // - Check the vault oracle output datum is updated correctly
         expect [vault_oracle_output] = outputs_with_policy(outputs, oracle_nft)
         expect vault_oracle_output_datum: VaultOracleDatum =
           output_inline_datum(vault_oracle_output)
@@ -151,6 +157,7 @@ validator deposit_intent(oracle_nft: PolicyId) {
             vault_cost: vault_cost + total_intent_datum_usdm_value,
           }
 
+        // - Check the LP token mint amount == total_lp_token_sent
         let lp_mint_check =
           policy_only_minted_token(
             mint,
@@ -159,9 +166,11 @@ validator deposit_intent(oracle_nft: PolicyId) {
             total_lp_token_sent,
           )
 
+        // - Check the intent burn amount == length of batched intents
         let intent_burn_check =
           policy_only_minted_token(mint, policy_id, "", -list.length(indices))
 
+        // - Check vault oracle utxo_ref is the same as the one in the signed message
         let utxo_ref_check = vault_oracle_input.output_reference == utxo_ref
         keys_check? && signatures_check? && utxo_ref_check? && app_deposit_request_output_check? && vault_oracle_output_datum_check? && lp_mint_check? && intent_burn_check? && is_vault_oracle_output_value_clean?
       }

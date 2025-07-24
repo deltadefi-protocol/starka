@@ -201,18 +201,39 @@ fn mock_burn_deposit_intent_tx(
     ) + convert_m_value_to_usdm(m_value_c, prices)
 
   trace total_intent_datum_usdm_value
+
+  //attention: handle rounding error
   let total_lp_token_minted =
     if is_lp_mint_amount_correct {
       cal_lp_token_amount(
-        total_intent_datum_usdm_value,
+        convert_m_value_to_usdm(m_value_a, prices),
         mock_vault_balance,
         mock_total_lp,
         mock_operator_fee,
-      ) - 1
+      ) + cal_lp_token_amount(
+        convert_m_value_to_usdm(m_value_b, prices),
+        mock_vault_balance,
+        mock_total_lp,
+        mock_operator_fee,
+      ) + cal_lp_token_amount(
+        convert_m_value_to_usdm(m_value_c, prices),
+        mock_vault_balance,
+        mock_total_lp,
+        mock_operator_fee,
+      )
     } else {
-      //attention: handle rounding error
       cal_lp_token_amount(
-        total_intent_datum_usdm_value,
+        convert_m_value_to_usdm(m_value_a, prices),
+        mock_vault_balance,
+        mock_total_lp,
+        mock_operator_fee,
+      ) + cal_lp_token_amount(
+        convert_m_value_to_usdm(m_value_b, prices),
+        mock_vault_balance,
+        mock_total_lp,
+        mock_operator_fee,
+      ) + cal_lp_token_amount(
+        convert_m_value_to_usdm(m_value_c, prices),
         mock_vault_balance,
         mock_total_lp,
         mock_operator_fee,
@@ -482,7 +503,11 @@ test s2_mint_fail_burn_deposit_intent_with_signed_utxo_not_spent() {
     BurnIntent(
       indices,
       #"d8799f1ad9133796a25820c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c9135553444d014002d8799f5820cd82a190d3b4ef95a50bd791882959f541e308adb69b12d022d94a6d9f02bcf001ffff",
-      mock_signatures,
+      [
+        #"eded05b711ad2f58742a959aa06d4301604e59e88b06cb4bd50c36eef55f5610da3675f9b905e83614ae92f2e47593de9e8f827230f0d0bd8df2333d86615703",
+        #"f4fdb2071f658019249a01894d817daa113e7563d7e6510ba043e4220f60e4a3ae551b87facbf4fd4f1810a462c8031b9c555f7ac74074e8048cf6a510c42c09",
+        #"b3641e70b7fd71838511363cfe08bf0e28bef69687ce08c134d0fe42298244f03546a5699739e105613edc47452c15175d98ca112467f8979b90274c4c6cbf0a",
+      ],
     )
   let tx =
     mock_burn_deposit_intent_tx(

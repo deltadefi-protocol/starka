@@ -37,6 +37,20 @@ pub fn convert_lp_to_usdm(
   lp_amount * ( vault_balance - operator_fee ) / total_lp
 }
 
+pub fn convert_value_to_usdm(value: Value, prices: Pairs<ByteArray, Int>) -> Int {
+  let prices_dict = dict.from_pairs(prices)
+  assets.reduce(
+    value,
+    0,
+    fn(policy_id, asset_name, amount, acc) {
+      expect Some(price) =
+        prices_dict |> dict.get(bytearray.concat(policy_id, asset_name))
+
+      acc + amount * price
+    },
+  )
+}
+
 pub fn check_output_value_equal_to_lp_usdm_value(
   output_value: Value,
   lp_usdm_value: Int,
@@ -90,6 +104,7 @@ pub fn process_batched_withdrawal_intent_validation(
           Script(script) ->
             if script == script_hash {
               when remaining_indices is {
+                // Found the withdrawal intent script address
                 [] -> fail @"More UTxOs are spent than specified"
                 [output_index, ..rest_of_indices] -> {
                   expect Some(out_utxo) = outputs |> list.at(output_index)
@@ -98,8 +113,12 @@ pub fn process_batched_withdrawal_intent_validation(
 
                   let WithdrawalIntentDatum { lp_address, amount } = input_datum
 
+                  // - Combine intent datum LP amount with total intent datum LP amount
                   let new_cal_intent_datum_lp_amount =
                     cal_intent_datum_lp_amount + amount
+
+                  // - Calculate intent value in USDM
+                  // - Combine intent value with total intent value in USDM
                   let intent_datum_lp_usdm_value =
                     convert_lp_to_usdm(
                       amount,
@@ -110,6 +129,7 @@ pub fn process_batched_withdrawal_intent_validation(
                   let new_cal_intent_datum_lp_usdm_value =
                     cal_intent_datum_lp_usdm_value + intent_datum_lp_usdm_value
 
+                  // - Check the output value and address
                   let output_check =
                     check_output_value_equal_to_lp_usdm_value(
                       out_utxo.value,
@@ -128,6 +148,7 @@ pub fn process_batched_withdrawal_intent_validation(
                 }
               }
             } else {
+              // Not the withdrawal intent script address, skip
               return(
                 remaining_indices,
                 cal_intent_datum_lp_amount,
@@ -135,6 +156,7 @@ pub fn process_batched_withdrawal_intent_validation(
               )
             }
           _ ->
+            // Not a script address, skip
             return(
               remaining_indices,
               cal_intent_datum_lp_amount,
