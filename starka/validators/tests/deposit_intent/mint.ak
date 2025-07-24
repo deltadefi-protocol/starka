@@ -39,28 +39,23 @@ fn mock_mint_deposit_intent_tx(
     is_value_deposited_correctly,
   } = test_case
 
-  let deposit_value: MValue = mock_deposit_m_value
-
-  let incorrect_deposit_value =
-    from_asset("A", "abc", 1)
-      |> add("C", "def", 10)
-      |> to_mvalue()
-
+  let deposit_value: MValue =
+    if is_value_deposited_correctly {
+      mock_deposit_m_value
+    } else {
+      from_asset("A", "abc", 1)
+        |> add("C", "def", 10)
+        |> to_mvalue()
+    }
   let output_datum = mock_deposit_intent_datum
   mocktail_tx()
     |> mint(is_deposit_intent_minted, 1, mock_deposit_intent_script_hash, "")
     |> tx_out(
-        is_value_deposited_correctly,
+        is_token_output_clean,
         from_script(mock_deposit_intent_script_hash),
         from_asset_list(deposit_value)
           |> add(mock_deposit_intent_script_hash, "", 1),
       )
-    |> tx_out(
-        !is_value_deposited_correctly,
-        from_script(mock_deposit_intent_script_hash),
-        from_asset_list(incorrect_deposit_value),
-      )
-    |> tx_out_inline_datum(True, output_datum)
     |> tx_out(
         !is_token_output_clean,
         from_script(mock_deposit_intent_script_hash),
@@ -68,7 +63,7 @@ fn mock_mint_deposit_intent_tx(
           |> add(mock_deposit_intent_script_hash, "", 1)
           |> add(mock_policy_id(999), "", 1),
       )
-    |> tx_out_inline_datum(!is_token_output_clean, output_datum)
+    |> tx_out_inline_datum(True, output_datum)
     |> complete()
 }
 
@@ -206,18 +201,39 @@ fn mock_burn_deposit_intent_tx(
     ) + convert_m_value_to_usdm(m_value_c, prices)
 
   trace total_intent_datum_usdm_value
+
+  //attention: handle rounding error
   let total_lp_token_minted =
     if is_lp_mint_amount_correct {
       cal_lp_token_amount(
-        total_intent_datum_usdm_value,
+        convert_m_value_to_usdm(m_value_a, prices),
         mock_vault_balance,
         mock_total_lp,
         mock_operator_fee,
-      ) - 1
+      ) + cal_lp_token_amount(
+        convert_m_value_to_usdm(m_value_b, prices),
+        mock_vault_balance,
+        mock_total_lp,
+        mock_operator_fee,
+      ) + cal_lp_token_amount(
+        convert_m_value_to_usdm(m_value_c, prices),
+        mock_vault_balance,
+        mock_total_lp,
+        mock_operator_fee,
+      )
     } else {
-      //attention: handle rounding error
       cal_lp_token_amount(
-        total_intent_datum_usdm_value,
+        convert_m_value_to_usdm(m_value_a, prices),
+        mock_vault_balance,
+        mock_total_lp,
+        mock_operator_fee,
+      ) + cal_lp_token_amount(
+        convert_m_value_to_usdm(m_value_b, prices),
+        mock_vault_balance,
+        mock_total_lp,
+        mock_operator_fee,
+      ) + cal_lp_token_amount(
+        convert_m_value_to_usdm(m_value_c, prices),
         mock_vault_balance,
         mock_total_lp,
         mock_operator_fee,
@@ -486,8 +502,12 @@ test s2_mint_fail_burn_deposit_intent_with_signed_utxo_not_spent() {
   let redeemer =
     BurnIntent(
       indices,
-      #"d8799f1ad913379607a25820c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c9135553444d014002d8799f5820cd82a190d3b4ef95a50bd791882959f541e308adb69b12d022d94a6d9f02bcf001ffff",
-      mock_signatures,
+      #"d8799f1ad9133796a25820c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c9135553444d014002d8799f5820cd82a190d3b4ef95a50bd791882959f541e308adb69b12d022d94a6d9f02bcf001ffff",
+      [
+        #"eded05b711ad2f58742a959aa06d4301604e59e88b06cb4bd50c36eef55f5610da3675f9b905e83614ae92f2e47593de9e8f827230f0d0bd8df2333d86615703",
+        #"f4fdb2071f658019249a01894d817daa113e7563d7e6510ba043e4220f60e4a3ae551b87facbf4fd4f1810a462c8031b9c555f7ac74074e8048cf6a510c42c09",
+        #"b3641e70b7fd71838511363cfe08bf0e28bef69687ce08c134d0fe42298244f03546a5699739e105613edc47452c15175d98ca112467f8979b90274c4c6cbf0a",
+      ],
     )
   let tx =
     mock_burn_deposit_intent_tx(
@@ -516,9 +536,9 @@ test s2_mint_fail_burn_deposit_intent_with_incorrect_signatures() {
       indices,
       mock_message,
       [
-        #"76db59ceb64aa1bef629862fea16d02bbf6f0cce6086e4c453e3940832c110a3b51a3417953682d98fa4cea16cb537aed54fc25395bfcb4a8257e1c82c6e950a",
-        #"39eac6071a3f22f58368b22f4a6da9737e5803529afd81c41373fa71bf2450fd5a9915581f2427c60f8b3299cb83b29376dbe72da18e6909f36fe18686430405",
-        #"a4187eb1d8e0b3864b0dc048182db851db748c97026468a34a2928f66d7a456b986c9a15458f816a2b8fbea96d094e121e79e7bd750716dfe07c1e363089770f",
+        #"08e454f591121b1a09fd0073fdf66740bad3f1382dcfc499e91a996f601c7c8909e4b0a0b8fe64e68514f315ffdd02944c369ef2a9ce22a3dec14b60b0109e0d",
+        #"f18d0e8aab34dc74d633df4310d8bf49809627d4bd4ef0ee8fa3b3ba47deb9e804de031e015521359c1d69070266f3d4423a07994f424782ceeaa8413739160c",
+        #"4d2a670fed48e57b7c2d4d582afd5f24378a2b93c3794dce409c15fe59b417c08ba8b598f8e9b6ffd68374f5eac79a7588cc218d4d58251b3992db10d01e100a",
       ],
     )
   let tx =

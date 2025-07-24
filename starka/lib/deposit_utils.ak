@@ -133,6 +133,7 @@ pub fn process_batched_deposit_intent_validation(
         when input.output.address.payment_credential is {
           Script(script) ->
             if script == script_hash {
+              // Found the deposit intent script address
               when remaining_indices is {
                 [] -> fail @"More UTxOs are spent than specified"
                 [output_index, ..rest_of_indices] -> {
@@ -142,14 +143,18 @@ pub fn process_batched_deposit_intent_validation(
 
                   let DepositIntentDatum { lp_address, amount } = input_datum
 
+                  // - Combine MValue in intent with total intent value
                   let new_cal_intent_datum_m_value =
                     combine_m_value(cal_intent_datum_m_value, amount)
 
+                  // - Calculate intent value in USDM
+                  // - Combine intent value with total intent value in USDM
                   let intent_datum_usdm_value =
                     convert_m_value_to_usdm(amount, prices)
                   let new_cal_intent_datum_usdm_value =
                     cal_intent_datum_usdm_value + intent_datum_usdm_value
-
+                  // - Calculate LP Token sent
+                  // - Combine LP Token sent with total LP Token sent
                   let cal_lp_sent =
                     cal_lp_token_amount(
                       intent_datum_usdm_value,
@@ -158,6 +163,7 @@ pub fn process_batched_deposit_intent_validation(
                       operator_fee,
                     )
                   let new_cal_lp_token_sent = cal_lp_sent + cal_lp_token_sent
+                  // - Check the output value and address
                   let output_check =
                     quantity_of(out_utxo.value, lp_token, pluggable_logic) == cal_lp_sent && out_utxo.address == lp_address
                   if output_check {
@@ -173,6 +179,7 @@ pub fn process_batched_deposit_intent_validation(
                 }
               }
             } else {
+              // - Not the deposit intent script address, skip
               return(
                 remaining_indices,
                 cal_intent_datum_m_value,
@@ -181,6 +188,7 @@ pub fn process_batched_deposit_intent_validation(
               )
             }
           _ ->
+            // - Not a script address, skip
             return(
               remaining_indices,
               cal_intent_datum_m_value,

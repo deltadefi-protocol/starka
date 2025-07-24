@@ -1,28 +1,34 @@
 use aiken/cbor
 use aiken/collection/list
-use cardano/address.{Script, from_script}
-use cardano/assets.{PolicyId, add, from_asset_list}
+use cardano/address.{Script, from_script, from_verification_key}
+use cardano/assets.{PolicyId, add, from_asset, without_lovelace}
 use cardano/transaction.{
   DatumHash, InlineDatum, Mint, NoDatum, OutputReference, Transaction,
   find_input,
 }
 use cocktail.{
-  output_inline_datum, outputs_at_with_policy, outputs_with_policy,
-  policy_only_minted_token, value_length,
+  get_all_value_from, get_all_value_to, output_inline_datum,
+  outputs_at_with_policy, outputs_with_policy, policy_only_minted_token,
+  value_length,
 }
-use deposit_utils.{process_batched_deposit_intent_validation}
+use cocktail/vodka_outputs.{outputs_at}
 use types.{
-  AppOracleDatum, BurnIntent, DepositIntentDatum, HydraInfo, IntentRedeemer,
-  Message, MintIntent, VaultOracleDatum,
+  AppOracleDatum, BurnIntent, HydraInfo, IntentRedeemer, Message, MintIntent,
+  VaultOracleDatum, WithdrawalIntentDatum,
 }
 use utils.{
   cal_operator_fee, check_mint_redeemer_is_burn, get_app_oracle_datum,
-  get_vault_oracle_input, verify_pub_keys, verify_signatures,
+  get_vault_oracle_datum, get_vault_oracle_input, verify_pub_keys,
+  verify_signatures,
+}
+use withdraw_utils.{
+  check_output_value_equal_to_lp_usdm_value, convert_value_to_usdm,
+  process_batched_withdrawal_intent_validation,
 }
 
-validator deposit_intent(oracle_nft: PolicyId) {
+validator withdrawal_intent(oracle_nft: PolicyId) {
   spend(
-    _datum: Option<DepositIntentDatum>,
+    _datum: Option<WithdrawalIntentDatum>,
     _r,
     input: OutputReference,
     self: Transaction,
@@ -49,16 +55,22 @@ validator deposit_intent(oracle_nft: PolicyId) {
       )
     is {
       (MintIntent, [intent_output]) -> {
+        let vault_oracle_input_datum: VaultOracleDatum =
+          reference_inputs |> get_vault_oracle_datum(oracle_nft)
+
+        let VaultOracleDatum { lp_token, pluggable_logic, .. } =
+          vault_oracle_input_datum
         let is_mint_value_correct =
           policy_only_minted_token(mint, policy_id, "", 1)
-        expect DepositIntentDatum { amount, .. }: DepositIntentDatum =
+        expect WithdrawalIntentDatum { amount, .. }: WithdrawalIntentDatum =
           output_inline_datum(intent_output)
 
-        let is_value_deposited =
-          intent_output.value == (
-            from_asset_list(amount) |> add(policy_id, "", 1)
+        let is_lp_locked =
+          without_lovelace(intent_output.value) == (
+            from_asset(lp_token, pluggable_logic, amount)
+              |> add(policy_id, "", 1)
           )
-        is_value_deposited? && is_mint_value_correct?
+        is_lp_locked? && is_mint_value_correct?
       }
       (BurnIntent(indices, message, signatures), _) -> {
         // - Get the vault oracle input datum
@@ -82,18 +94,15 @@ validator deposit_intent(oracle_nft: PolicyId) {
           lp_token,
           vault_cost,
           operator_charge,
+          operator_key,
+          vault_script_hash,
           ..
         } = vault_oracle_input_datum
 
         // - Get the app oracle input datum
         let app_oracle_input_datum: AppOracleDatum =
           reference_inputs |> get_app_oracle_datum(app_oracle)
-        let AppOracleDatum {
-          app_deposit_request_token,
-          app_deposit_request_address,
-          hydra_info,
-          ..
-        } = app_oracle_input_datum
+        let AppOracleDatum { hydra_info, .. } = app_oracle_input_datum
         let HydraInfo { hydra_signers, .. } = hydra_info
 
         // - Verify the node public keys and signatures
@@ -108,12 +117,8 @@ validator deposit_intent(oracle_nft: PolicyId) {
 
         let operator_fee =
           cal_operator_fee(vault_balance, hwm_lp_value, operator_charge)
-        let (
-          total_intent_datum_m_value,
-          total_intent_datum_usdm_value,
-          total_lp_token_sent,
-        ) =
-          process_batched_deposit_intent_validation(
+        let (total_intent_datum_lp_amount, total_intent_datum_lp_usdm_value) =
+          process_batched_withdrawal_intent_validation(
             inputs,
             outputs,
             indices,
@@ -122,23 +127,6 @@ validator deposit_intent(oracle_nft: PolicyId) {
             operator_fee,
             prices,
             policy_id,
-            lp_token,
-            pluggable_logic,
-          )
-
-        // - Check the app deposit request output value == batched_intent_datum_m_value
-        // - Check the app deposit request output address == app_deposit_request_address
-        expect [app_deposit_request_output] =
-          outputs_at_with_policy(
-            outputs,
-            app_deposit_request_address,
-            app_deposit_request_token,
-          )
-
-        let app_deposit_request_output_check =
-          app_deposit_request_output.value == (
-            from_asset_list(total_intent_datum_m_value)
-              |> add(app_deposit_request_token, "", 1)
           )
 
         // - Check the vault oracle output datum is updated correctly
@@ -152,27 +140,55 @@ validator deposit_intent(oracle_nft: PolicyId) {
         let vault_oracle_output_datum_check =
           vault_oracle_output_datum == VaultOracleDatum {
             ..vault_oracle_input_datum,
-            total_lp: total_lp + total_lp_token_sent,
-            hwm_lp_value: vault_balance - operator_fee + total_intent_datum_usdm_value,
-            vault_cost: vault_cost + total_intent_datum_usdm_value,
+            total_lp: total_lp - total_intent_datum_lp_amount,
+            hwm_lp_value: vault_balance - operator_fee - total_intent_datum_lp_usdm_value,
+            vault_cost: vault_cost - total_intent_datum_lp_usdm_value,
           }
 
-        // - Check the LP token mint amount == total_lp_token_sent
+        // - Check the the LP burn amount == total_intent_datum_lp_amount
         let lp_mint_check =
           policy_only_minted_token(
             mint,
             lp_token,
             pluggable_logic,
-            total_lp_token_sent,
+            -total_intent_datum_lp_amount,
           )
 
         // - Check the intent burn amount == length of batched intents
         let intent_burn_check =
           policy_only_minted_token(mint, policy_id, "", -list.length(indices))
 
-        // - Check vault oracle utxo_ref is the same as the one in the signed message
+        // - Check the operator output value == operator_fee
+        // - Check the operator output address == operator_key
+        let operator_output_check =
+          when operator_fee > 0 is {
+            True -> {
+              expect [operator_output] =
+                outputs_at(outputs, from_verification_key(operator_key))
+              check_output_value_equal_to_lp_usdm_value(
+                operator_output.value,
+                operator_fee,
+                prices,
+              )
+            }
+            False -> True
+          }
+
+        // - Check the vault unlock value == total_intent_datum_lp_usdm_value
+        let value_from_vault =
+          get_all_value_from(inputs, from_script(vault_script_hash))
+
+        let value_to_vault =
+          get_all_value_to(outputs, from_script(vault_script_hash))
+
+        let vault_unlock_check =
+          convert_value_to_usdm(value_from_vault, prices) - convert_value_to_usdm(
+            value_to_vault,
+            prices,
+          ) == total_intent_datum_lp_usdm_value
+        // - Check the vault oracle utxo_ref is the same as the one in the signed message
         let utxo_ref_check = vault_oracle_input.output_reference == utxo_ref
-        keys_check? && signatures_check? && utxo_ref_check? && app_deposit_request_output_check? && vault_oracle_output_datum_check? && lp_mint_check? && intent_burn_check? && is_vault_oracle_output_value_clean?
+        keys_check? && signatures_check? && utxo_ref_check? && vault_oracle_output_datum_check? && lp_mint_check? && intent_burn_check? && is_vault_oracle_output_value_clean? && operator_output_check? && vault_unlock_check?
       }
       _ -> False
     }

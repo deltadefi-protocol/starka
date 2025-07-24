@@ -75,7 +75,6 @@ pub type IntentRedeemer {
 
 pub type Message {
   vault_balance: Int,
-  vault_ratio: Int,
   prices: Pairs<ByteArray, Int>,
   utxo_ref: OutputReference,
 }
@@ -86,6 +85,11 @@ pub type DepositIntentDatum {
 }
 
 // 3 - WithdrawalIntent
+
+pub type WithdrawalIntentDatum {
+  lp_address: Address,
+  amount: Int,
+}
 
 // 4 - LPToken
 
