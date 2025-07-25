@@ -8,7 +8,7 @@ use mocktail.{
 }
 use tests/utils.{
   mock_burn_intent_redeemer, mock_deposit_intent_datum,
-  mock_deposit_intent_script_hash, mock_vault_oracle,
+  mock_deposit_intent_script_hash, mock_lp_decimal, mock_vault_oracle,
   mock_withdrawal_intent_script_hash,
 }
 use types.{MintIntent}
@@ -65,6 +65,7 @@ test s2_spend_success_process_deposit() {
 
   deposit_intent_spend_and_mint.deposit_intent.spend(
     mock_vault_oracle,
+    mock_lp_decimal,
     None,
     None,
     mock_utxo_ref(0, 0),
@@ -83,6 +84,7 @@ test s2_spend_fail_process_deposit_with_incorrect_mint_policy() fail {
 
   deposit_intent_spend_and_mint.deposit_intent.spend(
     mock_vault_oracle,
+    mock_lp_decimal,
     None,
     None,
     mock_utxo_ref(0, 0),
@@ -101,6 +103,7 @@ test s2_spend_fail_process_deposit_with_incorrect_mint_redeemer() fail {
 
   deposit_intent_spend_and_mint.deposit_intent.spend(
     mock_vault_oracle,
+    mock_lp_decimal,
     None,
     None,
     mock_utxo_ref(0, 0),

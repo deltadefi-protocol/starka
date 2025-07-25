@@ -20,7 +20,7 @@ use tests/withdraw_utils/process_batch.{
   vault_input_a, vault_input_b, vault_output,
 }
 use types.{BurnIntent, MintIntent, VaultOracleDatum}
-use withdraw_utils.{convert_lp_to_usdm}
+use withdraw_utils.{convert_lp_to_usd}
 use withdrawal_intent/spend_and_mint as withdrawal_intent_spend_and_mint
 
 type MintWithdrawalIntentTestCase {
@@ -241,36 +241,36 @@ fn mock_burn_withdrawal_intent_tx(
   let total_intent_datum_lp_amount = lp_amount_a + lp_amount_b + lp_amount_c
 
   //attention: handle rounding error
-  let total_intent_datum_lp_usdm_value =
+  let total_intent_datum_lp_usd_value =
     if is_lp_burn_amount_correct {
-      convert_lp_to_usdm(
+      convert_lp_to_usd(
         lp_amount_a,
         mock_total_lp,
         mock_vault_balance,
         mock_operator_fee,
-      ) + convert_lp_to_usdm(
+      ) + convert_lp_to_usd(
         lp_amount_b,
         mock_total_lp,
         mock_vault_balance,
         mock_operator_fee,
-      ) + convert_lp_to_usdm(
+      ) + convert_lp_to_usd(
         lp_amount_c,
         mock_total_lp,
         mock_vault_balance,
         mock_operator_fee,
       )
     } else {
-      convert_lp_to_usdm(
+      convert_lp_to_usd(
         lp_amount_a,
         mock_total_lp,
         mock_vault_balance,
         mock_operator_fee,
-      ) + convert_lp_to_usdm(
+      ) + convert_lp_to_usd(
         lp_amount_b,
         mock_total_lp,
         mock_vault_balance,
         mock_operator_fee,
-      ) + convert_lp_to_usdm(
+      ) + convert_lp_to_usd(
         lp_amount_c,
         mock_total_lp,
         mock_vault_balance,
@@ -283,15 +283,15 @@ fn mock_burn_withdrawal_intent_tx(
       VaultOracleDatum {
         ..mock_vault_oracle_datum,
         total_lp: mock_total_lp - total_intent_datum_lp_amount,
-        hwm_lp_value: mock_vault_balance - mock_operator_fee - total_intent_datum_lp_usdm_value,
-        vault_cost: mock_vault_cost - total_intent_datum_lp_usdm_value,
+        hwm_lp_value: mock_vault_balance - mock_operator_fee - total_intent_datum_lp_usd_value,
+        vault_cost: mock_vault_cost - total_intent_datum_lp_usd_value,
       }
     } else {
       VaultOracleDatum {
         ..mock_vault_oracle_datum,
         total_lp: mock_total_lp - total_intent_datum_lp_amount + 1,
-        hwm_lp_value: mock_vault_balance - mock_operator_fee - total_intent_datum_lp_usdm_value,
-        vault_cost: mock_vault_cost - total_intent_datum_lp_usdm_value,
+        hwm_lp_value: mock_vault_balance - mock_operator_fee - total_intent_datum_lp_usd_value,
+        vault_cost: mock_vault_cost - total_intent_datum_lp_usd_value,
       }
     }
 

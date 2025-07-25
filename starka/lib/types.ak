@@ -67,6 +67,11 @@ pub type ProcessRedeemer {
 
 // 1 - Vault
 
+pub type VaultRedeemer {
+  WithdrawFund
+  PluggableLogic
+}
+
 // 2 - DepositIntent
 pub type IntentRedeemer {
   MintIntent
@@ -76,6 +81,7 @@ pub type IntentRedeemer {
 pub type Message {
   vault_balance: Int,
   prices: Pairs<ByteArray, Int>,
+  // PolicyId + AssetName -> Int
   utxo_ref: OutputReference,
 }
 

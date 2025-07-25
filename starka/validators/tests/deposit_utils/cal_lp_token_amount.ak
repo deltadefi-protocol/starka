@@ -55,5 +55,5 @@ test cal_c() {
 
 test cal_4() {
   let cal = deposit_utils.cal_lp_token_amount(1, 1, 0, operator_fee_a)
-  (cal == 1000000)?
+  (cal == 0)?
 }

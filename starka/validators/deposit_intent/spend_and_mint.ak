@@ -10,7 +10,10 @@ use cocktail.{
   output_inline_datum, outputs_at_with_policy, outputs_with_policy,
   policy_only_minted_token, value_length,
 }
-use deposit_utils.{process_batched_deposit_intent_validation}
+use deposit_utils.{
+  process_batched_deposit_intent_validation,
+  process_batched_deposit_intent_validation_init,
+}
 use types.{
   AppOracleDatum, BurnIntent, DepositIntentDatum, HydraInfo, IntentRedeemer,
   Message, MintIntent, VaultOracleDatum,
@@ -20,7 +23,7 @@ use utils.{
   get_vault_oracle_input, verify_pub_keys, verify_signatures,
 }
 
-validator deposit_intent(oracle_nft: PolicyId) {
+validator deposit_intent(oracle_nft: PolicyId, lp_decimal: Int) {
   spend(
     _datum: Option<DepositIntentDatum>,
     _r,
@@ -110,21 +113,35 @@ validator deposit_intent(oracle_nft: PolicyId) {
           cal_operator_fee(vault_balance, hwm_lp_value, operator_charge)
         let (
           total_intent_datum_m_value,
-          total_intent_datum_usdm_value,
+          total_intent_datum_usd_value,
           total_lp_token_sent,
         ) =
-          process_batched_deposit_intent_validation(
-            inputs,
-            outputs,
-            indices,
-            vault_balance,
-            total_lp,
-            operator_fee,
-            prices,
-            policy_id,
-            lp_token,
-            pluggable_logic,
-          )
+          when total_lp is {
+            0 ->
+              process_batched_deposit_intent_validation_init(
+                inputs,
+                outputs,
+                indices,
+                prices,
+                policy_id,
+                lp_token,
+                pluggable_logic,
+                lp_decimal,
+              )
+            _ ->
+              process_batched_deposit_intent_validation(
+                inputs,
+                outputs,
+                indices,
+                vault_balance,
+                total_lp,
+                operator_fee,
+                prices,
+                policy_id,
+                lp_token,
+                pluggable_logic,
+              )
+          }
 
         // - Check the app deposit request output value == batched_intent_datum_m_value
         // - Check the app deposit request output address == app_deposit_request_address
@@ -153,8 +170,8 @@ validator deposit_intent(oracle_nft: PolicyId) {
           vault_oracle_output_datum == VaultOracleDatum {
             ..vault_oracle_input_datum,
             total_lp: total_lp + total_lp_token_sent,
-            hwm_lp_value: vault_balance - operator_fee + total_intent_datum_usdm_value,
-            vault_cost: vault_cost + total_intent_datum_usdm_value,
+            hwm_lp_value: vault_balance - operator_fee + total_intent_datum_usd_value,
+            vault_cost: vault_cost + total_intent_datum_usd_value,
           }
 
         // - Check the LP token mint amount == total_lp_token_sent

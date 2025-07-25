@@ -9,7 +9,7 @@ use tests/utils.{
   mock_vault_oracle_address, mock_vault_oracle_datum,
   mock_withdrawal_intent_script_hash,
 }
-use types.{MintIntent}
+use types.{MintIntent, WithdrawFund}
 use vault/spend_and_withdraw as vault_spend_and_withdraw
 
 type ProcessWithdrawalTestCase {
@@ -70,7 +70,7 @@ test s1_spend_success_process_withdrawal() {
   vault_spend_and_withdraw.vault.spend(
     mock_vault_oracle,
     None,
-    None,
+    WithdrawFund,
     mock_utxo_ref(0, 0),
     tx,
   )
@@ -89,7 +89,7 @@ test s1_spend_fail_process_withdrawal_with_no_vault_oracle_inputed() fail {
   vault_spend_and_withdraw.vault.spend(
     mock_vault_oracle,
     None,
-    None,
+    WithdrawFund,
     mock_utxo_ref(0, 0),
     tx,
   )
@@ -108,7 +108,7 @@ test s1_spend_fail_process_withdrawal_with_incorrect_mint_policy() fail {
   vault_spend_and_withdraw.vault.spend(
     mock_vault_oracle,
     None,
-    None,
+    WithdrawFund,
     mock_utxo_ref(0, 0),
     tx,
   )
@@ -127,7 +127,7 @@ test s1_spend_fail_process_withdrawal_with_incorrect_mint_redeemer() fail {
   vault_spend_and_withdraw.vault.spend(
     mock_vault_oracle,
     None,
-    None,
+    WithdrawFund,
     mock_utxo_ref(0, 0),
     tx,
   )

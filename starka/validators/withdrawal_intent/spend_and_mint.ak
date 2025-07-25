@@ -22,7 +22,7 @@ use utils.{
   verify_signatures,
 }
 use withdraw_utils.{
-  check_output_value_equal_to_lp_usdm_value, convert_value_to_usdm,
+  check_output_value_equal_to_lp_usd_value, convert_value_to_usd,
   process_batched_withdrawal_intent_validation,
 }
 
@@ -117,7 +117,7 @@ validator withdrawal_intent(oracle_nft: PolicyId) {
 
         let operator_fee =
           cal_operator_fee(vault_balance, hwm_lp_value, operator_charge)
-        let (total_intent_datum_lp_amount, total_intent_datum_lp_usdm_value) =
+        let (total_intent_datum_lp_amount, total_intent_datum_lp_usd_value) =
           process_batched_withdrawal_intent_validation(
             inputs,
             outputs,
@@ -141,8 +141,8 @@ validator withdrawal_intent(oracle_nft: PolicyId) {
           vault_oracle_output_datum == VaultOracleDatum {
             ..vault_oracle_input_datum,
             total_lp: total_lp - total_intent_datum_lp_amount,
-            hwm_lp_value: vault_balance - operator_fee - total_intent_datum_lp_usdm_value,
-            vault_cost: vault_cost - total_intent_datum_lp_usdm_value,
+            hwm_lp_value: vault_balance - operator_fee - total_intent_datum_lp_usd_value,
+            vault_cost: vault_cost - total_intent_datum_lp_usd_value,
           }
 
         // - Check the the LP burn amount == total_intent_datum_lp_amount
@@ -165,7 +165,7 @@ validator withdrawal_intent(oracle_nft: PolicyId) {
             True -> {
               expect [operator_output] =
                 outputs_at(outputs, from_verification_key(operator_key))
-              check_output_value_equal_to_lp_usdm_value(
+              check_output_value_equal_to_lp_usd_value(
                 operator_output.value,
                 operator_fee,
                 prices,
@@ -174,7 +174,7 @@ validator withdrawal_intent(oracle_nft: PolicyId) {
             False -> True
           }
 
-        // - Check the vault unlock value == total_intent_datum_lp_usdm_value
+        // - Check the vault unlock value == total_intent_datum_lp_usd_value
         let value_from_vault =
           get_all_value_from(inputs, from_script(vault_script_hash))
 
@@ -182,10 +182,10 @@ validator withdrawal_intent(oracle_nft: PolicyId) {
           get_all_value_to(outputs, from_script(vault_script_hash))
 
         let vault_unlock_check =
-          convert_value_to_usdm(value_from_vault, prices) - convert_value_to_usdm(
+          convert_value_to_usd(value_from_vault, prices) - convert_value_to_usd(
             value_to_vault,
             prices,
-          ) == total_intent_datum_lp_usdm_value
+          ) == total_intent_datum_lp_usd_value
         // - Check the vault oracle utxo_ref is the same as the one in the signed message
         let utxo_ref_check = vault_oracle_input.output_reference == utxo_ref
         keys_check? && signatures_check? && utxo_ref_check? && vault_oracle_output_datum_check? && lp_mint_check? && intent_burn_check? && is_vault_oracle_output_value_clean? && operator_output_check? && vault_unlock_check?

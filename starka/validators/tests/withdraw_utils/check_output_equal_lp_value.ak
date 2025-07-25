@@ -1,6 +1,6 @@
 use cardano/assets.{add, from_asset}
 use tests/withdraw_utils/process_batch.{prices}
-use withdraw_utils.{check_output_value_equal_to_lp_usdm_value}
+use withdraw_utils.{check_output_value_equal_to_lp_usd_value}
 
 const output_value_a =
   from_asset(
@@ -30,32 +30,32 @@ const output_value_c =
         1000000,
       )
 
-const lp_usdm_value_a = 5000000
+const lp_usd_value_a = 5000000
 
-const lp_usdm_value_b = 4000000
+const lp_usd_value_b = 4000000
 
-const lp_usdm_value_c = 4000000
+const lp_usd_value_c = 4000000
 
 test check_output_value_a() {
-  check_output_value_equal_to_lp_usdm_value(
+  check_output_value_equal_to_lp_usd_value(
     output_value_a,
-    lp_usdm_value_a,
+    lp_usd_value_a,
     prices,
   )
 }
 
 test check_output_value_b() {
-  check_output_value_equal_to_lp_usdm_value(
+  check_output_value_equal_to_lp_usd_value(
     output_value_b,
-    lp_usdm_value_b,
+    lp_usd_value_b,
     prices,
   )
 }
 
 test check_output_value_c() fail {
-  check_output_value_equal_to_lp_usdm_value(
+  check_output_value_equal_to_lp_usd_value(
     output_value_c,
-    lp_usdm_value_c,
+    lp_usd_value_c,
     prices,
   )
 }

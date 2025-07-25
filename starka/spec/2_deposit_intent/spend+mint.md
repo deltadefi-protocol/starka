@@ -3,6 +3,7 @@
 ## Parameter
 
 - `oracle_nft`: The policy id of `OracleNFT`
+- `lp_decimal`: The decimal of init `LP Token`
 
 ## Datum
 
