@@ -1,9 +1,11 @@
 use aiken/collection/list
-use aiken/collection/pairs
+use aiken/collection/pairs.{has_key}
 use aiken/crypto.{
-  VerificationKey, VerificationKeyHash, blake2b_224, verify_ed25519_signature,
+  ScriptHash, VerificationKey, VerificationKeyHash, blake2b_224,
+  verify_ed25519_signature,
 }
-use cardano/assets.{PolicyId, quantity_of}
+use cardano/address.{Credential, Script}
+use cardano/assets.{Lovelace, PolicyId, quantity_of}
 use cardano/transaction.{
   DatumHash, InlineDatum, Input, NoDatum, Output, Redeemer, ScriptPurpose,
 }
@@ -94,20 +96,6 @@ pub fn verify_pub_keys(
     |> list.all(fn(x: Bool) { x })
 }
 
-pub fn verify_pub_keys_indexed(
-  keys: List<VerificationKey>,
-  pkhs: List<VerificationKeyHash>,
-) -> Bool {
-  list.indexed_foldr(
-    keys,
-    True,
-    fn(i: Int, key: VerificationKey, acc: Bool) {
-      expect Some(pkh) = list.at(pkhs, i)
-      acc && blake2b_224(key) == pkh
-    },
-  )
-}
-
 pub fn verify_signatures(
   keys: List<VerificationKey>,
   msg: ByteArray,
@@ -135,4 +123,12 @@ pub fn cal_operator_fee(
   } else {
     ( vault_balance - hwm_lp_value ) * operator_charge / 100
   }
+}
+
+pub fn withdrawal_script_validated(
+  withdrawals: Pairs<Credential, Lovelace>,
+  withdrawal_script_hash: ScriptHash,
+) -> Bool {
+  withdrawals
+    |> has_key(Script(withdrawal_script_hash))
 }

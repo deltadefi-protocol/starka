@@ -1,4 +1,4 @@
-use deposit_utils.{convert_m_value_to_usdm}
+use deposit_utils.{convert_m_value_to_usd}
 use types.{MValue}
 
 const prices: Pairs<ByteArray, Int> =
@@ -40,22 +40,22 @@ const m_value_c =
     ),
   ]
 
-const m_value_a_in_usdm = 300
+const m_value_a_in_usd = 300
 
-const m_value_b_in_usdm = 600
+const m_value_b_in_usd = 600
 
 test convert_m_value_a() {
-  convert_m_value_to_usdm(m_value_a, prices) == m_value_a_in_usdm
+  convert_m_value_to_usd(m_value_a, prices) == m_value_a_in_usd
 }
 
 test convert_m_value_b() {
-  convert_m_value_to_usdm(m_value_b, prices) == m_value_b_in_usdm
+  convert_m_value_to_usd(m_value_b, prices) == m_value_b_in_usd
 }
 
 test convert_empty_m_value() {
-  convert_m_value_to_usdm(empty_m_value, prices) == 0
+  convert_m_value_to_usd(empty_m_value, prices) == 0
 }
 
 test convert_m_value_c() fail {
-  convert_m_value_to_usdm(m_value_c, prices) == 0
+  convert_m_value_to_usd(m_value_c, prices) == 0
 }

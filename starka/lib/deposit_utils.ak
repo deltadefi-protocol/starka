@@ -1,10 +1,11 @@
+use aiken/cbor
 use aiken/collection/dict
 use aiken/collection/list
 use aiken/collection/pairs
 use aiken/crypto.{ScriptHash}
 use aiken/primitive/bytearray
 use cardano/address.{Script}
-use cardano/assets.{AssetName, PolicyId, quantity_of}
+use cardano/assets.{AssetName, PolicyId, Value, quantity_of}
 use cardano/transaction.{Input, Output}
 use cocktail.{input_inline_datum}
 use types.{DepositIntentDatum, MValue}
@@ -28,6 +29,13 @@ pub fn list_foldl4(
       list_foldl4(xs, acc_a, acc_b, acc_c, acc_d, with, return)
     }
   }
+}
+
+pub fn to_mvalue(value: Value) -> MValue {
+  let data = cbor.serialise(value)
+  expect Some(mvalue_raw): Option<Data> = cbor.deserialise(data)
+  expect mvalue: MValue = mvalue_raw
+  mvalue
 }
 
 // attention: AssetName sorted in ascending lexicographic
@@ -54,7 +62,7 @@ pub fn combine_m_value(left_m_value: MValue, right_m_value: MValue) -> MValue {
     |> dict.to_pairs()
 }
 
-pub fn convert_m_value_to_usdm(
+pub fn convert_m_value_to_usd(
   m_value: MValue,
   prices: Pairs<PolicyId, Int>,
 ) -> Int {
@@ -80,20 +88,20 @@ pub fn convert_m_value_to_usdm(
 
 // attention: init mint value*10e6
 pub fn cal_lp_token_amount(
-  usdm_value: Int,
+  usd_value: Int,
   vault_balance: Int,
   total_lp: Int,
   operator_fee: Int,
 ) -> Int {
   if total_lp == 0 {
-    usdm_value * 1000000
+    usd_value * 1000000
   } else {
-    usdm_value * total_lp / ( vault_balance - operator_fee )
+    usd_value * total_lp / ( vault_balance - operator_fee )
   }
 }
 
 // 1. sum up intent_datum_m_value
-// 2. sum up intent_datum_m_value in usdm
+// 2. sum up intent_datum_m_value in usd
 // 3. sum up lp_token sent
 // 4. output lp_token to address in intent_datum
 
@@ -113,7 +121,7 @@ pub fn process_batched_deposit_intent_validation(
   let
     processed_indices,
     total_intent_datum_m_value,
-    total_intent_datum_usdm_value,
+    total_intent_datum_usd_value,
     total_lp_token_sent,
   <-
     list_foldl4(
@@ -126,7 +134,7 @@ pub fn process_batched_deposit_intent_validation(
         input,
         remaining_indices,
         cal_intent_datum_m_value,
-        cal_intent_datum_usdm_value,
+        cal_intent_datum_usd_value,
         cal_lp_token_sent,
         return,
       ) {
@@ -147,17 +155,17 @@ pub fn process_batched_deposit_intent_validation(
                   let new_cal_intent_datum_m_value =
                     combine_m_value(cal_intent_datum_m_value, amount)
 
-                  // - Calculate intent value in USDM
-                  // - Combine intent value with total intent value in USDM
-                  let intent_datum_usdm_value =
-                    convert_m_value_to_usdm(amount, prices)
-                  let new_cal_intent_datum_usdm_value =
-                    cal_intent_datum_usdm_value + intent_datum_usdm_value
+                  // - Calculate intent value in usd
+                  // - Combine intent value with total intent value in usd
+                  let intent_datum_usd_value =
+                    convert_m_value_to_usd(amount, prices)
+                  let new_cal_intent_datum_usd_value =
+                    cal_intent_datum_usd_value + intent_datum_usd_value
                   // - Calculate LP Token sent
                   // - Combine LP Token sent with total LP Token sent
                   let cal_lp_sent =
                     cal_lp_token_amount(
-                      intent_datum_usdm_value,
+                      intent_datum_usd_value,
                       vault_balance,
                       total_lp,
                       operator_fee,
@@ -170,7 +178,7 @@ pub fn process_batched_deposit_intent_validation(
                     return(
                       rest_of_indices,
                       new_cal_intent_datum_m_value,
-                      new_cal_intent_datum_usdm_value,
+                      new_cal_intent_datum_usd_value,
                       new_cal_lp_token_sent,
                     )
                   } else {
@@ -183,7 +191,7 @@ pub fn process_batched_deposit_intent_validation(
               return(
                 remaining_indices,
                 cal_intent_datum_m_value,
-                cal_intent_datum_usdm_value,
+                cal_intent_datum_usd_value,
                 cal_lp_token_sent,
               )
             }
@@ -192,7 +200,7 @@ pub fn process_batched_deposit_intent_validation(
             return(
               remaining_indices,
               cal_intent_datum_m_value,
-              cal_intent_datum_usdm_value,
+              cal_intent_datum_usd_value,
               cal_lp_token_sent,
             )
         }
@@ -202,7 +210,7 @@ pub fn process_batched_deposit_intent_validation(
     [] ->
       (
         total_intent_datum_m_value,
-        total_intent_datum_usdm_value,
+        total_intent_datum_usd_value,
         total_lp_token_sent,
       )
     _ -> fail @"Batch deposit intent UTxOs not fully processed"

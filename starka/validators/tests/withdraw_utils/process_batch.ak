@@ -8,7 +8,7 @@ use tests/utils.{
 }
 use types.{WithdrawalIntentDatum}
 use withdraw_utils.{
-  convert_lp_to_usdm, process_batched_withdrawal_intent_validation,
+  convert_lp_to_usd, process_batched_withdrawal_intent_validation,
 }
 
 pub const lp_amount_a: Int = 1000000
@@ -71,17 +71,17 @@ pub const vault_input_a =
       from_asset(
         #"c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c913",
         #"5553444d",
-        convert_lp_to_usdm(
+        convert_lp_to_usd(
           lp_amount_a,
           mock_total_lp,
           mock_vault_balance,
           mock_operator_fee,
-        ) + convert_lp_to_usdm(
+        ) + convert_lp_to_usd(
           lp_amount_b,
           mock_total_lp,
           mock_vault_balance,
           mock_operator_fee,
-        ) + convert_lp_to_usdm(
+        ) + convert_lp_to_usd(
           lp_amount_c,
           mock_total_lp,
           mock_vault_balance,
@@ -101,17 +101,17 @@ pub const vault_input_b =
       from_asset(
         #"c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c913",
         #"5553444d",
-        convert_lp_to_usdm(
+        convert_lp_to_usd(
           lp_amount_a,
           mock_total_lp,
           mock_vault_balance,
           mock_operator_fee,
-        ) + convert_lp_to_usdm(
+        ) + convert_lp_to_usd(
           lp_amount_b,
           mock_total_lp,
           mock_vault_balance,
           mock_operator_fee,
-        ) + convert_lp_to_usdm(
+        ) + convert_lp_to_usd(
           lp_amount_c,
           mock_total_lp,
           mock_vault_balance,
@@ -129,17 +129,17 @@ pub const vault_output =
     from_asset(
       #"c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c913",
       #"5553444d",
-      convert_lp_to_usdm(
+      convert_lp_to_usd(
         lp_amount_a,
         mock_total_lp,
         mock_vault_balance,
         mock_operator_fee,
-      ) + convert_lp_to_usdm(
+      ) + convert_lp_to_usd(
         lp_amount_b,
         mock_total_lp,
         mock_vault_balance,
         mock_operator_fee,
-      ) + convert_lp_to_usdm(
+      ) + convert_lp_to_usd(
         lp_amount_c,
         mock_total_lp,
         mock_vault_balance,
@@ -189,7 +189,7 @@ pub const intent_output_a =
     from_asset(
       #"c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c913",
       #"5553444d",
-      convert_lp_to_usdm(
+      convert_lp_to_usd(
         lp_amount_a,
         mock_total_lp,
         mock_vault_balance,
@@ -206,7 +206,7 @@ pub const intent_output_b =
     from_asset(
       #"c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c913",
       #"5553444d",
-      convert_lp_to_usdm(
+      convert_lp_to_usd(
         lp_amount_b,
         mock_total_lp,
         mock_vault_balance,
@@ -223,7 +223,7 @@ pub const intent_output_c =
     from_asset(
       #"c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c913",
       #"5553444d",
-      convert_lp_to_usdm(
+      convert_lp_to_usd(
         lp_amount_c,
         mock_total_lp,
         mock_vault_balance,
@@ -263,7 +263,7 @@ const incorrect_indices = [0, 1, 2]
 const excessive_indices = [0, 1, 2, 3]
 
 test process_batch_normal() {
-  let (total_intent_datum_lp_amount, total_intent_datum_lp_usdm_value) =
+  let (total_intent_datum_lp_amount, total_intent_datum_lp_usd_value) =
     process_batched_withdrawal_intent_validation(
       inputs,
       outputs,
@@ -275,17 +275,17 @@ test process_batch_normal() {
       mock_withdrawal_intent_script_hash,
     )
 
-  (total_intent_datum_lp_amount == lp_amount_a + lp_amount_b + lp_amount_c)? && (total_intent_datum_lp_usdm_value == convert_lp_to_usdm(
+  (total_intent_datum_lp_amount == lp_amount_a + lp_amount_b + lp_amount_c)? && (total_intent_datum_lp_usd_value == convert_lp_to_usd(
     lp_amount_a,
     mock_total_lp,
     mock_vault_balance,
     mock_operator_fee,
-  ) + convert_lp_to_usdm(
+  ) + convert_lp_to_usd(
     lp_amount_b,
     mock_total_lp,
     mock_vault_balance,
     mock_operator_fee,
-  ) + convert_lp_to_usdm(
+  ) + convert_lp_to_usd(
     lp_amount_c,
     mock_total_lp,
     mock_vault_balance,
@@ -294,7 +294,7 @@ test process_batch_normal() {
 }
 
 test process_batch_excessive_inputs() fail {
-  let (total_intent_datum_lp_amount, total_intent_datum_lp_usdm_value) =
+  let (total_intent_datum_lp_amount, total_intent_datum_lp_usd_value) =
     process_batched_withdrawal_intent_validation(
       excessive_inputs,
       outputs,
@@ -306,17 +306,17 @@ test process_batch_excessive_inputs() fail {
       mock_withdrawal_intent_script_hash,
     )
 
-  (total_intent_datum_lp_amount == lp_amount_a + lp_amount_b + lp_amount_c)? && (total_intent_datum_lp_usdm_value == convert_lp_to_usdm(
+  (total_intent_datum_lp_amount == lp_amount_a + lp_amount_b + lp_amount_c)? && (total_intent_datum_lp_usd_value == convert_lp_to_usd(
     lp_amount_a,
     mock_total_lp,
     mock_vault_balance,
     mock_operator_fee,
-  ) + convert_lp_to_usdm(
+  ) + convert_lp_to_usd(
     lp_amount_b,
     mock_total_lp,
     mock_vault_balance,
     mock_operator_fee,
-  ) + convert_lp_to_usdm(
+  ) + convert_lp_to_usd(
     lp_amount_c,
     mock_total_lp,
     mock_vault_balance,
@@ -325,7 +325,7 @@ test process_batch_excessive_inputs() fail {
 }
 
 test process_batch_insufficient_inputs() fail {
-  let (total_intent_datum_lp_amount, total_intent_datum_lp_usdm_value) =
+  let (total_intent_datum_lp_amount, total_intent_datum_lp_usd_value) =
     process_batched_withdrawal_intent_validation(
       insufficient_inputs,
       outputs,
@@ -337,17 +337,17 @@ test process_batch_insufficient_inputs() fail {
       mock_withdrawal_intent_script_hash,
     )
 
-  (total_intent_datum_lp_amount == lp_amount_a + lp_amount_b + lp_amount_c)? && (total_intent_datum_lp_usdm_value == convert_lp_to_usdm(
+  (total_intent_datum_lp_amount == lp_amount_a + lp_amount_b + lp_amount_c)? && (total_intent_datum_lp_usd_value == convert_lp_to_usd(
     lp_amount_a,
     mock_total_lp,
     mock_vault_balance,
     mock_operator_fee,
-  ) + convert_lp_to_usdm(
+  ) + convert_lp_to_usd(
     lp_amount_b,
     mock_total_lp,
     mock_vault_balance,
     mock_operator_fee,
-  ) + convert_lp_to_usdm(
+  ) + convert_lp_to_usd(
     lp_amount_c,
     mock_total_lp,
     mock_vault_balance,
@@ -356,7 +356,7 @@ test process_batch_insufficient_inputs() fail {
 }
 
 test process_batch_incorrect_outputs() fail {
-  let (total_intent_datum_lp_amount, total_intent_datum_lp_usdm_value) =
+  let (total_intent_datum_lp_amount, total_intent_datum_lp_usd_value) =
     process_batched_withdrawal_intent_validation(
       inputs,
       incorrect_outputs,
@@ -368,17 +368,17 @@ test process_batch_incorrect_outputs() fail {
       mock_withdrawal_intent_script_hash,
     )
 
-  (total_intent_datum_lp_amount == lp_amount_a + lp_amount_b + lp_amount_c)? && (total_intent_datum_lp_usdm_value == convert_lp_to_usdm(
+  (total_intent_datum_lp_amount == lp_amount_a + lp_amount_b + lp_amount_c)? && (total_intent_datum_lp_usd_value == convert_lp_to_usd(
     lp_amount_a,
     mock_total_lp,
     mock_vault_balance,
     mock_operator_fee,
-  ) + convert_lp_to_usdm(
+  ) + convert_lp_to_usd(
     lp_amount_b,
     mock_total_lp,
     mock_vault_balance,
     mock_operator_fee,
-  ) + convert_lp_to_usdm(
+  ) + convert_lp_to_usd(
     lp_amount_c,
     mock_total_lp,
     mock_vault_balance,
@@ -387,7 +387,7 @@ test process_batch_incorrect_outputs() fail {
 }
 
 test process_batch_incorrect_indices() fail {
-  let (total_intent_datum_lp_amount, total_intent_datum_lp_usdm_value) =
+  let (total_intent_datum_lp_amount, total_intent_datum_lp_usd_value) =
     process_batched_withdrawal_intent_validation(
       inputs,
       outputs,
@@ -399,17 +399,17 @@ test process_batch_incorrect_indices() fail {
       mock_withdrawal_intent_script_hash,
     )
 
-  (total_intent_datum_lp_amount == lp_amount_a + lp_amount_b + lp_amount_c)? && (total_intent_datum_lp_usdm_value == convert_lp_to_usdm(
+  (total_intent_datum_lp_amount == lp_amount_a + lp_amount_b + lp_amount_c)? && (total_intent_datum_lp_usd_value == convert_lp_to_usd(
     lp_amount_a,
     mock_total_lp,
     mock_vault_balance,
     mock_operator_fee,
-  ) + convert_lp_to_usdm(
+  ) + convert_lp_to_usd(
     lp_amount_b,
     mock_total_lp,
     mock_vault_balance,
     mock_operator_fee,
-  ) + convert_lp_to_usdm(
+  ) + convert_lp_to_usd(
     lp_amount_c,
     mock_total_lp,
     mock_vault_balance,
@@ -418,7 +418,7 @@ test process_batch_incorrect_indices() fail {
 }
 
 test process_batch_excessive_indices() fail {
-  let (total_intent_datum_lp_amount, total_intent_datum_lp_usdm_value) =
+  let (total_intent_datum_lp_amount, total_intent_datum_lp_usd_value) =
     process_batched_withdrawal_intent_validation(
       inputs,
       outputs,
@@ -430,17 +430,17 @@ test process_batch_excessive_indices() fail {
       mock_withdrawal_intent_script_hash,
     )
 
-  (total_intent_datum_lp_amount == lp_amount_a + lp_amount_b + lp_amount_c)? && (total_intent_datum_lp_usdm_value == convert_lp_to_usdm(
+  (total_intent_datum_lp_amount == lp_amount_a + lp_amount_b + lp_amount_c)? && (total_intent_datum_lp_usd_value == convert_lp_to_usd(
     lp_amount_a,
     mock_total_lp,
     mock_vault_balance,
     mock_operator_fee,
-  ) + convert_lp_to_usdm(
+  ) + convert_lp_to_usd(
     lp_amount_b,
     mock_total_lp,
     mock_vault_balance,
     mock_operator_fee,
-  ) + convert_lp_to_usdm(
+  ) + convert_lp_to_usd(
     lp_amount_c,
     mock_total_lp,
     mock_vault_balance,

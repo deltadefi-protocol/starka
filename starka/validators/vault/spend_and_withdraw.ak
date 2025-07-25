@@ -1,21 +1,28 @@
 use cardano/assets.{PolicyId}
 use cardano/transaction.{Mint, OutputReference, Transaction}
 use cocktail.{key_signed}
-use types.{VaultOracleDatum}
-use utils.{check_mint_redeemer_is_burn, get_vault_oracle_datum}
+use types.{PluggableLogic, VaultOracleDatum, VaultRedeemer, WithdrawFund}
+use utils.{
+  check_mint_redeemer_is_burn, get_vault_oracle_datum,
+  withdrawal_script_validated,
+}
 
 validator vault(oracle_nft: PolicyId) {
-  spend(_d, _r, _input: OutputReference, self: Transaction) {
-    let Transaction { inputs, redeemers, .. } = self
-
+  spend(_d, redeemer: VaultRedeemer, _input: OutputReference, self: Transaction) {
+    let Transaction { inputs, redeemers, withdrawals, .. } = self
     let vault_oracle_input_datum: VaultOracleDatum =
       inputs |> get_vault_oracle_datum(oracle_nft)
-    let VaultOracleDatum { withdrawal_intent_script_hash, .. } =
+    let VaultOracleDatum { withdrawal_intent_script_hash, pluggable_logic, .. } =
       vault_oracle_input_datum
+    when redeemer is {
+      WithdrawFund -> {
+        let mint_purpose = Mint(withdrawal_intent_script_hash)
 
-    let mint_purpose = Mint(withdrawal_intent_script_hash)
-
-    check_mint_redeemer_is_burn(mint_purpose, redeemers)?
+        check_mint_redeemer_is_burn(mint_purpose, redeemers)?
+      }
+      PluggableLogic ->
+        withdrawal_script_validated(withdrawals, pluggable_logic)
+    }
   }
 
   withdraw(_r, _a, self: Transaction) {

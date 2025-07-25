@@ -28,7 +28,7 @@ pub fn list_foldl3(
   }
 }
 
-pub fn convert_lp_to_usdm(
+pub fn convert_lp_to_usd(
   lp_amount: Int,
   total_lp: Int,
   vault_balance: Int,
@@ -37,7 +37,7 @@ pub fn convert_lp_to_usdm(
   lp_amount * ( vault_balance - operator_fee ) / total_lp
 }
 
-pub fn convert_value_to_usdm(value: Value, prices: Pairs<ByteArray, Int>) -> Int {
+pub fn convert_value_to_usd(value: Value, prices: Pairs<ByteArray, Int>) -> Int {
   let prices_dict = dict.from_pairs(prices)
   assets.reduce(
     value,
@@ -51,9 +51,9 @@ pub fn convert_value_to_usdm(value: Value, prices: Pairs<ByteArray, Int>) -> Int
   )
 }
 
-pub fn check_output_value_equal_to_lp_usdm_value(
+pub fn check_output_value_equal_to_lp_usd_value(
   output_value: Value,
-  lp_usdm_value: Int,
+  lp_usd_value: Int,
   prices: Pairs<ByteArray, Int>,
 ) -> Bool {
   let prices_dict = dict.from_pairs(prices)
@@ -66,12 +66,12 @@ pub fn check_output_value_equal_to_lp_usdm_value(
 
       acc + amount * price
     },
-  ) == lp_usdm_value
+  ) == lp_usd_value
 }
 
 // 1. sum up intent_datum_lp_amount for mint and update total_lp
-// 2. sum up intent_datum_lp_value in usdm for update hwm_lp_value
-// 3. output usdm/ada to address in intent_datum
+// 2. sum up intent_datum_lp_value in usd for update hwm_lp_value
+// 3. output usd/ada to address in intent_datum
 
 pub fn process_batched_withdrawal_intent_validation(
   inputs: List<Input>,
@@ -86,7 +86,7 @@ pub fn process_batched_withdrawal_intent_validation(
   let
     processed_indices,
     total_intent_datum_lp_amount,
-    total_intent_datum_lp_usdm_value,
+    total_intent_datum_lp_usd_value,
   <-
     list_foldl3(
       inputs,
@@ -97,7 +97,7 @@ pub fn process_batched_withdrawal_intent_validation(
         input,
         remaining_indices,
         cal_intent_datum_lp_amount,
-        cal_intent_datum_lp_usdm_value,
+        cal_intent_datum_lp_usd_value,
         return,
       ) {
         when input.output.address.payment_credential is {
@@ -117,30 +117,30 @@ pub fn process_batched_withdrawal_intent_validation(
                   let new_cal_intent_datum_lp_amount =
                     cal_intent_datum_lp_amount + amount
 
-                  // - Calculate intent value in USDM
-                  // - Combine intent value with total intent value in USDM
-                  let intent_datum_lp_usdm_value =
-                    convert_lp_to_usdm(
+                  // - Calculate intent value in usd
+                  // - Combine intent value with total intent value in usd
+                  let intent_datum_lp_usd_value =
+                    convert_lp_to_usd(
                       amount,
                       total_lp,
                       vault_balance,
                       operator_fee,
                     )
-                  let new_cal_intent_datum_lp_usdm_value =
-                    cal_intent_datum_lp_usdm_value + intent_datum_lp_usdm_value
+                  let new_cal_intent_datum_lp_usd_value =
+                    cal_intent_datum_lp_usd_value + intent_datum_lp_usd_value
 
                   // - Check the output value and address
                   let output_check =
-                    check_output_value_equal_to_lp_usdm_value(
+                    check_output_value_equal_to_lp_usd_value(
                       out_utxo.value,
-                      intent_datum_lp_usdm_value,
+                      intent_datum_lp_usd_value,
                       prices,
                     ) && out_utxo.address == lp_address
                   if output_check {
                     return(
                       rest_of_indices,
                       new_cal_intent_datum_lp_amount,
-                      new_cal_intent_datum_lp_usdm_value,
+                      new_cal_intent_datum_lp_usd_value,
                     )
                   } else {
                     fail @"Withdrawal intent output incorrect"
@@ -152,7 +152,7 @@ pub fn process_batched_withdrawal_intent_validation(
               return(
                 remaining_indices,
                 cal_intent_datum_lp_amount,
-                cal_intent_datum_lp_usdm_value,
+                cal_intent_datum_lp_usd_value,
               )
             }
           _ ->
@@ -160,13 +160,13 @@ pub fn process_batched_withdrawal_intent_validation(
             return(
               remaining_indices,
               cal_intent_datum_lp_amount,
-              cal_intent_datum_lp_usdm_value,
+              cal_intent_datum_lp_usd_value,
             )
         }
       },
     )
   when processed_indices is {
-    [] -> (total_intent_datum_lp_amount, total_intent_datum_lp_usdm_value)
+    [] -> (total_intent_datum_lp_amount, total_intent_datum_lp_usd_value)
     _ -> fail @"Batch withdrawal intent UTxOs not fully processed"
   }
 }

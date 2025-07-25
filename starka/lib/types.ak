@@ -67,6 +67,11 @@ pub type ProcessRedeemer {
 
 // 1 - Vault
 
+pub type VaultRedeemer {
+  WithdrawFund
+  PluggableLogic
+}
+
 // 2 - DepositIntent
 pub type IntentRedeemer {
   MintIntent

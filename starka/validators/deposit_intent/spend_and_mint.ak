@@ -110,7 +110,7 @@ validator deposit_intent(oracle_nft: PolicyId) {
           cal_operator_fee(vault_balance, hwm_lp_value, operator_charge)
         let (
           total_intent_datum_m_value,
-          total_intent_datum_usdm_value,
+          total_intent_datum_usd_value,
           total_lp_token_sent,
         ) =
           process_batched_deposit_intent_validation(
@@ -153,8 +153,8 @@ validator deposit_intent(oracle_nft: PolicyId) {
           vault_oracle_output_datum == VaultOracleDatum {
             ..vault_oracle_input_datum,
             total_lp: total_lp + total_lp_token_sent,
-            hwm_lp_value: vault_balance - operator_fee + total_intent_datum_usdm_value,
-            vault_cost: vault_cost + total_intent_datum_usdm_value,
+            hwm_lp_value: vault_balance - operator_fee + total_intent_datum_usd_value,
+            vault_cost: vault_cost + total_intent_datum_usd_value,
           }
 
         // - Check the LP token mint amount == total_lp_token_sent
