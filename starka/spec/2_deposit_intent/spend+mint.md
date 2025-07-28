@@ -10,13 +10,13 @@
 - `address`: receiver of `LP Token`
 - `amount`: `MValue` - marking the deposit balance
 
-## User Action
+## User Action - Spend
 
 1. Process Intent
 
    - `DepositIntent` is burnt
 
-## User Action
+## User Action - Mint
 
 1. Mint - Redeemer `RMint`
 
