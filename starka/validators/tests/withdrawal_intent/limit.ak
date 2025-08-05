@@ -50,7 +50,7 @@ const indices =
 const utxo_ref = mock_utxo_ref(0, 0)
 
 // current max = 18
-// MAX [mem: 14,000,100, cpu: 10,000,000,000]
+// MAX [mem: 14,000,000, cpu: 10,000,000,000]
 // PASS [mem: 13,492,908, cpu: 4,592,431,371]
 fn mock_burn_withdrawal_intent_tx() -> Transaction {
   let vault_oracle_input_value =
