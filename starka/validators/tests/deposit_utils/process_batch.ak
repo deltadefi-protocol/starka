@@ -9,7 +9,7 @@ use deposit_utils.{
 use mocktail.{mock_output, mock_pub_key_address, mock_utxo_ref}
 use tests/utils.{
   mock_deposit_intent_script_hash, mock_lp_decimal, mock_lp_token,
-  mock_operator_fee, mock_pluggable_logic, mock_total_lp, mock_vault_balance,
+  mock_operator_fee, mock_total_lp, mock_vault_balance,
 }
 use types.{DepositIntentDatum}
 
@@ -124,7 +124,7 @@ pub const intent_output_a =
     mock_pub_key_address(0, None),
     from_asset(
       mock_lp_token,
-      mock_pluggable_logic,
+      "",
       cal_lp_token_amount(
         convert_m_value_to_usd(m_value_a, prices),
         mock_vault_balance,
@@ -141,7 +141,7 @@ pub const intent_output_b =
     mock_pub_key_address(1, None),
     from_asset(
       mock_lp_token,
-      mock_pluggable_logic,
+      "",
       cal_lp_token_amount(
         convert_m_value_to_usd(m_value_b, prices),
         mock_vault_balance,
@@ -158,7 +158,7 @@ pub const intent_output_c =
     mock_pub_key_address(2, None),
     from_asset(
       mock_lp_token,
-      mock_pluggable_logic,
+      "",
       cal_lp_token_amount(
         convert_m_value_to_usd(m_value_c, prices),
         mock_vault_balance,
@@ -175,7 +175,7 @@ pub const intent_output_a_init =
     mock_pub_key_address(0, None),
     from_asset(
       mock_lp_token,
-      mock_pluggable_logic,
+      "",
       convert_m_value_to_usd(m_value_a, prices) * mock_lp_decimal,
     ),
     NoDatum,
@@ -187,7 +187,7 @@ pub const intent_output_b_init =
     mock_pub_key_address(1, None),
     from_asset(
       mock_lp_token,
-      mock_pluggable_logic,
+      "",
       convert_m_value_to_usd(m_value_b, prices) * mock_lp_decimal,
     ),
     NoDatum,
@@ -199,7 +199,7 @@ pub const intent_output_c_init =
     mock_pub_key_address(2, None),
     from_asset(
       mock_lp_token,
-      mock_pluggable_logic,
+      "",
       convert_m_value_to_usd(m_value_c, prices) * mock_lp_decimal,
     ),
     NoDatum,
@@ -246,7 +246,6 @@ test process_batch_normal() {
       prices,
       mock_deposit_intent_script_hash,
       mock_lp_token,
-      mock_pluggable_logic,
     )
 
   trace (
@@ -304,7 +303,6 @@ test process_batch_excessive_inputs() fail {
       prices,
       mock_deposit_intent_script_hash,
       mock_lp_token,
-      mock_pluggable_logic,
     )
 
   total_intent_datum_m_value == combine_m_value(
@@ -337,7 +335,6 @@ test process_batch_insufficient_inputs() fail {
       prices,
       mock_deposit_intent_script_hash,
       mock_lp_token,
-      mock_pluggable_logic,
     )
 
   total_intent_datum_m_value == combine_m_value(
@@ -370,7 +367,6 @@ test process_batch_incorrect_outputs() fail {
       prices,
       mock_deposit_intent_script_hash,
       mock_lp_token,
-      mock_pluggable_logic,
     )
 
   total_intent_datum_m_value == combine_m_value(
@@ -403,7 +399,6 @@ test process_batch_incorrect_indices() fail {
       prices,
       mock_deposit_intent_script_hash,
       mock_lp_token,
-      mock_pluggable_logic,
     )
 
   total_intent_datum_m_value == combine_m_value(
@@ -433,7 +428,6 @@ test process_batch_init() {
       prices,
       mock_deposit_intent_script_hash,
       mock_lp_token,
-      mock_pluggable_logic,
       mock_lp_decimal,
     )
 

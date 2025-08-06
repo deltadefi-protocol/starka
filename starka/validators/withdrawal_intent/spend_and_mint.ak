@@ -18,15 +18,14 @@ use types.{
 }
 use utils.{
   cal_operator_fee, check_mint_redeemer_is_burn, get_app_oracle_datum,
-  get_vault_oracle_datum, get_vault_oracle_input, verify_pub_keys,
-  verify_signatures,
+  get_vault_oracle_input, verify_pub_keys, verify_signatures,
 }
 use withdraw_utils.{
   check_output_value_equal_to_lp_usd_value, convert_value_to_usd,
   process_batched_withdrawal_intent_validation,
 }
 
-validator withdrawal_intent(oracle_nft: PolicyId) {
+validator withdrawal_intent(oracle_nft: PolicyId, lp_token: PolicyId) {
   spend(
     _datum: Option<WithdrawalIntentDatum>,
     _r,
@@ -55,11 +54,6 @@ validator withdrawal_intent(oracle_nft: PolicyId) {
       )
     is {
       (MintIntent, [intent_output]) -> {
-        let vault_oracle_input_datum: VaultOracleDatum =
-          reference_inputs |> get_vault_oracle_datum(oracle_nft)
-
-        let VaultOracleDatum { lp_token, pluggable_logic, .. } =
-          vault_oracle_input_datum
         let is_mint_value_correct =
           policy_only_minted_token(mint, policy_id, "", 1)
         expect WithdrawalIntentDatum { amount, .. }: WithdrawalIntentDatum =
@@ -67,7 +61,7 @@ validator withdrawal_intent(oracle_nft: PolicyId) {
 
         let is_lp_locked =
           without_lovelace(intent_output.value) == (
-            from_asset(lp_token, pluggable_logic, amount)
+            from_asset(lp_token, "", amount)
               |> add(policy_id, "", 1)
           )
         is_lp_locked? && is_mint_value_correct?
@@ -87,7 +81,6 @@ validator withdrawal_intent(oracle_nft: PolicyId) {
 
         let VaultOracleDatum {
           app_oracle,
-          pluggable_logic,
           node_pub_key,
           total_lp,
           hwm_lp_value,
@@ -150,7 +143,7 @@ validator withdrawal_intent(oracle_nft: PolicyId) {
           policy_only_minted_token(
             mint,
             lp_token,
-            pluggable_logic,
+            "",
             -total_intent_datum_lp_amount,
           )
 

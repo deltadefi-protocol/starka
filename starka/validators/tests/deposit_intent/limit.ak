@@ -14,9 +14,9 @@ use tests/utils.{
   mock_app_deposit_request_address, mock_app_deposit_request_token,
   mock_app_oracle, mock_app_oracle_address, mock_deposit_intent_script_hash,
   mock_input_oracle_datum, mock_lp_decimal, mock_lp_token, mock_message,
-  mock_operator_fee, mock_pluggable_logic, mock_signatures, mock_total_lp,
-  mock_vault_balance, mock_vault_cost, mock_vault_oracle,
-  mock_vault_oracle_address, mock_vault_oracle_datum,
+  mock_operator_fee, mock_signatures, mock_total_lp, mock_vault_balance,
+  mock_vault_cost, mock_vault_oracle, mock_vault_oracle_address,
+  mock_vault_oracle_datum,
 }
 use types.{BurnIntent, VaultOracleDatum}
 
@@ -224,7 +224,7 @@ fn mock_burn_deposit_intent_tx() -> Transaction {
     |> ref_tx_in_inline_datum(True, mock_input_oracle_datum)
     |> tx_out(True, mock_vault_oracle_address, vault_oracle_output_value)
     |> tx_out_inline_datum(True, vault_output_datum)
-    |> mint(True, total_lp_token_minted, mock_lp_token, mock_pluggable_logic)
+    |> mint(True, total_lp_token_minted, mock_lp_token, "")
     |> mint(True, -intent_burn_amount, mock_deposit_intent_script_hash, "")
     |> tx_out(
         True,

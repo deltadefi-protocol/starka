@@ -78,7 +78,6 @@ validator deposit_intent(oracle_nft: PolicyId, lp_decimal: Int) {
 
         let VaultOracleDatum {
           app_oracle,
-          pluggable_logic,
           node_pub_key,
           total_lp,
           hwm_lp_value,
@@ -125,7 +124,6 @@ validator deposit_intent(oracle_nft: PolicyId, lp_decimal: Int) {
                 prices,
                 policy_id,
                 lp_token,
-                pluggable_logic,
                 lp_decimal,
               )
             _ ->
@@ -139,7 +137,6 @@ validator deposit_intent(oracle_nft: PolicyId, lp_decimal: Int) {
                 prices,
                 policy_id,
                 lp_token,
-                pluggable_logic,
               )
           }
 
@@ -176,12 +173,7 @@ validator deposit_intent(oracle_nft: PolicyId, lp_decimal: Int) {
 
         // - Check the LP token mint amount == total_lp_token_sent
         let lp_mint_check =
-          policy_only_minted_token(
-            mint,
-            lp_token,
-            pluggable_logic,
-            total_lp_token_sent,
-          )
+          policy_only_minted_token(mint, lp_token, "", total_lp_token_sent)
 
         // - Check the intent burn amount == length of batched intents
         let intent_burn_check =

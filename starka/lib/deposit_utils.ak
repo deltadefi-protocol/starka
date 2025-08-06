@@ -110,7 +110,6 @@ pub fn process_batched_deposit_intent_validation(
   prices: Pairs<ByteArray, Int>,
   script_hash: ScriptHash,
   lp_token: PolicyId,
-  pluggable_logic: ByteArray,
 ) -> (MValue, Int, Int) {
   let empty_m_value: MValue = []
   let
@@ -168,7 +167,7 @@ pub fn process_batched_deposit_intent_validation(
                   let new_cal_lp_token_sent = cal_lp_sent + cal_lp_token_sent
                   // - Check the output value and address
                   let output_check =
-                    quantity_of(out_utxo.value, lp_token, pluggable_logic) == cal_lp_sent && out_utxo.address == lp_address
+                    quantity_of(out_utxo.value, lp_token, "") == cal_lp_sent && out_utxo.address == lp_address
                   if output_check {
                     return(
                       rest_of_indices,
@@ -219,7 +218,6 @@ pub fn process_batched_deposit_intent_validation_init(
   prices: Pairs<ByteArray, Int>,
   script_hash: ScriptHash,
   lp_token: PolicyId,
-  pluggable_logic: ByteArray,
   lp_decimal: Int,
 ) -> (MValue, Int, Int) {
   let empty_m_value: MValue = []
@@ -272,7 +270,7 @@ pub fn process_batched_deposit_intent_validation_init(
                   let new_cal_lp_token_sent = cal_lp_sent + cal_lp_token_sent
                   // - Check the output value and address
                   let output_check =
-                    quantity_of(out_utxo.value, lp_token, pluggable_logic) == cal_lp_sent && out_utxo.address == lp_address
+                    quantity_of(out_utxo.value, lp_token, "") == cal_lp_sent && out_utxo.address == lp_address
                   if output_check {
                     return(
                       rest_of_indices,

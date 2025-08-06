@@ -3,8 +3,8 @@ use cardano/assets.{from_asset, from_lovelace}
 use cardano/transaction.{InlineDatum, Input, NoDatum}
 use mocktail.{mock_output, mock_pub_key_address, mock_utxo_ref}
 use tests/utils.{
-  mock_lp_token, mock_operator_fee, mock_pluggable_logic, mock_total_lp,
-  mock_vault_balance, mock_vault_script_hash, mock_withdrawal_intent_script_hash,
+  mock_lp_token, mock_operator_fee, mock_total_lp, mock_vault_balance,
+  mock_vault_script_hash, mock_withdrawal_intent_script_hash,
 }
 use types.{WithdrawalIntentDatum}
 use withdraw_utils.{
@@ -155,7 +155,7 @@ pub const intent_input_a =
     output_reference: mock_utxo_ref(0, 0),
     output: mock_output(
       from_script(mock_withdrawal_intent_script_hash),
-      from_asset(mock_lp_token, mock_pluggable_logic, lp_amount_a),
+      from_asset(mock_lp_token, "", lp_amount_a),
       InlineDatum(withdrawal_intent_datum_a),
       None,
     ),
@@ -166,7 +166,7 @@ pub const intent_input_b =
     output_reference: mock_utxo_ref(1, 0),
     output: mock_output(
       from_script(mock_withdrawal_intent_script_hash),
-      from_asset(mock_lp_token, mock_pluggable_logic, lp_amount_b),
+      from_asset(mock_lp_token, "", lp_amount_b),
       InlineDatum(withdrawal_intent_datum_b),
       None,
     ),
@@ -177,7 +177,7 @@ pub const intent_input_c =
     output_reference: mock_utxo_ref(2, 0),
     output: mock_output(
       from_script(mock_withdrawal_intent_script_hash),
-      from_asset(mock_lp_token, mock_pluggable_logic, lp_amount_c),
+      from_asset(mock_lp_token, "", lp_amount_c),
       InlineDatum(withdrawal_intent_datum_c),
       None,
     ),
