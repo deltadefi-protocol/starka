@@ -10,13 +10,13 @@
 - `address`: receiver of vault value
 - `amount`: `Int` - marking the withdrawal lp tokens
 
-## User Action
+## User Action - Spend
 
 1. Process Intent
 
    - `WithdrawalIntent` is burnt
 
-## User Action
+## User Action - Mint
 
 1. Mint - Redeemer `RMint`
 
