@@ -91,8 +91,12 @@ pub fn cal_lp_token_amount(
   vault_balance: Int,
   total_lp: Int,
   operator_fee: Int,
+  lp_decimal: Int,
 ) -> Int {
-  usd_value * total_lp / ( vault_balance - operator_fee )
+  when total_lp is {
+    0 -> usd_value * lp_decimal
+    _ -> usd_value * total_lp / ( vault_balance - operator_fee )
+  }
 }
 
 // 1. sum up intent_datum_m_value
@@ -110,6 +114,7 @@ pub fn process_batched_deposit_intent_validation(
   prices: Pairs<ByteArray, Int>,
   script_hash: ScriptHash,
   lp_token: PolicyId,
+  lp_decimal: Int,
 ) -> (MValue, Int, Int) {
   let empty_m_value: MValue = []
   let
@@ -163,110 +168,8 @@ pub fn process_batched_deposit_intent_validation(
                       vault_balance,
                       total_lp,
                       operator_fee,
+                      lp_decimal,
                     )
-                  let new_cal_lp_token_sent = cal_lp_sent + cal_lp_token_sent
-                  // - Check the output value and address
-                  let output_check =
-                    quantity_of(out_utxo.value, lp_token, "") == cal_lp_sent && out_utxo.address == lp_address
-                  if output_check {
-                    return(
-                      rest_of_indices,
-                      new_cal_intent_datum_m_value,
-                      new_cal_intent_datum_usd_value,
-                      new_cal_lp_token_sent,
-                    )
-                  } else {
-                    fail @"Deposit intent output incorrect"
-                  }
-                }
-              }
-            } else {
-              // - Not the deposit intent script address, skip
-              return(
-                remaining_indices,
-                cal_intent_datum_m_value,
-                cal_intent_datum_usd_value,
-                cal_lp_token_sent,
-              )
-            }
-          _ ->
-            // - Not a script address, skip
-            return(
-              remaining_indices,
-              cal_intent_datum_m_value,
-              cal_intent_datum_usd_value,
-              cal_lp_token_sent,
-            )
-        }
-      },
-    )
-  when processed_indices is {
-    [] ->
-      (
-        total_intent_datum_m_value,
-        total_intent_datum_usd_value,
-        total_lp_token_sent,
-      )
-    _ -> fail @"Batch deposit intent UTxOs not fully processed"
-  }
-}
-
-pub fn process_batched_deposit_intent_validation_init(
-  inputs: List<Input>,
-  outputs: List<Output>,
-  indices: List<Int>,
-  prices: Pairs<ByteArray, Int>,
-  script_hash: ScriptHash,
-  lp_token: PolicyId,
-  lp_decimal: Int,
-) -> (MValue, Int, Int) {
-  let empty_m_value: MValue = []
-  let
-    processed_indices,
-    total_intent_datum_m_value,
-    total_intent_datum_usd_value,
-    total_lp_token_sent,
-  <-
-    list_foldl4(
-      inputs,
-      indices,
-      empty_m_value,
-      0,
-      0,
-      fn(
-        input,
-        remaining_indices,
-        cal_intent_datum_m_value,
-        cal_intent_datum_usd_value,
-        cal_lp_token_sent,
-        return,
-      ) {
-        when input.output.address.payment_credential is {
-          Script(script) ->
-            if script == script_hash {
-              // Found the deposit intent script address
-              when remaining_indices is {
-                [] -> fail @"More UTxOs are spent than specified"
-                [output_index, ..rest_of_indices] -> {
-                  expect Some(out_utxo) = outputs |> list.at(output_index)
-                  expect input_datum: DepositIntentDatum =
-                    input_inline_datum(input)
-
-                  let DepositIntentDatum { lp_address, amount } = input_datum
-
-                  // - Combine MValue in intent with total intent value
-                  let new_cal_intent_datum_m_value =
-                    combine_m_value(cal_intent_datum_m_value, amount)
-
-                  // - Calculate intent value in usd
-                  // - Combine intent value with total intent value in usd
-                  let intent_datum_usd_value =
-                    convert_m_value_to_usd(amount, prices)
-                  let new_cal_intent_datum_usd_value =
-                    cal_intent_datum_usd_value + intent_datum_usd_value
-                  // - Calculate LP Token sent
-                  // - Combine LP Token sent with total LP Token sent
-                  let cal_lp_sent = intent_datum_usd_value * lp_decimal
                   let new_cal_lp_token_sent = cal_lp_sent + cal_lp_token_sent
                   // - Check the output value and address
                   let output_check =

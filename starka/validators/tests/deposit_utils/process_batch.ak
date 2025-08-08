@@ -4,7 +4,6 @@ use cardano/transaction.{InlineDatum, Input, NoDatum}
 use deposit_utils.{
   cal_lp_token_amount, combine_m_value, convert_m_value_to_usd,
   process_batched_deposit_intent_validation,
-  process_batched_deposit_intent_validation_init,
 }
 use mocktail.{mock_output, mock_pub_key_address, mock_utxo_ref}
 use tests/utils.{
@@ -130,6 +129,7 @@ pub const intent_output_a =
         mock_vault_balance,
         mock_total_lp,
         mock_operator_fee,
+        mock_lp_decimal,
       ),
     ),
     NoDatum,
@@ -147,6 +147,7 @@ pub const intent_output_b =
         mock_vault_balance,
         mock_total_lp,
         mock_operator_fee,
+        mock_lp_decimal,
       ),
     ),
     NoDatum,
@@ -164,6 +165,7 @@ pub const intent_output_c =
         mock_vault_balance,
         mock_total_lp,
         mock_operator_fee,
+        mock_lp_decimal,
       ),
     ),
     NoDatum,
@@ -246,6 +248,7 @@ test process_batch_normal() {
       prices,
       mock_deposit_intent_script_hash,
       mock_lp_token,
+      mock_lp_decimal,
     )
 
   trace (
@@ -258,6 +261,7 @@ test process_batch_normal() {
       mock_vault_balance,
       mock_total_lp,
       mock_operator_fee,
+      mock_lp_decimal,
     ),
   )
   (total_intent_datum_m_value == combine_m_value(
@@ -274,16 +278,19 @@ test process_batch_normal() {
     mock_vault_balance,
     mock_total_lp,
     mock_operator_fee,
+    mock_lp_decimal,
   ) + cal_lp_token_amount(
     convert_m_value_to_usd(m_value_b, prices),
     mock_vault_balance,
     mock_total_lp,
     mock_operator_fee,
+    mock_lp_decimal,
   ) + cal_lp_token_amount(
     convert_m_value_to_usd(m_value_c, prices),
     mock_vault_balance,
     mock_total_lp,
     mock_operator_fee,
+    mock_lp_decimal,
   ))?
 }
 
@@ -303,6 +310,7 @@ test process_batch_excessive_inputs() fail {
       prices,
       mock_deposit_intent_script_hash,
       mock_lp_token,
+      mock_lp_decimal,
     )
 
   total_intent_datum_m_value == combine_m_value(
@@ -316,6 +324,7 @@ test process_batch_excessive_inputs() fail {
     mock_vault_balance,
     mock_total_lp,
     mock_operator_fee,
+    mock_lp_decimal,
   )
 }
 
@@ -335,6 +344,7 @@ test process_batch_insufficient_inputs() fail {
       prices,
       mock_deposit_intent_script_hash,
       mock_lp_token,
+      mock_lp_decimal,
     )
 
   total_intent_datum_m_value == combine_m_value(
@@ -348,6 +358,7 @@ test process_batch_insufficient_inputs() fail {
     mock_vault_balance,
     mock_total_lp,
     mock_operator_fee,
+    mock_lp_decimal,
   )
 }
 
@@ -367,6 +378,7 @@ test process_batch_incorrect_outputs() fail {
       prices,
       mock_deposit_intent_script_hash,
       mock_lp_token,
+      mock_lp_decimal,
     )
 
   total_intent_datum_m_value == combine_m_value(
@@ -380,6 +392,7 @@ test process_batch_incorrect_outputs() fail {
     mock_vault_balance,
     mock_total_lp,
     mock_operator_fee,
+    mock_lp_decimal,
   )
 }
 
@@ -399,6 +412,7 @@ test process_batch_incorrect_indices() fail {
       prices,
       mock_deposit_intent_script_hash,
       mock_lp_token,
+      mock_lp_decimal,
     )
 
   total_intent_datum_m_value == combine_m_value(
@@ -412,6 +426,7 @@ test process_batch_incorrect_indices() fail {
     mock_vault_balance,
     mock_total_lp,
     mock_operator_fee,
+    mock_lp_decimal,
   )
 }
 
@@ -421,10 +436,13 @@ test process_batch_init() {
     total_intent_datum_usd_value,
     total_lp_token_sent,
   ) =
-    process_batched_deposit_intent_validation_init(
+    process_batched_deposit_intent_validation(
       inputs,
       outputs_init,
       indices,
+      mock_vault_balance,
+      0,
+      mock_operator_fee,
       prices,
       mock_deposit_intent_script_hash,
       mock_lp_token,

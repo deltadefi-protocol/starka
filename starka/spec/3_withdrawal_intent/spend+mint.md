@@ -3,6 +3,7 @@
 ## Parameter
 
 - `oracle_nft`: The policy id of `OracleNFT`
+- `lp_token`: The policy id of `lp_token`
 
 ## Datum
 

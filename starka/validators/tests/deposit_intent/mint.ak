@@ -213,16 +213,19 @@ fn mock_burn_deposit_intent_tx(
         mock_vault_balance,
         mock_total_lp,
         mock_operator_fee,
+        mock_lp_decimal,
       ) + cal_lp_token_amount(
         convert_m_value_to_usd(m_value_b, prices),
         mock_vault_balance,
         mock_total_lp,
         mock_operator_fee,
+        mock_lp_decimal,
       ) + cal_lp_token_amount(
         convert_m_value_to_usd(m_value_c, prices),
         mock_vault_balance,
         mock_total_lp,
         mock_operator_fee,
+        mock_lp_decimal,
       )
     } else {
       cal_lp_token_amount(
@@ -230,16 +233,19 @@ fn mock_burn_deposit_intent_tx(
         mock_vault_balance,
         mock_total_lp,
         mock_operator_fee,
+        mock_lp_decimal,
       ) + cal_lp_token_amount(
         convert_m_value_to_usd(m_value_b, prices),
         mock_vault_balance,
         mock_total_lp,
         mock_operator_fee,
+        mock_lp_decimal,
       ) + cal_lp_token_amount(
         convert_m_value_to_usd(m_value_c, prices),
         mock_vault_balance,
         mock_total_lp,
         mock_operator_fee,
+        mock_lp_decimal,
       ) + 1
     }
 

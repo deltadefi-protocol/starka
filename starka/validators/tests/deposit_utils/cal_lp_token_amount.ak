@@ -1,5 +1,6 @@
 use deposit_utils
-use utils.{cal_operator_fee}
+use tests/utils.{mock_lp_decimal}
+use utils.{cal_operator_fee} as cal_operator_fee
 
 // a: operator fee = 0
 const hwm_lp_value_a = 100
@@ -27,6 +28,7 @@ test cal_a() {
       vault_balance_a,
       total_lp_a,
       operator_fee_a,
+      mock_lp_decimal,
     )
   cal == 83 && cal != 82
 }
@@ -38,6 +40,7 @@ test cal_b() {
       vault_balance_b,
       total_lp_b,
       operator_fee_b,
+      mock_lp_decimal,
     )
   (cal == 83)?
 }
@@ -49,11 +52,13 @@ test cal_c() {
       vault_balance_b,
       total_lp_b,
       operator_fee_b,
+      mock_lp_decimal,
     )
   (cal == 0)?
 }
 
 test cal_4() {
-  let cal = deposit_utils.cal_lp_token_amount(1, 1, 0, operator_fee_a)
-  (cal == 0)?
+  let cal =
+    deposit_utils.cal_lp_token_amount(1, 1, 0, operator_fee_a, mock_lp_decimal)
+  (cal == 1000000)?
 }
