@@ -18,7 +18,6 @@ validator lp_token(oracle_nft: PolicyId) {
     let mint_purpose =
       when redeemer is {
         ProcessDeposit -> Mint(deposit_intent_script_hash)
-
         ProcessWithdrawal -> Mint(withdrawal_intent_script_hash)
       }
 

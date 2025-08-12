@@ -76,12 +76,13 @@ pub type VaultRedeemer {
   PluggableLogic
 }
 
-// 2 - DepositIntent
+// DepositIntent + WithdrawalIntent
 pub type IntentRedeemer {
   MintIntent
   BurnIntent(List<Int>, ByteArray, List<ByteArray>)
 }
 
+// 2. DepositIntent
 pub type Message {
   vault_balance: Int,
   prices: Pairs<ByteArray, Int>,
