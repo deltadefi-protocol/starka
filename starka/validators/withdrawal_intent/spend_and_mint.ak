@@ -86,7 +86,7 @@ validator withdrawal_intent(oracle_nft: PolicyId, lp_token: PolicyId) {
           hwm_lp_value,
           lp_token,
           vault_cost,
-          operator_charge,
+          operator_charge_percentage,
           operator_key,
           vault_script_hash,
           ..
@@ -109,7 +109,11 @@ validator withdrawal_intent(oracle_nft: PolicyId, lp_token: PolicyId) {
           signed_data
 
         let operator_fee =
-          cal_operator_fee(vault_balance, hwm_lp_value, operator_charge)
+          cal_operator_fee(
+            vault_balance,
+            hwm_lp_value,
+            operator_charge_percentage,
+          )
         let (total_intent_datum_lp_amount, total_intent_datum_lp_usd_value) =
           process_batched_withdrawal_intent_validation(
             inputs,

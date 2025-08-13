@@ -124,10 +124,14 @@ pub const mock_vault_balance = 3641915286
 
 pub const mock_hwm_lp_value = 3000000000
 
-pub const mock_operator_charge = 50
+pub const mock_operator_charge_percentage = 50
 
 pub const mock_operator_fee =
-  cal_operator_fee(mock_vault_balance, mock_hwm_lp_value, mock_operator_charge)
+  cal_operator_fee(
+    mock_vault_balance,
+    mock_hwm_lp_value,
+    mock_operator_charge_percentage,
+  )
 
 pub const mock_operator_key = mock_pub_key_hash(10)
 
@@ -148,7 +152,7 @@ pub const mock_vault_oracle_datum: VaultOracleDatum =
     node_pub_key: mock_node_pub_keys,
     total_lp: mock_total_lp,
     hwm_lp_value: mock_hwm_lp_value,
-    operator_charge: mock_operator_charge,
+    operator_charge_percentage: mock_operator_charge_percentage,
     operator_key: mock_operator_key,
     vault_cost: mock_vault_cost,
     vault_script_hash: mock_vault_script_hash,

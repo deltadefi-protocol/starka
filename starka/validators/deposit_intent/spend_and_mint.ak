@@ -80,7 +80,7 @@ validator deposit_intent(oracle_nft: PolicyId, lp_decimal: Int) {
           hwm_lp_value,
           lp_token,
           vault_cost,
-          operator_charge,
+          operator_charge_percentage,
           ..
         } = vault_oracle_input_datum
 
@@ -106,7 +106,11 @@ validator deposit_intent(oracle_nft: PolicyId, lp_decimal: Int) {
           signed_data
 
         let operator_fee =
-          cal_operator_fee(vault_balance, hwm_lp_value, operator_charge)
+          cal_operator_fee(
+            vault_balance,
+            hwm_lp_value,
+            operator_charge_percentage,
+          )
         let (
           total_intent_datum_m_value,
           total_intent_datum_usd_value,

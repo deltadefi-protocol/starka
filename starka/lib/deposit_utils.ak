@@ -112,7 +112,7 @@ pub fn process_batched_deposit_intent_validation(
   total_lp: Int,
   operator_fee: Int,
   prices: Pairs<ByteArray, Int>,
-  script_hash: ScriptHash,
+  deposit_intent_script_hash: ScriptHash,
   lp_token: PolicyId,
   lp_decimal: Int,
 ) -> (MValue, Int, Int) {
@@ -139,7 +139,7 @@ pub fn process_batched_deposit_intent_validation(
       ) {
         when input.output.address.payment_credential is {
           Script(script) ->
-            if script == script_hash {
+            if script == deposit_intent_script_hash {
               // Found the deposit intent script address
               when remaining_indices is {
                 [] -> fail @"More UTxOs are spent than specified"

@@ -116,12 +116,12 @@ pub fn verify_signatures(
 pub fn cal_operator_fee(
   vault_balance: Int,
   hwm_lp_value: Int,
-  operator_charge: Int,
+  operator_charge_percentage: Int,
 ) -> Int {
   if vault_balance <= hwm_lp_value {
     0
   } else {
-    ( vault_balance - hwm_lp_value ) * operator_charge / 100
+    ( vault_balance - hwm_lp_value ) * operator_charge_percentage / 100
   }
 }
 

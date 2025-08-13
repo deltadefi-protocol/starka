@@ -670,7 +670,7 @@
               "$ref": "#/definitions/Int"
             },
             {
-              "title": "operator_charge",
+              "title": "operator_charge_percentage",
               "$ref": "#/definitions/Int"
             },
             {

@@ -9,7 +9,7 @@
 - `operator_pub_key`: List<VerificationKey>
 - `total_lp`: Int
 - `hwm_lp_value`: Int
-- `operator_charge`: Int
+- `operator_charge_percentage`: Int
 - `operator_key`: VerificationKeyHash
 - `vault_cost`: Int
 - `vault_script_hash`: ByteArray,
