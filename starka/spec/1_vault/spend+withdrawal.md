@@ -12,7 +12,7 @@
 
 2. PluggableLogic
 
-   - `pluggable_logic` is mint with Redeemer `ArbitrageIntentBurn`
+   - Withdrawal Script `pluggable_logic` is validated
 
 ## User Action - Withdrawal
 

@@ -66,11 +66,6 @@ pub type ProcessRedeemer {
 }
 
 // 1 - Vault
-pub type ArbitrageIntentRedeemer {
-  ArbitrageMintIntent
-  ArbitrageBurnIntent(List<Int>)
-}
-
 pub type VaultRedeemer {
   WithdrawFund
   PluggableLogic
