@@ -1,5 +1,5 @@
 use cardano/address.{from_script}
-use cardano/assets.{from_asset, from_asset_list}
+use cardano/assets.{AssetName, PolicyId, from_asset, from_asset_list}
 use cardano/transaction.{InlineDatum, Input, NoDatum}
 use deposit_utils.{
   cal_lp_token_amount, combine_m_value, convert_m_value_to_usd,
@@ -12,10 +12,13 @@ use tests/utils.{
 }
 use types.{DepositIntentDatum}
 
-pub const prices: Pairs<ByteArray, Int> =
+pub const prices: Pairs<(PolicyId, AssetName), Int> =
   [
-    Pair(#"", 2),
-    Pair(#"c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c9135553444d", 1),
+    Pair((#"", #""), 2),
+    Pair(
+      (#"c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c913", #"5553444d"),
+      1,
+    ),
   ]
 
 pub const m_value_a =

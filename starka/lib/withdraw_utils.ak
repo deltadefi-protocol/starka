@@ -1,9 +1,8 @@
-use aiken/collection/dict
 use aiken/collection/list
+use aiken/collection/pairs
 use aiken/crypto.{ScriptHash}
-use aiken/primitive/bytearray
 use cardano/address.{Script}
-use cardano/assets.{Value}
+use cardano/assets.{AssetName, PolicyId, Value}
 use cardano/transaction.{Input, Output}
 use cocktail.{input_inline_datum}
 use types.{WithdrawalIntentDatum}
@@ -37,14 +36,15 @@ pub fn convert_lp_to_usd(
   lp_amount * ( vault_balance - operator_fee ) / total_lp
 }
 
-pub fn convert_value_to_usd(value: Value, prices: Pairs<ByteArray, Int>) -> Int {
-  let prices_dict = dict.from_pairs(prices)
+pub fn convert_value_to_usd(
+  value: Value,
+  prices: Pairs<(PolicyId, AssetName), Int>,
+) -> Int {
   assets.reduce(
     value,
     0,
     fn(policy_id, asset_name, amount, acc) {
-      expect Some(price) =
-        prices_dict |> dict.get(bytearray.concat(policy_id, asset_name))
+      expect Some(price) = prices |> pairs.get_first((policy_id, asset_name))
 
       acc + amount * price
     },
@@ -54,15 +54,13 @@ pub fn convert_value_to_usd(value: Value, prices: Pairs<ByteArray, Int>) -> Int 
 pub fn check_output_value_equal_to_lp_usd_value(
   output_value: Value,
   lp_usd_value: Int,
-  prices: Pairs<ByteArray, Int>,
+  prices: Pairs<(PolicyId, AssetName), Int>,
 ) -> Bool {
-  let prices_dict = dict.from_pairs(prices)
   assets.reduce(
     output_value,
     0,
     fn(policy_id, asset_name, amount, acc) {
-      expect Some(price) =
-        prices_dict |> dict.get(bytearray.concat(policy_id, asset_name))
+      expect Some(price) = prices |> pairs.get_first((policy_id, asset_name))
 
       acc + amount * price
     },
@@ -80,7 +78,7 @@ pub fn process_batched_withdrawal_intent_validation(
   vault_balance: Int,
   total_lp: Int,
   operator_fee: Int,
-  prices: Pairs<ByteArray, Int>,
+  prices: Pairs<(PolicyId, AssetName), Int>,
   script_hash: ScriptHash,
 ) -> (Int, Int) {
   let

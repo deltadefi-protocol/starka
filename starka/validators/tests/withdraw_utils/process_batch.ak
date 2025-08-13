@@ -1,5 +1,5 @@
 use cardano/address.{from_script}
-use cardano/assets.{from_asset, from_lovelace}
+use cardano/assets.{AssetName, PolicyId, from_asset, from_lovelace}
 use cardano/transaction.{InlineDatum, Input, NoDatum}
 use mocktail.{mock_output, mock_pub_key_address, mock_utxo_ref}
 use tests/utils.{
@@ -17,10 +17,13 @@ pub const lp_amount_b: Int = 2000000
 
 pub const lp_amount_c: Int = 1000
 
-pub const prices: Pairs<ByteArray, Int> =
+pub const prices: Pairs<(PolicyId, AssetName), Int> =
   [
-    Pair(#"", 2),
-    Pair(#"c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c9135553444d", 1),
+    Pair((#"", #""), 2),
+    Pair(
+      (#"c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c913", #"5553444d"),
+      1,
+    ),
   ]
 
 const withdrawal_intent_datum_a: Data =

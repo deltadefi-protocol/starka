@@ -3,7 +3,6 @@ use aiken/collection/dict
 use aiken/collection/list
 use aiken/collection/pairs
 use aiken/crypto.{ScriptHash}
-use aiken/primitive/bytearray
 use cardano/address.{Script}
 use cardano/assets.{AssetName, PolicyId, Value, quantity_of}
 use cardano/transaction.{Input, Output}
@@ -64,7 +63,7 @@ pub fn combine_m_value(left_m_value: MValue, right_m_value: MValue) -> MValue {
 
 pub fn convert_m_value_to_usd(
   m_value: MValue,
-  prices: Pairs<PolicyId, Int>,
+  prices: Pairs<(PolicyId, AssetName), Int>,
 ) -> Int {
   list.foldl(
     m_value,
@@ -76,9 +75,7 @@ pub fn convert_m_value_to_usd(
         fn(asset_pair: Pair<AssetName, Int>, nested_acc: Int) {
           expect Some(price) =
             prices
-              |> pairs.get_first(
-                  bytearray.concat(policy_pair.1st, asset_pair.1st),
-                )
+              |> pairs.get_first((policy_pair.1st, asset_pair.1st))
           nested_acc + price * asset_pair.2nd
         },
       )
@@ -111,7 +108,7 @@ pub fn process_batched_deposit_intent_validation(
   vault_balance: Int,
   total_lp: Int,
   operator_fee: Int,
-  prices: Pairs<ByteArray, Int>,
+  prices: Pairs<(PolicyId, AssetName), Int>,
   deposit_intent_script_hash: ScriptHash,
   lp_token: PolicyId,
   lp_decimal: Int,

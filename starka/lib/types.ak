@@ -80,7 +80,7 @@ pub type IntentRedeemer {
 // 2. DepositIntent
 pub type Message {
   vault_balance: Int,
-  prices: Pairs<ByteArray, Int>,
+  prices: Pairs<(PolicyId, AssetName), Int>,
   // PolicyId + AssetName -> Int
   utxo_ref: OutputReference,
 }
