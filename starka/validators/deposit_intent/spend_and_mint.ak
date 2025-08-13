@@ -2,14 +2,12 @@ use aiken/cbor
 use aiken/collection/list
 use cardano/address.{Script, from_script}
 use cardano/assets.{PolicyId, add, from_asset_list}
-use cardano/transaction.{
-  DatumHash, InlineDatum, Mint, NoDatum, OutputReference, Transaction,
-  find_input,
-}
+use cardano/transaction.{Mint, OutputReference, Transaction, find_input}
 use cocktail.{
   output_inline_datum, outputs_at_with_policy, outputs_with_policy,
   policy_only_minted_token, value_length,
 }
+use cocktail/vodka_inputs.{input_inline_datum}
 use deposit_utils.{process_batched_deposit_intent_validation}
 use types.{
   AppOracleDatum, BurnIntent, DepositIntentDatum, HydraInfo, IntentRedeemer,
@@ -64,14 +62,8 @@ validator deposit_intent(oracle_nft: PolicyId, lp_decimal: Int) {
         // - Get the vault oracle input datum
         let vault_oracle_input = get_vault_oracle_input(inputs, oracle_nft)
 
-        let vault_oracle_input_data: Data =
-          when vault_oracle_input.output.datum is {
-            NoDatum -> fail @"Vault oracle input does not contain any datum"
-            DatumHash(_) -> fail @"Vault oracle input datum must be inlined"
-            InlineDatum(data) -> data
-          }
         expect vault_oracle_input_datum: VaultOracleDatum =
-          vault_oracle_input_data
+          input_inline_datum(vault_oracle_input)
 
         let VaultOracleDatum {
           app_oracle,
