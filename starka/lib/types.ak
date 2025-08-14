@@ -81,7 +81,6 @@ pub type IntentRedeemer {
 pub type Message {
   vault_balance: Int,
   prices: Pairs<(PolicyId, AssetName), Int>,
-  // PolicyId + AssetName -> Int
   utxo_ref: OutputReference,
 }
 
