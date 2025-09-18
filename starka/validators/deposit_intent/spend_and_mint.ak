@@ -43,6 +43,20 @@ validator deposit_intent(oracle_nft: PolicyId, lp_decimal: Int) {
     when
       (
         redeemer,
+        // COMMENT: At prod, there would be staking part for each script
+        // from_script -> add a vodka utils `outputs_at_script_with_policy`
+        // for completeness, add full set of utils (I will create github issue atm, not need to implement all these now):
+        // `outputs_at_script`
+        // `outputs_at_script_with`
+        // `outputs_at_pubkey`
+        // `outputs_at_pubkey_with`
+        // `outputs_at_pubkey_with_policy`
+        // `inputs_at_script`
+        // `inputs_at_script_with`
+        // `inputs_at_script_with_policy`
+        // `inputs_at_pubkey`
+        // `inputs_at_pubkey_with`
+        // `inputs_at_pubkey_with_policy`
         outputs_at_with_policy(outputs, from_script(policy_id), policy_id),
       )
     is {

@@ -48,6 +48,7 @@ validator withdrawal_intent(oracle_nft: PolicyId, lp_token: PolicyId) {
     when
       (
         redeemer,
+        // COMMENT: same as deposit intent
         outputs_at_with_policy(outputs, from_script(policy_id), policy_id),
       )
     is {
@@ -164,6 +165,13 @@ validator withdrawal_intent(oracle_nft: PolicyId, lp_token: PolicyId) {
           }
 
         // - Check the vault unlock value == total_intent_datum_lp_usd_value
+        // COMMENT: similarly, in prod we would have staking part for vault
+        //  add 2 utils at vodka, use 
+        // `get_all_value_from_script`
+        // `get_all_value_to_script`
+        // For completenes purpose, would also add (to be in issue)
+        // `get_all_value_from_pubkey`
+        // `get_all_value_to_pubkey`
         let value_from_vault =
           get_all_value_from(inputs, from_script(vault_script_hash))
 
