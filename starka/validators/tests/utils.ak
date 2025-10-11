@@ -120,18 +120,22 @@ pub const mock_node_pub_keys =
 
 pub const mock_total_lp = 3000000000000000
 
-pub const mock_vault_balance = 3641915286
+pub const mock_vault_balance = 2400000000
 
-pub const mock_hwm_lp_value = 3000000000
+pub const mock_hwm_lp_value = 2000000000
 
-pub const mock_operator_charge = 50
+pub const mock_operator_charge_percentage = 50
 
 pub const mock_operator_fee =
-  cal_operator_fee(mock_vault_balance, mock_hwm_lp_value, mock_operator_charge)
+  cal_operator_fee(
+    mock_vault_balance,
+    mock_hwm_lp_value,
+    mock_operator_charge_percentage,
+  )
 
 pub const mock_operator_key = mock_pub_key_hash(10)
 
-pub const mock_vault_cost = 3000000000
+pub const mock_vault_cost = 2000000000
 
 pub const mock_vault_script_hash = mock_script_hash(10)
 
@@ -148,7 +152,7 @@ pub const mock_vault_oracle_datum: VaultOracleDatum =
     node_pub_key: mock_node_pub_keys,
     total_lp: mock_total_lp,
     hwm_lp_value: mock_hwm_lp_value,
-    operator_charge: mock_operator_charge,
+    operator_charge_percentage: mock_operator_charge_percentage,
     operator_key: mock_operator_key,
     vault_cost: mock_vault_cost,
     vault_script_hash: mock_vault_script_hash,
@@ -188,13 +192,13 @@ pub fn to_mvalue(value: Value) -> MValue {
 }
 
 pub const mock_message =
-  #"d8799f1ad9133796a25820c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c9135553444d014002d8799f5820cd82a190d3b4ef95a50bd791882959f541e308adb69b12d022d94a6d9f02bcf000ffff"
+  #"d8799f1a8f0d1800a29f581cc69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c913445553444dff019f4040ff02d8799f5820cd82a190d3b4ef95a50bd791882959f541e308adb69b12d022d94a6d9f02bcf000ffff"
 
 pub const mock_signatures =
   [
-    #"08e454f591121b1a09fd0073fdf66740bad3f1382dcfc499e91a996f601c7c8909e4b0a0b8fe64e68514f315ffdd02944c369ef2a9ce22a3dec14b60b0109e0d",
-    #"f98d0e8aab34dc74d633df4310d8bf49809627d4bd4ef0ee8fa3b3ba47deb9e804de031e015521359c1d69070266f3d4423a07994f424782ceeaa8413739160c",
-    #"4d2a670fed48e57b7c2d4d582afd5f24378a2b93c3794dce409c15fe59b417c08ba8b598f8e9b6ffd68374f5eac79a7588cc218d4d58251b3992db10d01e100a",
+    #"746bcbe44a67cfec83e98532d32fd10a7aeb93a2f328b2aced147c856d910fe0461614c5fcf90e20427333c7099e71de35a7a08d8e0ececdbeade9776069f102",
+    #"d09c37ac69820b7f19e5d2b0def60be06e89b026155b934bd0c3bf8de216c9d377265c14c7e42eb2b9011550ca3aa1825c57ddc999b028eebc5c5a94dbb8710f",
+    #"c9c6d6187fa41047e5df0cd59916cd8706a83d368ce2a99aee0e9c67a78c7095f1344d889c2007b788e8f18ad1ee49cd4dfad0488de674a497ef4477494a2e04",
   ]
 
 pub const mock_lp_decimal = 1000000

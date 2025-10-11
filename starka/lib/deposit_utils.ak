@@ -3,7 +3,6 @@ use aiken/collection/dict
 use aiken/collection/list
 use aiken/collection/pairs
 use aiken/crypto.{ScriptHash}
-use aiken/primitive/bytearray
 use cardano/address.{Script}
 use cardano/assets.{AssetName, PolicyId, Value, quantity_of}
 use cardano/transaction.{Input, Output}
@@ -64,7 +63,7 @@ pub fn combine_m_value(left_m_value: MValue, right_m_value: MValue) -> MValue {
 
 pub fn convert_m_value_to_usd(
   m_value: MValue,
-  prices: Pairs<PolicyId, Int>,
+  prices: Pairs<(PolicyId, AssetName), Int>,
 ) -> Int {
   list.foldl(
     m_value,
@@ -76,9 +75,7 @@ pub fn convert_m_value_to_usd(
         fn(asset_pair: Pair<AssetName, Int>, nested_acc: Int) {
           expect Some(price) =
             prices
-              |> pairs.get_first(
-                  bytearray.concat(policy_pair.1st, asset_pair.1st),
-                )
+              |> pairs.get_first((policy_pair.1st, asset_pair.1st))
           nested_acc + price * asset_pair.2nd
         },
       )
@@ -91,8 +88,12 @@ pub fn cal_lp_token_amount(
   vault_balance: Int,
   total_lp: Int,
   operator_fee: Int,
+  lp_decimal: Int,
 ) -> Int {
-  usd_value * total_lp / ( vault_balance - operator_fee )
+  when total_lp is {
+    0 -> usd_value * lp_decimal
+    _ -> usd_value * total_lp / ( vault_balance - operator_fee )
+  }
 }
 
 // 1. sum up intent_datum_m_value
@@ -107,10 +108,10 @@ pub fn process_batched_deposit_intent_validation(
   vault_balance: Int,
   total_lp: Int,
   operator_fee: Int,
-  prices: Pairs<ByteArray, Int>,
-  script_hash: ScriptHash,
+  prices: Pairs<(PolicyId, AssetName), Int>,
+  deposit_intent_script_hash: ScriptHash,
   lp_token: PolicyId,
-  pluggable_logic: ByteArray,
+  lp_decimal: Int,
 ) -> (MValue, Int, Int) {
   let empty_m_value: MValue = []
   let
@@ -135,7 +136,7 @@ pub fn process_batched_deposit_intent_validation(
       ) {
         when input.output.address.payment_credential is {
           Script(script) ->
-            if script == script_hash {
+            if script == deposit_intent_script_hash {
               // Found the deposit intent script address
               when remaining_indices is {
                 [] -> fail @"More UTxOs are spent than specified"
@@ -164,115 +165,12 @@ pub fn process_batched_deposit_intent_validation(
                       vault_balance,
                       total_lp,
                       operator_fee,
+                      lp_decimal,
                     )
                   let new_cal_lp_token_sent = cal_lp_sent + cal_lp_token_sent
                   // - Check the output value and address
                   let output_check =
-                    quantity_of(out_utxo.value, lp_token, pluggable_logic) == cal_lp_sent && out_utxo.address == lp_address
-                  if output_check {
-                    return(
-                      rest_of_indices,
-                      new_cal_intent_datum_m_value,
-                      new_cal_intent_datum_usd_value,
-                      new_cal_lp_token_sent,
-                    )
-                  } else {
-                    fail @"Deposit intent output incorrect"
-                  }
-                }
-              }
-            } else {
-              // - Not the deposit intent script address, skip
-              return(
-                remaining_indices,
-                cal_intent_datum_m_value,
-                cal_intent_datum_usd_value,
-                cal_lp_token_sent,
-              )
-            }
-          _ ->
-            // - Not a script address, skip
-            return(
-              remaining_indices,
-              cal_intent_datum_m_value,
-              cal_intent_datum_usd_value,
-              cal_lp_token_sent,
-            )
-        }
-      },
-    )
-  when processed_indices is {
-    [] ->
-      (
-        total_intent_datum_m_value,
-        total_intent_datum_usd_value,
-        total_lp_token_sent,
-      )
-    _ -> fail @"Batch deposit intent UTxOs not fully processed"
-  }
-}
-
-pub fn process_batched_deposit_intent_validation_init(
-  inputs: List<Input>,
-  outputs: List<Output>,
-  indices: List<Int>,
-  prices: Pairs<ByteArray, Int>,
-  script_hash: ScriptHash,
-  lp_token: PolicyId,
-  pluggable_logic: ByteArray,
-  lp_decimal: Int,
-) -> (MValue, Int, Int) {
-  let empty_m_value: MValue = []
-  let
-    processed_indices,
-    total_intent_datum_m_value,
-    total_intent_datum_usd_value,
-    total_lp_token_sent,
-  <-
-    list_foldl4(
-      inputs,
-      indices,
-      empty_m_value,
-      0,
-      0,
-      fn(
-        input,
-        remaining_indices,
-        cal_intent_datum_m_value,
-        cal_intent_datum_usd_value,
-        cal_lp_token_sent,
-        return,
-      ) {
-        when input.output.address.payment_credential is {
-          Script(script) ->
-            if script == script_hash {
-              // Found the deposit intent script address
-              when remaining_indices is {
-                [] -> fail @"More UTxOs are spent than specified"
-                [output_index, ..rest_of_indices] -> {
-                  expect Some(out_utxo) = outputs |> list.at(output_index)
-                  expect input_datum: DepositIntentDatum =
-                    input_inline_datum(input)
-
-                  let DepositIntentDatum { lp_address, amount } = input_datum
-
-                  // - Combine MValue in intent with total intent value
-                  let new_cal_intent_datum_m_value =
-                    combine_m_value(cal_intent_datum_m_value, amount)
-
-                  // - Calculate intent value in usd
-                  // - Combine intent value with total intent value in usd
-                  let intent_datum_usd_value =
-                    convert_m_value_to_usd(amount, prices)
-                  let new_cal_intent_datum_usd_value =
-                    cal_intent_datum_usd_value + intent_datum_usd_value
-                  // - Calculate LP Token sent
-                  // - Combine LP Token sent with total LP Token sent
-                  let cal_lp_sent = intent_datum_usd_value * lp_decimal
-                  let new_cal_lp_token_sent = cal_lp_sent + cal_lp_token_sent
-                  // - Check the output value and address
-                  let output_check =
-                    quantity_of(out_utxo.value, lp_token, pluggable_logic) == cal_lp_sent && out_utxo.address == lp_address
+                    quantity_of(out_utxo.value, lp_token, "") == cal_lp_sent && out_utxo.address == lp_address
                   if output_check {
                     return(
                       rest_of_indices,

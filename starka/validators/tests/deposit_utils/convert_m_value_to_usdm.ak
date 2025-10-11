@@ -1,10 +1,14 @@
+use cardano/assets.{AssetName, PolicyId}
 use deposit_utils.{convert_m_value_to_usd}
 use types.{MValue}
 
-const prices: Pairs<ByteArray, Int> =
+const prices: Pairs<(PolicyId, AssetName), Int> =
   [
-    Pair(#"", 2),
-    Pair(#"c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c9135553444d", 1),
+    Pair((#"", #""), 2),
+    Pair(
+      (#"c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c913", #"5553444d"),
+      1,
+    ),
   ]
 
 const empty_m_value: MValue = []

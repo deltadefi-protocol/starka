@@ -17,9 +17,9 @@ use tests/utils.{
   mock_app_oracle, mock_app_oracle_address, mock_deposit_intent_datum,
   mock_deposit_intent_script_hash, mock_deposit_m_value, mock_input_oracle_datum,
   mock_lp_decimal, mock_lp_token, mock_message, mock_operator_fee,
-  mock_pluggable_logic, mock_signatures, mock_total_lp, mock_vault_balance,
-  mock_vault_cost, mock_vault_oracle, mock_vault_oracle_address,
-  mock_vault_oracle_datum, to_mvalue,
+  mock_signatures, mock_total_lp, mock_vault_balance, mock_vault_cost,
+  mock_vault_oracle, mock_vault_oracle_address, mock_vault_oracle_datum,
+  to_mvalue,
 }
 use types.{BurnIntent, MValue, MintIntent, VaultOracleDatum}
 
@@ -213,16 +213,19 @@ fn mock_burn_deposit_intent_tx(
         mock_vault_balance,
         mock_total_lp,
         mock_operator_fee,
+        mock_lp_decimal,
       ) + cal_lp_token_amount(
         convert_m_value_to_usd(m_value_b, prices),
         mock_vault_balance,
         mock_total_lp,
         mock_operator_fee,
+        mock_lp_decimal,
       ) + cal_lp_token_amount(
         convert_m_value_to_usd(m_value_c, prices),
         mock_vault_balance,
         mock_total_lp,
         mock_operator_fee,
+        mock_lp_decimal,
       )
     } else {
       cal_lp_token_amount(
@@ -230,16 +233,19 @@ fn mock_burn_deposit_intent_tx(
         mock_vault_balance,
         mock_total_lp,
         mock_operator_fee,
+        mock_lp_decimal,
       ) + cal_lp_token_amount(
         convert_m_value_to_usd(m_value_b, prices),
         mock_vault_balance,
         mock_total_lp,
         mock_operator_fee,
+        mock_lp_decimal,
       ) + cal_lp_token_amount(
         convert_m_value_to_usd(m_value_c, prices),
         mock_vault_balance,
         mock_total_lp,
         mock_operator_fee,
+        mock_lp_decimal,
       ) + 1
     }
 
@@ -301,7 +307,7 @@ fn mock_burn_deposit_intent_tx(
       )
     |> tx_out(True, mock_vault_oracle_address, vault_oracle_output_value)
     |> tx_out_inline_datum(True, vault_output_datum)
-    |> mint(True, total_lp_token_minted, mock_lp_token, mock_pluggable_logic)
+    |> mint(True, total_lp_token_minted, mock_lp_token, "")
     |> mint(True, -intent_burn_amount, mock_deposit_intent_script_hash, "")
     |> tx_out(
         True,
@@ -513,11 +519,11 @@ test s2_mint_fail_burn_deposit_intent_with_signed_utxo_not_spent() {
   let redeemer =
     BurnIntent(
       indices,
-      #"d8799f1ad9133796a25820c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c9135553444d014002d8799f5820cd82a190d3b4ef95a50bd791882959f541e308adb69b12d022d94a6d9f02bcf001ffff",
+      #"d8799f1a8f0d1800a29f581cc69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c913445553444dff019f4040ff02d8799f5820cd82a190d3b4ef95a50bd791882959f541e308adb69b12d022d94a6d9f02bcf001ffff",
       [
-        #"eded05b711ad2f58742a959aa06d4301604e59e88b06cb4bd50c36eef55f5610da3675f9b905e83614ae92f2e47593de9e8f827230f0d0bd8df2333d86615703",
-        #"f4fdb2071f658019249a01894d817daa113e7563d7e6510ba043e4220f60e4a3ae551b87facbf4fd4f1810a462c8031b9c555f7ac74074e8048cf6a510c42c09",
-        #"b3641e70b7fd71838511363cfe08bf0e28bef69687ce08c134d0fe42298244f03546a5699739e105613edc47452c15175d98ca112467f8979b90274c4c6cbf0a",
+        #"0cc919d6b490e4757359ed5b993f700eea885a59e36e7d53d14d67791870e40c76a2a2416acc5f11d4638e72b1d64118b6968eca96af151e8f3a1429621b1b02",
+        #"8ba5b1badfb9166a0c31c6f6e6a2e85fdfe751989a75a20b7cdce3951b7c2c3c3e8e0553e70998d836cd6e820e78e287aff2f38d92d01894aa2f2ab091b78b0c",
+        #"ed15f6f4ae5a0e9b3efb2c98a5e2ffe1bae21e77082401fa529b64d6f2c334aa9b4114d7da2f33013bed0d63d96a98364831866265404e0f267d92aaa1efc90f",
       ],
     )
   let tx =

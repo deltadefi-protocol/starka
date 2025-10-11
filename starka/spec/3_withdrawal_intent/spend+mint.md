@@ -3,19 +3,20 @@
 ## Parameter
 
 - `oracle_nft`: The policy id of `OracleNFT`
+- `lp_token`: The policy id of `lp_token`
 
 ## Datum
 
 - `address`: receiver of vault value
 - `amount`: `Int` - marking the withdrawal lp tokens
 
-## User Action
+## User Action - Spend
 
 1. Process Intent
 
    - `WithdrawalIntent` is burnt
 
-## User Action
+## User Action - Mint
 
 1. Mint - Redeemer `RMint`
 
@@ -24,7 +25,7 @@
 2. Burn - Redeemer `RBurn (List<Int>, ByteArray, List<ByteArray>)`
 
    - `WithdrawalIntent` is burnt with total batched amount
-   - `LP Token` is burnt with calculation of total batched value amount and signed message, assetname = `pluggable_logic`
+   - `LP Token` is burnt with calculation of total batched value amount and signed message, assetname = ``
    - `WithdrawalIntent` input datum is correspond to withdraw output value
    - oracle input with datum
    - clean oracle output and updated datum

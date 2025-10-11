@@ -9,10 +9,9 @@ use mocktail.{
 use tests/utils.{
   mock_app_oracle, mock_app_oracle_address, mock_input_oracle_datum,
   mock_lp_token, mock_message, mock_operator_fee, mock_operator_key,
-  mock_pluggable_logic, mock_signatures, mock_total_lp, mock_vault_balance,
-  mock_vault_cost, mock_vault_oracle, mock_vault_oracle_address,
-  mock_vault_oracle_datum, mock_vault_script_hash,
-  mock_withdrawal_intent_script_hash,
+  mock_signatures, mock_total_lp, mock_vault_balance, mock_vault_cost,
+  mock_vault_oracle, mock_vault_oracle_address, mock_vault_oracle_datum,
+  mock_vault_script_hash, mock_withdrawal_intent_script_hash,
 }
 use tests/withdraw_utils/process_batch.{
   intent_input_a, intent_output_a, lp_amount_a,
@@ -50,7 +49,7 @@ const indices =
 const utxo_ref = mock_utxo_ref(0, 0)
 
 // current max = 18
-// MAX [mem: 14,000,100, cpu: 10,000,000,000]
+// MAX [mem: 14,000,000, cpu: 10,000,000,000]
 // PASS [mem: 13,492,908, cpu: 4,592,431,371]
 fn mock_burn_withdrawal_intent_tx() -> Transaction {
   let vault_oracle_input_value =
@@ -267,12 +266,7 @@ fn mock_burn_withdrawal_intent_tx() -> Transaction {
     |> ref_tx_in_inline_datum(True, mock_input_oracle_datum)
     |> tx_out(True, mock_vault_oracle_address, vault_oracle_output_value)
     |> tx_out_inline_datum(True, vault_output_datum)
-    |> mint(
-        True,
-        -total_intent_datum_lp_amount,
-        mock_lp_token,
-        mock_pluggable_logic,
-      )
+    |> mint(True, -total_intent_datum_lp_amount, mock_lp_token, "")
     |> mint(True, -intent_burn_amount, mock_withdrawal_intent_script_hash, "")
     |> tx_out(
         True,
@@ -368,6 +362,7 @@ test withdrawal_batch_limit_test() {
 
   withdrawal_intent_spend_and_mint.withdrawal_intent.mint(
     mock_vault_oracle,
+    mock_lp_token,
     redeemer,
     mock_withdrawal_intent_script_hash,
     tx,

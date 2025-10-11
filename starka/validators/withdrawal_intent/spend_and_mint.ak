@@ -2,15 +2,13 @@ use aiken/cbor
 use aiken/collection/list
 use cardano/address.{Script, from_script, from_verification_key}
 use cardano/assets.{PolicyId, add, from_asset, without_lovelace}
-use cardano/transaction.{
-  DatumHash, InlineDatum, Mint, NoDatum, OutputReference, Transaction,
-  find_input,
-}
+use cardano/transaction.{Mint, OutputReference, Transaction, find_input}
 use cocktail.{
   get_all_value_from, get_all_value_to, output_inline_datum,
   outputs_at_with_policy, outputs_with_policy, policy_only_minted_token,
   value_length,
 }
+use cocktail/vodka_inputs.{input_inline_datum}
 use cocktail/vodka_outputs.{outputs_at}
 use types.{
   AppOracleDatum, BurnIntent, HydraInfo, IntentRedeemer, Message, MintIntent,
@@ -18,15 +16,14 @@ use types.{
 }
 use utils.{
   cal_operator_fee, check_mint_redeemer_is_burn, get_app_oracle_datum,
-  get_vault_oracle_datum, get_vault_oracle_input, verify_pub_keys,
-  verify_signatures,
+  get_vault_oracle_input, verify_pub_keys, verify_signatures,
 }
 use withdraw_utils.{
   check_output_value_equal_to_lp_usd_value, convert_value_to_usd,
   process_batched_withdrawal_intent_validation,
 }
 
-validator withdrawal_intent(oracle_nft: PolicyId) {
+validator withdrawal_intent(oracle_nft: PolicyId, lp_token: PolicyId) {
   spend(
     _datum: Option<WithdrawalIntentDatum>,
     _r,
@@ -51,15 +48,11 @@ validator withdrawal_intent(oracle_nft: PolicyId) {
     when
       (
         redeemer,
+        // COMMENT: same as deposit intent
         outputs_at_with_policy(outputs, from_script(policy_id), policy_id),
       )
     is {
       (MintIntent, [intent_output]) -> {
-        let vault_oracle_input_datum: VaultOracleDatum =
-          reference_inputs |> get_vault_oracle_datum(oracle_nft)
-
-        let VaultOracleDatum { lp_token, pluggable_logic, .. } =
-          vault_oracle_input_datum
         let is_mint_value_correct =
           policy_only_minted_token(mint, policy_id, "", 1)
         expect WithdrawalIntentDatum { amount, .. }: WithdrawalIntentDatum =
@@ -67,7 +60,7 @@ validator withdrawal_intent(oracle_nft: PolicyId) {
 
         let is_lp_locked =
           without_lovelace(intent_output.value) == (
-            from_asset(lp_token, pluggable_logic, amount)
+            from_asset(lp_token, "", amount)
               |> add(policy_id, "", 1)
           )
         is_lp_locked? && is_mint_value_correct?
@@ -76,24 +69,17 @@ validator withdrawal_intent(oracle_nft: PolicyId) {
         // - Get the vault oracle input datum
         let vault_oracle_input = get_vault_oracle_input(inputs, oracle_nft)
 
-        let vault_oracle_input_data: Data =
-          when vault_oracle_input.output.datum is {
-            NoDatum -> fail @"Vault oracle input does not contain any datum"
-            DatumHash(_) -> fail @"Vault oracle input datum must be inlined"
-            InlineDatum(data) -> data
-          }
         expect vault_oracle_input_datum: VaultOracleDatum =
-          vault_oracle_input_data
+          input_inline_datum(vault_oracle_input)
 
         let VaultOracleDatum {
           app_oracle,
-          pluggable_logic,
           node_pub_key,
           total_lp,
           hwm_lp_value,
           lp_token,
           vault_cost,
-          operator_charge,
+          operator_charge_percentage,
           operator_key,
           vault_script_hash,
           ..
@@ -116,7 +102,11 @@ validator withdrawal_intent(oracle_nft: PolicyId) {
           signed_data
 
         let operator_fee =
-          cal_operator_fee(vault_balance, hwm_lp_value, operator_charge)
+          cal_operator_fee(
+            vault_balance,
+            hwm_lp_value,
+            operator_charge_percentage,
+          )
         let (total_intent_datum_lp_amount, total_intent_datum_lp_usd_value) =
           process_batched_withdrawal_intent_validation(
             inputs,
@@ -150,7 +140,7 @@ validator withdrawal_intent(oracle_nft: PolicyId) {
           policy_only_minted_token(
             mint,
             lp_token,
-            pluggable_logic,
+            "",
             -total_intent_datum_lp_amount,
           )
 
@@ -175,6 +165,13 @@ validator withdrawal_intent(oracle_nft: PolicyId) {
           }
 
         // - Check the vault unlock value == total_intent_datum_lp_usd_value
+        // COMMENT: similarly, in prod we would have staking part for vault
+        //  add 2 utils at vodka, use 
+        // `get_all_value_from_script`
+        // `get_all_value_to_script`
+        // For completenes purpose, would also add (to be in issue)
+        // `get_all_value_from_pubkey`
+        // `get_all_value_to_pubkey`
         let value_from_vault =
           get_all_value_from(inputs, from_script(vault_script_hash))
 

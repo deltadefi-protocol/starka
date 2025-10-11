@@ -9,10 +9,9 @@ use mocktail.{
 use tests/utils.{
   mock_app_oracle, mock_app_oracle_address, mock_input_oracle_datum,
   mock_lp_token, mock_message, mock_operator_fee, mock_operator_key,
-  mock_pluggable_logic, mock_signatures, mock_total_lp, mock_vault_balance,
-  mock_vault_cost, mock_vault_oracle, mock_vault_oracle_address,
-  mock_vault_oracle_datum, mock_withdrawal_intent_datum,
-  mock_withdrawal_intent_script_hash,
+  mock_signatures, mock_total_lp, mock_vault_balance, mock_vault_cost,
+  mock_vault_oracle, mock_vault_oracle_address, mock_vault_oracle_datum,
+  mock_withdrawal_intent_datum, mock_withdrawal_intent_script_hash,
 }
 use tests/withdraw_utils/process_batch.{
   intent_input_a, intent_input_b, intent_input_c, intent_output_a,
@@ -24,7 +23,6 @@ use withdraw_utils.{convert_lp_to_usd}
 use withdrawal_intent/spend_and_mint as withdrawal_intent_spend_and_mint
 
 type MintWithdrawalIntentTestCase {
-  is_vault_oracle_inputed: Bool,
   is_withdrawal_intent_minted: Bool,
   is_token_output_clean: Bool,
   is_lp_token_locked: Bool,
@@ -34,17 +32,11 @@ fn mock_mint_withdrawal_intent_tx(
   test_case: MintWithdrawalIntentTestCase,
 ) -> Transaction {
   let MintWithdrawalIntentTestCase {
-    is_vault_oracle_inputed,
     is_withdrawal_intent_minted,
     is_token_output_clean,
     is_lp_token_locked,
   } = test_case
-  let vault_oracle_input_value =
-    if is_vault_oracle_inputed {
-      from_asset(mock_vault_oracle, "", 1) |> add("", "", 2_000_000)
-    } else {
-      from_asset("", "", 1) |> add("", "", 1)
-    }
+
   let withdrawal_value: Int =
     if is_lp_token_locked {
       1000000
@@ -54,14 +46,6 @@ fn mock_mint_withdrawal_intent_tx(
 
   let output_datum = mock_withdrawal_intent_datum
   mocktail_tx()
-    |> ref_tx_in(
-        True,
-        mock_tx_hash(0),
-        1,
-        vault_oracle_input_value,
-        mock_vault_oracle_address,
-      )
-    |> ref_tx_in_inline_datum(True, mock_vault_oracle_datum)
     |> mint(
         is_withdrawal_intent_minted,
         1,
@@ -71,13 +55,13 @@ fn mock_mint_withdrawal_intent_tx(
     |> tx_out(
         is_token_output_clean,
         from_script(mock_withdrawal_intent_script_hash),
-        from_asset(mock_lp_token, mock_pluggable_logic, withdrawal_value)
+        from_asset(mock_lp_token, "", withdrawal_value)
           |> add(mock_withdrawal_intent_script_hash, "", 1),
       )
     |> tx_out(
         !is_token_output_clean,
         from_script(mock_withdrawal_intent_script_hash),
-        from_asset(mock_lp_token, mock_pluggable_logic, withdrawal_value)
+        from_asset(mock_lp_token, "", withdrawal_value)
           |> add(mock_withdrawal_intent_script_hash, "", 1)
           |> add(mock_policy_id(999), "", 1),
       )
@@ -90,7 +74,6 @@ test s3_mint_success_mint_withdrawal_intent() {
   let tx =
     mock_mint_withdrawal_intent_tx(
       MintWithdrawalIntentTestCase {
-        is_vault_oracle_inputed: True,
         is_withdrawal_intent_minted: True,
         is_token_output_clean: True,
         is_lp_token_locked: True,
@@ -99,26 +82,7 @@ test s3_mint_success_mint_withdrawal_intent() {
 
   withdrawal_intent_spend_and_mint.withdrawal_intent.mint(
     mock_vault_oracle,
-    redeemer,
-    mock_withdrawal_intent_script_hash,
-    tx,
-  )
-}
-
-test s3_mint_fail_mint_withdrawal_intent_with_no_vault_oracle_inputed() fail {
-  let redeemer = MintIntent
-  let tx =
-    mock_mint_withdrawal_intent_tx(
-      MintWithdrawalIntentTestCase {
-        is_vault_oracle_inputed: False,
-        is_withdrawal_intent_minted: True,
-        is_token_output_clean: True,
-        is_lp_token_locked: True,
-      },
-    )
-
-  withdrawal_intent_spend_and_mint.withdrawal_intent.mint(
-    mock_vault_oracle,
+    mock_lp_token,
     redeemer,
     mock_withdrawal_intent_script_hash,
     tx,
@@ -130,7 +94,6 @@ test s3_mint_fail_mint_withdrawal_intent_with_no_intent_minted() {
   let tx =
     mock_mint_withdrawal_intent_tx(
       MintWithdrawalIntentTestCase {
-        is_vault_oracle_inputed: True,
         is_withdrawal_intent_minted: False,
         is_token_output_clean: True,
         is_lp_token_locked: True,
@@ -139,6 +102,7 @@ test s3_mint_fail_mint_withdrawal_intent_with_no_intent_minted() {
 
   !withdrawal_intent_spend_and_mint.withdrawal_intent.mint(
     mock_vault_oracle,
+    mock_lp_token,
     redeemer,
     mock_withdrawal_intent_script_hash,
     tx,
@@ -150,7 +114,6 @@ test s3_mint_fail_mint_withdrawal_intent_with_intent_output_not_clean() {
   let tx =
     mock_mint_withdrawal_intent_tx(
       MintWithdrawalIntentTestCase {
-        is_vault_oracle_inputed: True,
         is_withdrawal_intent_minted: True,
         is_token_output_clean: False,
         is_lp_token_locked: True,
@@ -159,6 +122,7 @@ test s3_mint_fail_mint_withdrawal_intent_with_intent_output_not_clean() {
 
   !withdrawal_intent_spend_and_mint.withdrawal_intent.mint(
     mock_vault_oracle,
+    mock_lp_token,
     redeemer,
     mock_withdrawal_intent_script_hash,
     tx,
@@ -170,7 +134,6 @@ test s3_mint_fail_mint_withdrawal_intent_with_value_deposited_incorrect() {
   let tx =
     mock_mint_withdrawal_intent_tx(
       MintWithdrawalIntentTestCase {
-        is_vault_oracle_inputed: True,
         is_withdrawal_intent_minted: True,
         is_token_output_clean: True,
         is_lp_token_locked: False,
@@ -179,6 +142,7 @@ test s3_mint_fail_mint_withdrawal_intent_with_value_deposited_incorrect() {
 
   !withdrawal_intent_spend_and_mint.withdrawal_intent.mint(
     mock_vault_oracle,
+    mock_lp_token,
     redeemer,
     mock_withdrawal_intent_script_hash,
     tx,
@@ -338,12 +302,7 @@ fn mock_burn_withdrawal_intent_tx(
       )
     |> tx_out(True, mock_vault_oracle_address, vault_oracle_output_value)
     |> tx_out_inline_datum(True, vault_output_datum)
-    |> mint(
-        True,
-        -total_intent_datum_lp_amount,
-        mock_lp_token,
-        mock_pluggable_logic,
-      )
+    |> mint(True, -total_intent_datum_lp_amount, mock_lp_token, "")
     |> mint(True, -intent_burn_amount, mock_withdrawal_intent_script_hash, "")
     |> tx_out(
         True,
@@ -380,6 +339,7 @@ test s3_mint_success_burn_withdrawal_intent() {
 
   withdrawal_intent_spend_and_mint.withdrawal_intent.mint(
     mock_vault_oracle,
+    mock_lp_token,
     redeemer,
     mock_withdrawal_intent_script_hash,
     tx,
@@ -404,6 +364,7 @@ test s3_mint_fail_burn_withdrawal_intent_with_no_vault_oracle_input() fail {
 
   withdrawal_intent_spend_and_mint.withdrawal_intent.mint(
     mock_vault_oracle,
+    mock_lp_token,
     redeemer,
     mock_withdrawal_intent_script_hash,
     tx,
@@ -428,6 +389,7 @@ test s3_mint_fail_burn_withdrawal_intent_with_no_app_oracle_ref_input() fail {
 
   withdrawal_intent_spend_and_mint.withdrawal_intent.mint(
     mock_vault_oracle,
+    mock_lp_token,
     redeemer,
     mock_withdrawal_intent_script_hash,
     tx,
@@ -452,6 +414,7 @@ test s3_mint_fail_burn_withdrawal_intent_with_no_vault_output_datum() {
 
   !withdrawal_intent_spend_and_mint.withdrawal_intent.mint(
     mock_vault_oracle,
+    mock_lp_token,
     redeemer,
     mock_withdrawal_intent_script_hash,
     tx,
@@ -476,6 +439,7 @@ test s3_mint_fail_burn_withdrawal_intent_with_no_vault_output_value_clean() {
 
   !withdrawal_intent_spend_and_mint.withdrawal_intent.mint(
     mock_vault_oracle,
+    mock_lp_token,
     redeemer,
     mock_withdrawal_intent_script_hash,
     tx,
@@ -500,6 +464,7 @@ test s3_mint_fail_burn_withdrawal_intent_with_no_lp_burn_amount_correct() {
 
   !withdrawal_intent_spend_and_mint.withdrawal_intent.mint(
     mock_vault_oracle,
+    mock_lp_token,
     redeemer,
     mock_withdrawal_intent_script_hash,
     tx,
@@ -524,6 +489,7 @@ test s3_mint_fail_burn_withdrawal_intent_with_no_intent_burn_amount_correct() {
 
   !withdrawal_intent_spend_and_mint.withdrawal_intent.mint(
     mock_vault_oracle,
+    mock_lp_token,
     redeemer,
     mock_withdrawal_intent_script_hash,
     tx,
@@ -548,6 +514,7 @@ test s3_mint_fail_burn_withdrawal_intent_with_no_operator_output_correct() {
 
   !withdrawal_intent_spend_and_mint.withdrawal_intent.mint(
     mock_vault_oracle,
+    mock_lp_token,
     redeemer,
     mock_withdrawal_intent_script_hash,
     tx,
@@ -572,6 +539,7 @@ test s3_mint_fail_burn_withdrawal_intent_with_no_value_unlock_from_vault_correct
 
   !withdrawal_intent_spend_and_mint.withdrawal_intent.mint(
     mock_vault_oracle,
+    mock_lp_token,
     redeemer,
     mock_withdrawal_intent_script_hash,
     tx,
@@ -582,11 +550,11 @@ test s3_mint_fail_burn_withdrawal_intent_with_signed_utxo_not_spent() {
   let redeemer =
     BurnIntent(
       indices,
-      #"d8799f1ad9133796a25820c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c9135553444d014002d8799f5820cd82a190d3b4ef95a50bd791882959f541e308adb69b12d022d94a6d9f02bcf001ffff",
+      #"d8799f1a8f0d1800a29f581cc69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c913445553444dff019f4040ff02d8799f5820cd82a190d3b4ef95a50bd791882959f541e308adb69b12d022d94a6d9f02bcf001ffff",
       [
-        #"eded05b711ad2f58742a959aa06d4301604e59e88b06cb4bd50c36eef55f5610da3675f9b905e83614ae92f2e47593de9e8f827230f0d0bd8df2333d86615703",
-        #"f4fdb2071f658019249a01894d817daa113e7563d7e6510ba043e4220f60e4a3ae551b87facbf4fd4f1810a462c8031b9c555f7ac74074e8048cf6a510c42c09",
-        #"b3641e70b7fd71838511363cfe08bf0e28bef69687ce08c134d0fe42298244f03546a5699739e105613edc47452c15175d98ca112467f8979b90274c4c6cbf0a",
+        #"0cc919d6b490e4757359ed5b993f700eea885a59e36e7d53d14d67791870e40c76a2a2416acc5f11d4638e72b1d64118b6968eca96af151e8f3a1429621b1b02",
+        #"8ba5b1badfb9166a0c31c6f6e6a2e85fdfe751989a75a20b7cdce3951b7c2c3c3e8e0553e70998d836cd6e820e78e287aff2f38d92d01894aa2f2ab091b78b0c",
+        #"ed15f6f4ae5a0e9b3efb2c98a5e2ffe1bae21e77082401fa529b64d6f2c334aa9b4114d7da2f33013bed0d63d96a98364831866265404e0f267d92aaa1efc90f",
       ],
     )
   let tx =
@@ -605,6 +573,7 @@ test s3_mint_fail_burn_withdrawal_intent_with_signed_utxo_not_spent() {
 
   !withdrawal_intent_spend_and_mint.withdrawal_intent.mint(
     mock_vault_oracle,
+    mock_lp_token,
     redeemer,
     mock_withdrawal_intent_script_hash,
     tx,
@@ -638,6 +607,7 @@ test s3_mint_fail_burn_withdrawal_intent_with_incorrect_signatures() {
 
   !withdrawal_intent_spend_and_mint.withdrawal_intent.mint(
     mock_vault_oracle,
+    mock_lp_token,
     redeemer,
     mock_withdrawal_intent_script_hash,
     tx,

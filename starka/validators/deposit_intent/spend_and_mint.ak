@@ -2,18 +2,13 @@ use aiken/cbor
 use aiken/collection/list
 use cardano/address.{Script, from_script}
 use cardano/assets.{PolicyId, add, from_asset_list}
-use cardano/transaction.{
-  DatumHash, InlineDatum, Mint, NoDatum, OutputReference, Transaction,
-  find_input,
-}
+use cardano/transaction.{Mint, OutputReference, Transaction, find_input}
 use cocktail.{
   output_inline_datum, outputs_at_with_policy, outputs_with_policy,
   policy_only_minted_token, value_length,
 }
-use deposit_utils.{
-  process_batched_deposit_intent_validation,
-  process_batched_deposit_intent_validation_init,
-}
+use cocktail/vodka_inputs.{input_inline_datum}
+use deposit_utils.{process_batched_deposit_intent_validation}
 use types.{
   AppOracleDatum, BurnIntent, DepositIntentDatum, HydraInfo, IntentRedeemer,
   Message, MintIntent, VaultOracleDatum,
@@ -48,6 +43,20 @@ validator deposit_intent(oracle_nft: PolicyId, lp_decimal: Int) {
     when
       (
         redeemer,
+        // COMMENT: At prod, there would be staking part for each script
+        // from_script -> add a vodka utils `outputs_at_script_with_policy`
+        // for completeness, add full set of utils (I will create github issue atm, not need to implement all these now):
+        // `outputs_at_script`
+        // `outputs_at_script_with`
+        // `outputs_at_pubkey`
+        // `outputs_at_pubkey_with`
+        // `outputs_at_pubkey_with_policy`
+        // `inputs_at_script`
+        // `inputs_at_script_with`
+        // `inputs_at_script_with_policy`
+        // `inputs_at_pubkey`
+        // `inputs_at_pubkey_with`
+        // `inputs_at_pubkey_with_policy`
         outputs_at_with_policy(outputs, from_script(policy_id), policy_id),
       )
     is {
@@ -67,24 +76,17 @@ validator deposit_intent(oracle_nft: PolicyId, lp_decimal: Int) {
         // - Get the vault oracle input datum
         let vault_oracle_input = get_vault_oracle_input(inputs, oracle_nft)
 
-        let vault_oracle_input_data: Data =
-          when vault_oracle_input.output.datum is {
-            NoDatum -> fail @"Vault oracle input does not contain any datum"
-            DatumHash(_) -> fail @"Vault oracle input datum must be inlined"
-            InlineDatum(data) -> data
-          }
         expect vault_oracle_input_datum: VaultOracleDatum =
-          vault_oracle_input_data
+          input_inline_datum(vault_oracle_input)
 
         let VaultOracleDatum {
           app_oracle,
-          pluggable_logic,
           node_pub_key,
           total_lp,
           hwm_lp_value,
           lp_token,
           vault_cost,
-          operator_charge,
+          operator_charge_percentage,
           ..
         } = vault_oracle_input_datum
 
@@ -110,38 +112,28 @@ validator deposit_intent(oracle_nft: PolicyId, lp_decimal: Int) {
           signed_data
 
         let operator_fee =
-          cal_operator_fee(vault_balance, hwm_lp_value, operator_charge)
+          cal_operator_fee(
+            vault_balance,
+            hwm_lp_value,
+            operator_charge_percentage,
+          )
         let (
           total_intent_datum_m_value,
           total_intent_datum_usd_value,
           total_lp_token_sent,
         ) =
-          when total_lp is {
-            0 ->
-              process_batched_deposit_intent_validation_init(
-                inputs,
-                outputs,
-                indices,
-                prices,
-                policy_id,
-                lp_token,
-                pluggable_logic,
-                lp_decimal,
-              )
-            _ ->
-              process_batched_deposit_intent_validation(
-                inputs,
-                outputs,
-                indices,
-                vault_balance,
-                total_lp,
-                operator_fee,
-                prices,
-                policy_id,
-                lp_token,
-                pluggable_logic,
-              )
-          }
+          process_batched_deposit_intent_validation(
+            inputs,
+            outputs,
+            indices,
+            vault_balance,
+            total_lp,
+            operator_fee,
+            prices,
+            policy_id,
+            lp_token,
+            lp_decimal,
+          )
 
         // - Check the app deposit request output value == batched_intent_datum_m_value
         // - Check the app deposit request output address == app_deposit_request_address
@@ -176,12 +168,7 @@ validator deposit_intent(oracle_nft: PolicyId, lp_decimal: Int) {
 
         // - Check the LP token mint amount == total_lp_token_sent
         let lp_mint_check =
-          policy_only_minted_token(
-            mint,
-            lp_token,
-            pluggable_logic,
-            total_lp_token_sent,
-          )
+          policy_only_minted_token(mint, lp_token, "", total_lp_token_sent)
 
         // - Check the intent burn amount == length of batched intents
         let intent_burn_check =
