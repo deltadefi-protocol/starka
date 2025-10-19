@@ -3,7 +3,6 @@
 ## Parameter
 
 - `oracle_nft`: The policy id of `OracleNFT`
-- `lp_token`: The policy id of `lp_token`
 
 ## Datum
 
@@ -25,7 +24,6 @@
 2. Burn - Redeemer `RBurn (List<Int>, ByteArray, List<ByteArray>)`
 
    - `WithdrawalIntent` is burnt with total batched amount
-   - `LP Token` is burnt with calculation of total batched value amount and signed message, assetname = ``
    - `WithdrawalIntent` input datum is correspond to withdraw output value
    - oracle input with datum
    - clean oracle output and updated datum
@@ -33,3 +31,10 @@
    - output operator fee
    - `utxo_ref` in `message` is vault oracle utxo
    - verify signatures and keys
+   - `LP amount` is deducted from the withdrawer's `LP Record`. Either in:
+     - Total withdrawal
+       - Burn the `LP Record` token at `LP Record` address, with the pre-burnt amount as current withdraw LP amount
+       - Only 1 input from `LP Record`
+     - Update LP Value
+       - Re-spend the `LP Record` UTXO and deduct the LP amount
+       - No minting or burning of `LP Record`
