@@ -17,7 +17,6 @@ validator vault(oracle_nft: PolicyId) {
     when redeemer is {
       WithdrawFund -> {
         let mint_purpose = Mint(withdrawal_intent_script_hash)
-
         check_mint_redeemer_is_burn(mint_purpose, redeemers)?
       }
       PluggableLogic ->

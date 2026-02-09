@@ -24,11 +24,16 @@
 
 2. Burn - Redeemer `RBurn (List<Int>, ByteArray, List<ByteArray>)`
 
-   - only one `app_deposit_token` is minted and output datum equal to total batched datum value amount
    - `DepositIntent` is burnt with total batched amount
-   - `LP Token` is minted with calculation of total batched value amount and signed message, assetname = ``
    - `DepositIntent` input datum is correspond to `LP Token` output amount
    - oracle input with datum
    - clean oracle output and updated datum
    - `utxo_ref` in `message` is vault oracle utxo
    - verify signatures and keys
+   - `LP amount` is added to the depositor `LP Record`. Either in:
+     - New depositor
+       - Mint a new `LP Record` token at `LP Record` address, with the initial amount as current deposit LP amount
+       - There is no input from `LP Record`
+     - Update LP Value
+       - Re-spend the `LP Record` UTXO and add the LP amount
+       - no minting of `LP Record`
