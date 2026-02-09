@@ -14,6 +14,7 @@
 - `vault_cost`: Int
 - `pluggable_logic`: ByteArray
 - `vault_script_hash`: ByteArray
+- `vault_stake_rotation_script_hash`: ByteArray
 - `operator_key`: VerificationKeyHash
 
 ## User Action - Spend
