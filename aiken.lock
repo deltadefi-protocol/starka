@@ -8,7 +8,17 @@ source = "github"
 
 [[requirements]]
 name = "sidan-lab/vodka"
-version = "0.1.14"
+version = "0.1.22"
+source = "github"
+
+[[requirements]]
+name = "deltadefi-protocol/deltadefi-scripts"
+version = "v1.0.0"
+source = "github"
+
+[[requirements]]
+name = "aiken-lang/merkle-patricia-forestry"
+version = "2.0.0"
 source = "github"
 
 [[packages]]
@@ -19,7 +29,19 @@ source = "github"
 
 [[packages]]
 name = "sidan-lab/vodka"
-version = "0.1.14"
+version = "0.1.22"
+requirements = []
+source = "github"
+
+[[packages]]
+name = "deltadefi-protocol/deltadefi-scripts"
+version = "v1.0.0"
+requirements = []
+source = "github"
+
+[[packages]]
+name = "aiken-lang/merkle-patricia-forestry"
+version = "2.0.0"
 requirements = []
 source = "github"
 

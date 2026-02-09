@@ -10,9 +10,10 @@ use cocktail.{
 }
 use cocktail/vodka_inputs.{input_inline_datum}
 use cocktail/vodka_outputs.{outputs_at}
+use hydra_dex/types.{AppOracleDatum, HydraInfo} as dd_types
 use types.{
-  AppOracleDatum, BurnIntent, HydraInfo, IntentRedeemer, Message, MintIntent,
-  VaultOracleDatum, WithdrawalIntentDatum,
+  BurnIntent, IntentRedeemer, Message, MintIntent, VaultOracleDatum,
+  WithdrawalIntentDatum,
 }
 use utils.{
   cal_operator_fee, check_mint_redeemer_is_burn, get_app_oracle_datum,
@@ -89,7 +90,7 @@ validator withdrawal_intent(oracle_nft: PolicyId, lp_token: PolicyId) {
         let app_oracle_input_datum: AppOracleDatum =
           reference_inputs |> get_app_oracle_datum(app_oracle)
         let AppOracleDatum { hydra_info, .. } = app_oracle_input_datum
-        let HydraInfo { hydra_signers, .. } = hydra_info
+        let HydraInfo { hydra_signers } = hydra_info
 
         // - Verify the node public keys and signatures
         let keys_check = verify_pub_keys(node_pub_key, hydra_signers)

@@ -2,13 +2,15 @@ use aiken/cbor
 use aiken/crypto.{blake2b_224}
 use cardano/address.{from_script}
 use cardano/assets.{Value}
+use hydra_dex/types.{AppOracleDatum,
+  HydraInfo, WithdrawalScriptHashes} as dd_types
 use mocktail.{
   mock_policy_id, mock_pub_key_address, mock_pub_key_hash, mock_script_address,
   mock_script_hash,
 }
 use types.{
-  AppOracleDatum, BurnIntent, DepositIntentDatum, HydraInfo, MValue,
-  VaultOracleDatum, WithdrawalIntentDatum, WithdrawalScriptHashes,
+  BurnIntent, DepositIntentDatum, MValue, VaultOracleDatum,
+  WithdrawalIntentDatum,
 }
 use utils.{cal_operator_fee}
 
@@ -30,7 +32,7 @@ pub const mock_emergency_cancel_order_request_token = mock_policy_id(400)
 
 pub const mock_app_oracle_address = from_script("app_oracle_address")
 
-pub const mock_app_vault_address = from_script("app_vault_address")
+pub const mock_app_vault_script_hash = "app_vault_address"
 
 pub const mock_app_deposit_request_address =
   from_script("app_deposit_request_address")
@@ -50,12 +52,15 @@ pub const mock_app_deposit = mock_script_hash(0)
 
 pub const mock_app_withdrawal = mock_script_hash(1)
 
+pub const mock_app_vault_stake_rotation = mock_script_hash(111)
+
 pub const mock_emergency_cancel_order = mock_script_hash(700)
 
 pub const mock_withdrawal_script_hashes: WithdrawalScriptHashes =
   WithdrawalScriptHashes {
     app_deposit: mock_app_deposit,
     app_withdrawal: mock_app_withdrawal,
+    app_vault_stake_rotation: mock_app_vault_stake_rotation,
     emergency_cancel_order: mock_emergency_cancel_order,
   }
 
@@ -85,9 +90,10 @@ pub const mock_input_oracle_datum: AppOracleDatum =
   AppOracleDatum {
     operation_key: mock_operation_key,
     stop_key: mock_stop_key,
+    community_stop_keys: [mock_operation_key, mock_stop_key],
     oracle_nft: mock_app_oracle,
     oracle_address: mock_app_oracle_address,
-    app_vault_address: mock_app_vault_address,
+    app_vault_script_hash: mock_app_vault_script_hash,
     app_deposit_request_token: mock_app_deposit_request_token,
     app_deposit_request_address: mock_app_deposit_request_address,
     dex_account_balance_token: mock_dex_account_balance_token,
@@ -99,10 +105,7 @@ pub const mock_input_oracle_datum: AppOracleDatum =
     emergency_withdrawal_request_token: mock_emergency_withdrawal_request_token,
     emergency_withdrawal_request_address: mock_emergency_withdrawal_request_address,
     all_withdrawal_script_hashes: mock_withdrawal_script_hashes,
-    hydra_info: HydraInfo {
-      hydra_initial_hash: mock_hydra_initial_hash,
-      hydra_signers: mock_hydra_signers,
-    },
+    hydra_info: HydraInfo { hydra_signers: mock_hydra_signers },
   }
 
 pub const mock_vault_oracle = mock_policy_id(10)

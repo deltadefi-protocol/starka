@@ -9,9 +9,10 @@ use cocktail.{
 }
 use cocktail/vodka_inputs.{input_inline_datum}
 use deposit_utils.{process_batched_deposit_intent_validation}
+use hydra_dex/types.{AppOracleDatum, HydraInfo} as dd_types
 use types.{
-  AppOracleDatum, BurnIntent, DepositIntentDatum, HydraInfo, IntentRedeemer,
-  Message, MintIntent, VaultOracleDatum,
+  BurnIntent, DepositIntentDatum, IntentRedeemer, Message, MintIntent,
+  VaultOracleDatum,
 }
 use utils.{
   cal_operator_fee, check_mint_redeemer_is_burn, get_app_oracle_datum,
@@ -99,7 +100,7 @@ validator deposit_intent(oracle_nft: PolicyId, lp_decimal: Int) {
           hydra_info,
           ..
         } = app_oracle_input_datum
-        let HydraInfo { hydra_signers, .. } = hydra_info
+        let HydraInfo { hydra_signers } = hydra_info
 
         // - Verify the node public keys and signatures
         let keys_check = verify_pub_keys(node_pub_key, hydra_signers)

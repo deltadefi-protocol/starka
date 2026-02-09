@@ -9,7 +9,8 @@ use cardano/assets.{Lovelace, PolicyId, quantity_of}
 use cardano/transaction.{
   DatumHash, InlineDatum, Input, NoDatum, Output, Redeemer, ScriptPurpose,
 }
-use types.{AppOracleDatum, BurnIntent, IntentRedeemer, VaultOracleDatum}
+use hydra_dex/types.{AppOracleDatum} as dd_types
+use types.{BurnIntent, IntentRedeemer, VaultOracleDatum}
 
 pub fn get_app_oracle_datum(
   reference_inputs: List<Input>,
