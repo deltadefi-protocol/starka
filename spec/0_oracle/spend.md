@@ -8,7 +8,7 @@
 - `vault_script_hash`: ByteArray,
 - `deposit_intent_script_hash`: ByteArray,
 - `withdrawal_intent_script_hash`: ByteArray,
-- `lp_script_hash`: ByteArray,
+- `lp_record_script_hash`: ByteArray,
 
 ## User Action
 

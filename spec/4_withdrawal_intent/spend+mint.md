@@ -2,7 +2,9 @@
 
 ## Parameter
 
-- `oracle_nft`: The policy id of `OracleNFT`
+- `app_oracle`: PolicyId
+- `vault_oracle`: PolicyId
+- `vault_config`: PolicyId
 
 ## Datum
 
@@ -25,12 +27,12 @@
 
    - `WithdrawalIntent` is burnt with total batched amount
    - `WithdrawalIntent` input datum is correspond to withdraw output value
-   - oracle input with datum
-   - clean oracle output and updated datum
+   - `VaultConfig` input with datum
+   - clean `VaultConfig` output and updated datum
    - vault total value changed -= total batched datum value amount
    - output operator fee
    - `utxo_ref` in `message` is vault oracle utxo
-   - verify signatures and keys
+   - verify signatures and keys for `prices`
    - `LP amount` is deducted from the withdrawer's `LP Record`. Either in:
      - Total withdrawal
        - Burn the `LP Record` token at `LP Record` address, with the pre-burnt amount as current withdraw LP amount

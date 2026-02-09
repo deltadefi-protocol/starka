@@ -33,6 +33,8 @@
 
    - `VaultConfig` token is minted to own script address
    - Obtain output to `vault_config_script_hash`, obtain the datum
+   - `utxo_ref` included in inputs
+   - verify signatures and keys for `prices`
    - Check against the datum:
      - `total_lp`: Same as `initial_lp`
      - `operator_lp`: Same as `initial_lp`
