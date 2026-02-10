@@ -4,7 +4,6 @@
 
 - `app_oracle`: PolicyId
 - `vault_oracle`: PolicyId
-- `vault_config`: PolicyId
 
 ## User Action - Spend
 

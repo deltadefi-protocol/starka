@@ -27,12 +27,13 @@
 
    - `WithdrawalIntent` is burnt with total batched amount
    - `WithdrawalIntent` input datum is correspond to withdraw output value
-   - `VaultConfig` input with datum
-   - clean `VaultConfig` output and updated datum
+   - `VaultState` input with datum
+   - clean `VaultState` output and updated datum
    - vault total value changed -= total batched datum value amount
    - output operator fee
-   - `utxo_ref` in `message` is vault oracle utxo
-   - verify signatures and keys for `prices`
+   - Verify `prices` message:
+      - `utxo_ref` in `message` is `VaultState` utxo
+      - verify signatures and keys
    - `LP amount` is deducted from the withdrawer's `LP Record`. Either in:
      - Total withdrawal
        - Burn the `LP Record` token at `LP Record` address, with the pre-burnt amount as current withdraw LP amount

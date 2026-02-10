@@ -2,7 +2,8 @@
 
 ## Parameter
 
-- `oracle_nft`: The policy id of `OracleNFT`
+- `app_oracle`: PolicyId
+- `vault_oracle`: PolicyId
 
 ## Datum
 

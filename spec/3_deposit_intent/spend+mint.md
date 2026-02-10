@@ -26,10 +26,11 @@
 2. Burn - Redeemer `RBurn (List<Int>, ByteArray, List<ByteArray>)`
 
    - `DepositIntent` is burnt with total batched amount
-   - `VaultConfig` input with datum
-   - Clean `VaultConfig` output and updated datum
-   - `utxo_ref` in `message` is `VaultConfig` utxo
-   - verify signatures and keys
+   - `VaultState` input with datum
+   - Clean `VaultState` output and updated datum
+   - Verify `prices` message:
+      - `utxo_ref` in `message` is `VaultState` utxo
+      - verify signatures and keys
    - `LP amount` is added to the depositor `LP Record`. Either in:
      - New depositor
        - Mint a new `LP Record` token at `LP Record` address, with the initial amount as current deposit LP amount
