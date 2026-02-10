@@ -1,4 +1,4 @@
-# Specification - VaultConfig
+# Specification - VaultState
 
 ## Parameter
 
@@ -9,13 +9,7 @@
 
 - `total_lp`: Int
 - `operator_lp`: Int
-- `operator_charge_percentage`: Int
-- `operator_min_deposit_percentage`: Int
 - `vault_cost`: Int
-- `pluggable_logic`: ByteArray
-- `vault_script_hash`: ByteArray
-- `vault_stake_rotation_script_hash`: ByteArray
-- `operator_key`: VerificationKeyHash
 
 ## User Action - Spend
 
