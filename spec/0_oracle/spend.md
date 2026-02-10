@@ -17,4 +17,6 @@
 
 ## User Action
 
-NA - unspendable
+1. Close Vault
+
+   - `vault_state_script_hash` token is burnt

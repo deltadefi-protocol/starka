@@ -1,12 +1,9 @@
 # Specification - VaultState
 
-## Parameter
+## Datum
 
 - `app_oracle`: PolicyId
 - `vault_oracle`: PolicyId
-
-## Datum
-
 - `total_lp`: Int
 - `operator_lp`: Int
 - `vault_cost`: Int
@@ -25,7 +22,7 @@
 
 1. Create Vault - `CreateVault { initial_deposit, initial_lp, prices }`
 
-   - Current `policy_id` token is minted to own script address
+   - Current `policy_id` token with empty string is minted to own script address
    - Obtain output to `vault_state_script_hash`, obtain the datum
    - Verify `prices` message:
       - `utxo_ref` included in inputs
@@ -40,6 +37,7 @@
 
 2. Close Vault `CloseVault`
 
+   - Obtain input with `vault_oracle` token, which is burnt in this transaction
    - Obtain input from `vault_state_script_hash`, obtain its datum. 
    - `VaultState` token from the input from `vault_state_script_hash` is burnt
    - `total_lp` == 0

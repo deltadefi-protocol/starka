@@ -1,4 +1,4 @@
-use aiken/crypto.{VerificationKey, VerificationKeyHash}
+use aiken/crypto.{VerificationKeyHash}
 use cardano/address.{Address}
 use cardano/assets.{AssetName, PolicyId}
 use cardano/transaction.{OutputReference}
@@ -13,18 +13,16 @@ pub type MintPolarity {
 // 0 - VaultOracle
 
 pub type VaultOracleDatum {
-  app_oracle: PolicyId,
-  pluggable_logic: ByteArray,
-  node_pub_key: List<VerificationKey>,
-  total_lp: Int,
-  hwm_lp_value: Int,
-  operator_charge_percentage: Int,
-  operator_key: VerificationKeyHash,
-  vault_cost: Int,
+  vault_state_script_hash: ByteArray,
   vault_script_hash: ByteArray,
   deposit_intent_script_hash: ByteArray,
   withdrawal_intent_script_hash: ByteArray,
-  lp_token: PolicyId,
+  lp_record_script_hash: ByteArray,
+  pluggable_logic: ByteArray,
+  vault_stake_rotation_script_hash: ByteArray,
+  operator_key: VerificationKeyHash,
+  operator_charge_percentage: Int,
+  operator_min_deposit_percentage: Int,
 }
 
 pub type ProcessRedeemer {
@@ -32,7 +30,17 @@ pub type ProcessRedeemer {
   ProcessWithdrawal
 }
 
-// 1 - Vault
+// 1 - VaultState
+
+pub type VaultStateDatum {
+  app_oracle: PolicyId,
+  vault_oracle: PolicyId,
+  total_lp: Int,
+  operator_lp: Int,
+  vault_cost: Int,
+}
+
+// 2 - Vault
 pub type VaultRedeemer {
   WithdrawFund
   PluggableLogic
@@ -44,7 +52,7 @@ pub type IntentRedeemer {
   BurnIntent(List<Int>, ByteArray, List<ByteArray>)
 }
 
-// 2. DepositIntent
+// 3. DepositIntent
 pub type Message {
   vault_balance: Int,
   prices: Pairs<(PolicyId, AssetName), Int>,
@@ -56,14 +64,20 @@ pub type DepositIntentDatum {
   amount: MValue,
 }
 
-// 3 - WithdrawalIntent
+// 4 - WithdrawalIntent
 
 pub type WithdrawalIntentDatum {
   lp_address: Address,
   amount: Int,
 }
 
-// 4 - LPToken
+// 5 - LPRecord
+
+pub type LPRecordDatum {
+  address: Address,
+  lp: Int,
+  cost: Int,
+}
 
 pub type MValue =
   Pairs<PolicyId, Pairs<AssetName, Int>>
