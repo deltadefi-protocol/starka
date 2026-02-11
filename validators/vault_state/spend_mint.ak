@@ -2,10 +2,11 @@ use cardano/address.{from_script, from_verification_key}
 use cardano/assets.{PolicyId, from_asset, from_asset_list}
 use cardano/transaction.{InlineDatum, Input, OutputReference, Transaction}
 use cocktail.{
-  check_policy_only_burn, get_all_value_to_script, input_inline_datum,
-  inputs_at_with_policy, inputs_with_policy, key_signed, only_minted_token,
-  output_inline_datum, outputs_at_with_policy, outputs_with_policy, value_geq,
+  get_all_value_to_script, input_inline_datum, inputs_at_with_policy,
+  inputs_with_policy, key_signed, only_minted_token, output_inline_datum,
+  outputs_at_with_policy, outputs_with_policy, value_geq,
 }
+use cocktail/vodka_mints.{policy_only_minted_token}
 use hydra_dex/types.{AppOracleDatum, HydraInfo} as dd_types
 use price_oracle_utils.{convert_m_value_to_usd, verify_prices_oracle_messages}
 use types.{
@@ -21,9 +22,9 @@ validator vault_state(vault_oracle_nft: PolicyId) {
     _input: OutputReference,
     self: Transaction,
   ) {
-    let Transaction { inputs, mint, .. } = self
+    let Transaction { reference_inputs, mint, .. } = self
     let vault_oracle_datum: VaultOracleDatum =
-      inputs |> get_vault_oracle_datum(vault_oracle_nft)
+      reference_inputs |> get_vault_oracle_datum(vault_oracle_nft)
 
     let intent_script_hash =
       when redeemer is {
@@ -31,7 +32,7 @@ validator vault_state(vault_oracle_nft: PolicyId) {
         ProcessWithdrawal -> vault_oracle_datum.withdrawal_intent_script_hash
       }
 
-    check_policy_only_burn(mint, intent_script_hash)
+    policy_only_minted_token(mint, intent_script_hash, "", -1)
   }
 
   mint(redeemer: VaultStateMintRedeemer, policy_id: PolicyId, self: Transaction) {
