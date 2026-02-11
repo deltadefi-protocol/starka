@@ -36,21 +36,6 @@ pub fn convert_lp_to_usd(
   lp_amount * ( vault_balance - operator_fee ) / total_lp
 }
 
-pub fn convert_value_to_usd(
-  value: Value,
-  prices: Pairs<(PolicyId, AssetName), Int>,
-) -> Int {
-  assets.reduce(
-    value,
-    0,
-    fn(policy_id, asset_name, amount, acc) {
-      expect Some(price) = prices |> pairs.get_first((policy_id, asset_name))
-
-      acc + amount * price
-    },
-  )
-}
-
 pub fn check_output_value_equal_to_lp_usd_value(
   output_value: Value,
   lp_usd_value: Int,

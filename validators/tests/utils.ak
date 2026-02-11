@@ -9,7 +9,7 @@ use mocktail.{
   mock_script_hash,
 }
 use types.{
-  BurnIntent, DepositIntentDatum, MValue, VaultOracleDatum,
+  BurnIntent, DepositIntentDatum, MValue, VaultOracleDatum, VaultStateDatum,
   WithdrawalIntentDatum,
 }
 use utils.{cal_operator_fee}
@@ -140,28 +140,47 @@ pub const mock_operator_key = mock_pub_key_hash(10)
 
 pub const mock_vault_cost = 2000000000
 
+pub const mock_vault_state_script_hash = mock_script_hash(9)
+
 pub const mock_vault_script_hash = mock_script_hash(10)
 
 pub const mock_deposit_intent_script_hash = mock_script_hash(11)
 
 pub const mock_withdrawal_intent_script_hash = mock_script_hash(12)
 
+pub const mock_lp_record_script_hash = mock_script_hash(13)
+
+pub const mock_vault_stake_rotation_script_hash = mock_script_hash(14)
+
 pub const mock_lp_token = mock_policy_id(11)
+
+pub const mock_operator_min_deposit_percentage = 10
+
+pub const mock_operator_lp = 0
 
 pub const mock_vault_oracle_datum: VaultOracleDatum =
   VaultOracleDatum {
-    app_oracle: mock_app_oracle,
-    pluggable_logic: mock_pluggable_logic,
-    node_pub_key: mock_node_pub_keys,
-    total_lp: mock_total_lp,
-    hwm_lp_value: mock_hwm_lp_value,
-    operator_charge_percentage: mock_operator_charge_percentage,
-    operator_key: mock_operator_key,
-    vault_cost: mock_vault_cost,
+    vault_state_script_hash: mock_vault_state_script_hash,
     vault_script_hash: mock_vault_script_hash,
     deposit_intent_script_hash: mock_deposit_intent_script_hash,
     withdrawal_intent_script_hash: mock_withdrawal_intent_script_hash,
-    lp_token: mock_lp_token,
+    lp_record_script_hash: mock_lp_record_script_hash,
+    pluggable_logic: mock_pluggable_logic,
+    vault_stake_rotation_script_hash: mock_vault_stake_rotation_script_hash,
+    operator_key: mock_operator_key,
+    operator_charge_percentage: mock_operator_charge_percentage,
+    operator_min_deposit_percentage: mock_operator_min_deposit_percentage,
+    hydra_node_pub_keys: mock_node_pub_keys,
+    is_active: True,
+  }
+
+pub const mock_vault_state_datum: VaultStateDatum =
+  VaultStateDatum {
+    app_oracle: mock_app_oracle,
+    vault_oracle: mock_vault_oracle,
+    total_lp: mock_total_lp,
+    operator_lp: mock_operator_lp,
+    vault_cost: mock_vault_cost,
   }
 
 pub const mock_burn_intent_redeemer = BurnIntent([0], "", [])

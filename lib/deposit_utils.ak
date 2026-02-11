@@ -1,12 +1,12 @@
 use aiken/cbor
 use aiken/collection/dict
 use aiken/collection/list
-use aiken/collection/pairs
 use aiken/crypto.{ScriptHash}
 use cardano/address.{Script}
 use cardano/assets.{AssetName, PolicyId, Value, quantity_of}
 use cardano/transaction.{Input, Output}
 use cocktail.{input_inline_datum}
+use price_oracle_utils.{convert_m_value_to_usd}
 use types.{DepositIntentDatum, MValue}
 
 pub type Scott4<a, b, c, d, result> =
@@ -59,28 +59,6 @@ pub fn combine_m_value(left_m_value: MValue, right_m_value: MValue) -> MValue {
     },
   )
     |> dict.to_pairs()
-}
-
-pub fn convert_m_value_to_usd(
-  m_value: MValue,
-  prices: Pairs<(PolicyId, AssetName), Int>,
-) -> Int {
-  list.foldl(
-    m_value,
-    0,
-    fn(policy_pair: Pair<PolicyId, Pairs<AssetName, Int>>, acc: Int) {
-      list.foldl(
-        policy_pair.2nd,
-        acc,
-        fn(asset_pair: Pair<AssetName, Int>, nested_acc: Int) {
-          expect Some(price) =
-            prices
-              |> pairs.get_first((policy_pair.1st, asset_pair.1st))
-          nested_acc + price * asset_pair.2nd
-        },
-      )
-    },
-  )
 }
 
 pub fn cal_lp_token_amount(

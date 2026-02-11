@@ -1,4 +1,4 @@
-use aiken/crypto.{VerificationKeyHash}
+use aiken/crypto.{VerificationKey, VerificationKeyHash}
 use cardano/address.{Address}
 use cardano/assets.{AssetName, PolicyId}
 use cardano/transaction.{OutputReference}
@@ -23,6 +23,7 @@ pub type VaultOracleDatum {
   operator_key: VerificationKeyHash,
   operator_charge_percentage: Int,
   operator_min_deposit_percentage: Int,
+  hydra_node_pub_keys: List<VerificationKey>,
   is_active: Bool,
 }
 
@@ -42,7 +43,12 @@ pub type VaultStateDatum {
 }
 
 pub type VaultStateMintRedeemer {
-  CreateVault { initial_deposit: MValue, initial_lp: Int, prices: Message }
+  CreateVault {
+    initial_deposit: MValue,
+    initial_lp: Int,
+    prices_message: ByteArray,
+    signatures: List<ByteArray>,
+  }
   CloseVault
 }
 
