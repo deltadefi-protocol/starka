@@ -23,6 +23,7 @@ pub type VaultOracleDatum {
   operator_key: VerificationKeyHash,
   operator_charge_percentage: Int,
   operator_min_deposit_percentage: Int,
+  is_active: Bool,
 }
 
 pub type ProcessRedeemer {
@@ -38,6 +39,11 @@ pub type VaultStateDatum {
   total_lp: Int,
   operator_lp: Int,
   vault_cost: Int,
+}
+
+pub type VaultStateMintRedeemer {
+  CreateVault { initial_deposit: MValue, initial_lp: Int, prices: Message }
+  CloseVault
 }
 
 // 2 - Vault

@@ -14,9 +14,11 @@
 - `operator_key`: VerificationKeyHash
 - `operator_charge_percentage`: Int
 - `operator_min_deposit_percentage`: Int
+- `is_active`: False
 
 ## User Action
 
 1. Close Vault
 
-   - `vault_state_script_hash` token is burnt
+   - `is_active` is False
+   - The current locked in current UTxO is burnt
