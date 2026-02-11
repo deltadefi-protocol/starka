@@ -2,10 +2,11 @@ use cardano/address.{from_script}
 use cardano/assets.{AssetName, PolicyId, from_asset, from_asset_list}
 use cardano/transaction.{InlineDatum, Input, NoDatum}
 use deposit_utils.{
-  cal_lp_token_amount, combine_m_value, convert_m_value_to_usd,
+  cal_lp_token_amount, combine_m_value,
   process_batched_deposit_intent_validation,
 }
 use mocktail.{mock_output, mock_pub_key_address, mock_utxo_ref}
+use price_oracle_utils.{convert_m_value_to_usd}
 use tests/utils.{
   mock_deposit_intent_script_hash, mock_lp_decimal, mock_lp_token,
   mock_operator_fee, mock_total_lp, mock_vault_balance,

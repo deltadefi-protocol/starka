@@ -1,5 +1,5 @@
 use cardano/assets.{AssetName, PolicyId}
-use deposit_utils.{convert_m_value_to_usd}
+use price_oracle_utils.{convert_m_value_to_usd}
 use types.{MValue}
 
 const prices: Pairs<(PolicyId, AssetName), Int> =
