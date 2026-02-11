@@ -36,14 +36,7 @@ validator vault_state(vault_oracle_nft: PolicyId) {
   }
 
   mint(redeemer: VaultStateMintRedeemer, policy_id: PolicyId, self: Transaction) {
-    let Transaction {
-      inputs,
-      outputs,
-      mint,
-      reference_inputs,
-      extra_signatories,
-      ..
-    } = self
+    let Transaction { inputs, outputs, mint, extra_signatories, .. } = self
 
     when redeemer is {
       CreateVault { initial_deposit, initial_lp, prices_message, signatures } -> {
@@ -53,13 +46,8 @@ validator vault_state(vault_oracle_nft: PolicyId) {
           outputs_at_with_policy(outputs, from_script(policy_id), policy_id)
         expect vault_state_datum: VaultStateDatum =
           output_inline_datum(vault_state_output)
-        let VaultStateDatum {
-          app_oracle,
-          vault_oracle,
-          total_lp,
-          operator_lp,
-          vault_cost,
-        } = vault_state_datum
+        let VaultStateDatum { vault_oracle, total_lp, operator_lp, vault_cost } =
+          vault_state_datum
 
         // One input from `app_oracle`, with inactive state, and one output to `app_oracle`, updating only with active state
         expect [vault_oracle_input] = inputs_with_policy(inputs, vault_oracle)
@@ -76,6 +64,7 @@ validator vault_state(vault_oracle_nft: PolicyId) {
           }
 
         let VaultOracleDatum {
+          app_oracle,
           vault_script_hash,
           lp_record_script_hash,
           operator_key,
@@ -85,7 +74,7 @@ validator vault_state(vault_oracle_nft: PolicyId) {
 
         // Verify prices message
         let app_oracle_input_datum: AppOracleDatum =
-          reference_inputs |> get_app_oracle_datum(app_oracle)
+          inputs |> get_app_oracle_datum(app_oracle)
         let AppOracleDatum { hydra_info, .. } = app_oracle_input_datum
         let HydraInfo { hydra_signers } = hydra_info
         let (_, prices, is_prices_verified) =
