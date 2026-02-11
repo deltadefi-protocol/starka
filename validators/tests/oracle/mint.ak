@@ -4,9 +4,9 @@ use mocktail.{
   complete, mint, mock_policy_id, mock_pub_key_address, mock_tx_hash,
   mock_utxo_ref, mocktail_tx, tx_in,
 }
+use oracle/mint
 use tests/utils.{mock_vault_oracle}
 use types.{RBurn, RMint}
-use vault_oracle/mint
 
 test s0_mint_success_mint() {
   let redeemer = RMint
