@@ -57,7 +57,7 @@ fn mock_process_withdrawal_tx(
     |> add_redeemer(True, Pair(Mint(intent_policy_id), mint_redeemer))
 }
 
-test s1_spend_success_process_withdrawal() {
+test s2_spend_success_process_withdrawal() {
   let tx =
     mock_process_withdrawal_tx(
       ProcessWithdrawalTestCase {
@@ -76,7 +76,7 @@ test s1_spend_success_process_withdrawal() {
   )
 }
 
-test s1_spend_fail_process_withdrawal_with_no_vault_oracle_inputed() fail {
+test s2_spend_fail_process_withdrawal_with_no_vault_oracle_inputed() fail {
   let tx =
     mock_process_withdrawal_tx(
       ProcessWithdrawalTestCase {
@@ -95,7 +95,7 @@ test s1_spend_fail_process_withdrawal_with_no_vault_oracle_inputed() fail {
   )
 }
 
-test s1_spend_fail_process_withdrawal_with_incorrect_mint_policy() fail {
+test s2_spend_fail_process_withdrawal_with_incorrect_mint_policy() fail {
   let tx =
     mock_process_withdrawal_tx(
       ProcessWithdrawalTestCase {
@@ -114,7 +114,7 @@ test s1_spend_fail_process_withdrawal_with_incorrect_mint_policy() fail {
   )
 }
 
-test s1_spend_fail_process_withdrawal_with_incorrect_mint_redeemer() fail {
+test s2_spend_fail_process_withdrawal_with_incorrect_mint_redeemer() fail {
   let tx =
     mock_process_withdrawal_tx(
       ProcessWithdrawalTestCase {

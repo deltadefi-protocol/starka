@@ -38,7 +38,7 @@ fn mock_process_withdrawal_tx(
     |> add_extra_signatory(is_operator_signed, mock_operator_key)
 }
 
-test s1_withdraw_success_process_withdrawal() {
+test s2_withdraw_success_process_withdrawal() {
   let tx =
     mock_process_withdrawal_tx(
       ProcessWithdrawalTestCase {
@@ -50,7 +50,7 @@ test s1_withdraw_success_process_withdrawal() {
   vault_spend_and_withdraw.vault.withdraw(mock_vault_oracle, None, None, tx)
 }
 
-test s1_withdraw_fail_process_withdrawal_with_no_vault_oracle_inputed() fail {
+test s2_withdraw_fail_process_withdrawal_with_no_vault_oracle_inputed() fail {
   let tx =
     mock_process_withdrawal_tx(
       ProcessWithdrawalTestCase {
@@ -62,7 +62,7 @@ test s1_withdraw_fail_process_withdrawal_with_no_vault_oracle_inputed() fail {
   vault_spend_and_withdraw.vault.withdraw(mock_vault_oracle, None, None, tx)
 }
 
-test s1_withdraw_fail_process_withdrawal_with_no_operator_signed() {
+test s2_withdraw_fail_process_withdrawal_with_no_operator_signed() {
   let tx =
     mock_process_withdrawal_tx(
       ProcessWithdrawalTestCase {
