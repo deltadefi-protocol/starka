@@ -13,6 +13,7 @@ pub type MintPolarity {
 // 0 - VaultOracle
 
 pub type VaultOracleDatum {
+  app_oracle: PolicyId,
   vault_state_script_hash: ByteArray,
   vault_script_hash: ByteArray,
   deposit_intent_script_hash: ByteArray,
@@ -35,7 +36,6 @@ pub type ProcessRedeemer {
 // 1 - VaultState
 
 pub type VaultStateDatum {
-  app_oracle: PolicyId,
   vault_oracle: PolicyId,
   total_lp: Int,
   operator_lp: Int,

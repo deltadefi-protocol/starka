@@ -34,6 +34,7 @@
      - `vault_oracle`: Same as param `vault_oracle_nft`
    - `initial_deposit` is sent to `vault_script_hash` script address (obtained from datum)
    - A `LP record` is minted to its script address, with `lp` == `initial_lp`, `cost` == `vault_cost`, and address with pub key matched `operator_key`
+   - Non zero initial LPs
    - Sign by operator (obtained from datum)
 
 2. Close Vault `CloseVault`

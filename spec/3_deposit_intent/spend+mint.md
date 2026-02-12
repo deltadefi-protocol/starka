@@ -28,6 +28,7 @@
    - `DepositIntent` is burnt with total batched amount
    - `VaultState` input with datum
    - Clean `VaultState` output and updated datum
+   - The deposit value is sent to the address with `vault_script_hash`
    - Verify `prices` message:
       - `utxo_ref` in `message` is `VaultState` utxo
       - verify signatures and keys
