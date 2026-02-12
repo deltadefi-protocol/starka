@@ -2,8 +2,9 @@ use cardano/address.{from_script, from_verification_key}
 use cardano/assets.{add, from_asset, from_asset_list}
 use cardano/transaction.{Transaction}
 use mocktail.{
-  complete, mint, mock_pub_key_address, mock_tx_hash, mocktail_tx,
-  required_signer_hash, tx_in, tx_in_inline_datum, tx_out, tx_out_inline_datum,
+  complete, mint, mock_pub_key_address, mock_tx_hash, mocktail_tx, ref_tx_in,
+  ref_tx_in_inline_datum, required_signer_hash, tx_in, tx_in_inline_datum,
+  tx_out, tx_out_inline_datum,
 }
 use tests/utils.{
   mock_app_oracle, mock_app_oracle_address, mock_app_oracle_datum,
@@ -130,14 +131,14 @@ fn mock_create_vault_tx(test_case: CreateVaultTestCase) -> Transaction {
         mock_pub_key_address(0, None),
       )
     // App oracle reference input
-    |> tx_in(
+    |> ref_tx_in(
         True,
         mock_tx_hash(2),
         0,
         app_oracle_value,
         mock_app_oracle_address,
       )
-    |> tx_in_inline_datum(True, mock_app_oracle_datum)
+    |> ref_tx_in_inline_datum(True, mock_app_oracle_datum)
     // Vault oracle output
     |> tx_out(True, from_script(mock_vault_oracle), vault_oracle_value)
     |> tx_out_inline_datum(True, vault_oracle_output_datum)

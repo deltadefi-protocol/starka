@@ -36,7 +36,14 @@ validator vault_state(vault_oracle_nft: PolicyId) {
   }
 
   mint(redeemer: VaultStateMintRedeemer, policy_id: PolicyId, self: Transaction) {
-    let Transaction { inputs, outputs, mint, extra_signatories, .. } = self
+    let Transaction {
+      inputs,
+      outputs,
+      mint,
+      extra_signatories,
+      reference_inputs,
+      ..
+    } = self
 
     when redeemer is {
       CreateVault { initial_deposit, initial_lp, prices_message, signatures } -> {
@@ -74,7 +81,7 @@ validator vault_state(vault_oracle_nft: PolicyId) {
 
         // Verify prices message
         let app_oracle_input_datum: AppOracleDatum =
-          inputs |> get_app_oracle_datum(app_oracle)
+          reference_inputs |> get_app_oracle_datum(app_oracle)
         let AppOracleDatum { hydra_info, .. } = app_oracle_input_datum
         let HydraInfo { hydra_signers } = hydra_info
         let (_, prices, is_prices_verified) =
@@ -123,6 +130,7 @@ validator vault_state(vault_oracle_nft: PolicyId) {
         let is_operator_signed = key_signed(extra_signatories, operator_key)
         let is_mint_correct = assets.match(mint, to_mint, ==)
         and {
+          (initial_lp > 0)?,
           is_vault_oracle_updated?,
           is_prices_verified?,
           is_state_datum_correct?,
