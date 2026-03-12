@@ -9,29 +9,35 @@ use cardano/assets.{Lovelace, PolicyId, Value, quantity_of}
 use cardano/transaction.{InlineDatum, Input, Redeemer, ScriptPurpose}
 use cocktail.{input_inline_datum}
 use hydra_dex/types.{AppOracleDatum} as dd_types
-use types.{BurnIntent, IntentRedeemer, VaultDatum}
+use types.{BurnIntent, IntentRedeemer, VaultOracleDatum}
 
-pub fn get_vault_datum(inputs: List<Input>, vault_nft: PolicyId) -> VaultDatum {
-  expect Some(vault_input) =
+pub fn get_vault_oracle_datum(
+  inputs: List<Input>,
+  vault_oracle_nft: PolicyId,
+) -> VaultOracleDatum {
+  expect Some(oracle_input) =
     inputs
       |> list.find(
           fn(input: Input) {
-            quantity_of(input.output.value, vault_nft, "") == 1
+            quantity_of(input.output.value, vault_oracle_nft, "") == 1
           },
         )
-  expect datum: VaultDatum = input_inline_datum(vault_input)
+  expect datum: VaultOracleDatum = input_inline_datum(oracle_input)
   datum
 }
 
-pub fn get_vault_input(inputs: List<Input>, vault_nft: PolicyId) -> Input {
-  expect Some(vault_input) =
+pub fn get_vault_oracle_input(
+  inputs: List<Input>,
+  vault_oracle_nft: PolicyId,
+) -> Input {
+  expect Some(oracle_input) =
     inputs
       |> list.find(
           fn(input: Input) {
-            quantity_of(input.output.value, vault_nft, "") == 1
+            quantity_of(input.output.value, vault_oracle_nft, "") == 1
           },
         )
-  vault_input
+  oracle_input
 }
 
 pub fn get_app_oracle_datum(
@@ -105,4 +111,8 @@ pub fn withdrawal_script_validated(
 
 pub fn check_any_policy_burned(mint: Value, policy_id: PolicyId) -> Bool {
   quantity_of(mint, policy_id, "") < 0
+}
+
+pub fn check_any_policy_minted(mint: Value, policy_id: PolicyId) -> Bool {
+  quantity_of(mint, policy_id, "") > 0
 }

@@ -3,7 +3,7 @@ use cardano/address.{Script, from_script, from_verification_key}
 use cardano/assets.{PolicyId}
 use cardano/transaction.{Mint, OutputReference, Transaction, find_input}
 use cocktail.{
-  input_inline_datum, key_signed, output_inline_datum,
+  get_all_value_to_script, input_inline_datum, key_signed, output_inline_datum,
   outputs_at_with_policy,
 }
 use cocktail/vodka_inputs
@@ -11,14 +11,14 @@ use cocktail/vodka_mints.{policy_only_minted_token}
 use hydra_dex/types.{AppOracleDatum, HydraInfo} as dd_types
 use price_oracle_utils.{convert_value_to_usd, verify_prices_oracle_messages}
 use types.{
-  BurnIntent, CancelIntent, MintIntent, VaultDatum, WithdrawalIntentDatum,
+  BurnIntent, CancelIntent, MintIntent, VaultOracleDatum, WithdrawalIntentDatum,
 }
 use utils.{check_mint_redeemer_is_burn_intent, get_app_oracle_datum}
 use withdraw_utils.{
   apply_operator_fee_share, process_batched_withdrawal_intent_validation,
 }
 
-validator l1_withdrawal_intent(vault_nft: PolicyId) {
+validator l1_withdrawal_intent(vault_oracle_nft: PolicyId) {
   spend(
     _datum: Option<WithdrawalIntentDatum>,
     _r,
@@ -57,25 +57,25 @@ validator l1_withdrawal_intent(vault_nft: PolicyId) {
         is_amount_valid? && is_mint_value_correct?
       }
       BurnIntent(indices, message, signatures, mpf_actions) -> {
-        // 1. Get Vault UTxO input and output
-        expect [vault_input] =
-          vodka_inputs.inputs_with_policy(inputs, vault_nft)
-        expect vault_input_datum: VaultDatum =
-          input_inline_datum(vault_input)
+        // 1. Get Vault Oracle input and output
+        expect [oracle_input] =
+          vodka_inputs.inputs_with_policy(inputs, vault_oracle_nft)
+        expect oracle_input_datum: VaultOracleDatum =
+          input_inline_datum(oracle_input)
 
-        expect [vault_output] =
+        expect [oracle_output] =
           outputs_at_with_policy(
             outputs,
-            vault_input.output.address,
-            vault_nft,
+            oracle_input.output.address,
+            vault_oracle_nft,
           )
-        expect vault_output_datum: VaultDatum =
-          output_inline_datum(vault_output)
+        expect oracle_output_datum: VaultOracleDatum =
+          output_inline_datum(oracle_output)
 
         // 2. Verify prices message via app_oracle reference input
         let app_oracle_datum: AppOracleDatum =
           reference_inputs
-            |> get_app_oracle_datum(vault_input_datum.app_oracle)
+            |> get_app_oracle_datum(oracle_input_datum.app_oracle)
         let AppOracleDatum { hydra_info, .. } = app_oracle_datum
         let HydraInfo { hydra_signers } = hydra_info
         let (vault_balance, prices, is_prices_verified) =
@@ -83,20 +83,21 @@ validator l1_withdrawal_intent(vault_nft: PolicyId) {
             message,
             inputs,
             hydra_signers,
-            vault_input_datum.hydra_node_pub_keys,
+            oracle_input_datum.hydra_node_pub_keys,
             signatures,
           )
 
         // 3. Process batched withdrawal intents with MPF
-        let VaultDatum {
+        let VaultOracleDatum {
           total_lp,
           vault_cost,
           operator_lp,
           operator_charge_percentage,
           operator_key,
           lp_merkle_root,
+          vault_script_hash,
           ..
-        } = vault_input_datum
+        } = oracle_input_datum
 
         // Split mpf_actions: user actions + last action for operator fee share
         let user_action_count = list.length(indices)
@@ -143,17 +144,26 @@ validator l1_withdrawal_intent(vault_nft: PolicyId) {
           }
 
         // 5. Verify vault value unlocked equals total_user_receives
-        let value_from_vault =
-          convert_value_to_usd(vault_input.output.value, prices)
+        // Get vault inputs/outputs by script hash
+        expect [vault_input] =
+          vodka_inputs.inputs_at_with_policy(
+            inputs,
+            from_script(vault_script_hash),
+            vault_oracle_nft,
+          )
+        let value_from_vault = convert_value_to_usd(vault_input.output.value, prices)
         let value_to_vault =
-          convert_value_to_usd(vault_output.value, prices)
+          convert_value_to_usd(
+            get_all_value_to_script(outputs, vault_script_hash),
+            prices,
+          )
         let vault_unlock_check =
           value_from_vault - value_to_vault == total_user_receives
 
-        // 6. Verify vault output datum updated correctly
-        let vault_datum_check =
-          vault_output_datum == VaultDatum {
-            ..vault_input_datum,
+        // 6. Verify oracle output datum updated correctly
+        let oracle_datum_check =
+          oracle_output_datum == VaultOracleDatum {
+            ..oracle_input_datum,
             total_lp: total_lp - total_intent_datum_lp_amount + total_fee_lp,
             operator_lp: operator_lp + total_fee_lp,
             vault_cost: vault_cost - total_cost_removed,
@@ -169,7 +179,7 @@ validator l1_withdrawal_intent(vault_nft: PolicyId) {
             -list.length(indices),
           )
 
-        is_prices_verified? && vault_unlock_check? && vault_datum_check? && intent_burn_check?
+        is_prices_verified? && vault_unlock_check? && oracle_datum_check? && intent_burn_check?
       }
       CancelIntent -> {
         let is_burn_correct =

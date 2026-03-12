@@ -14,10 +14,11 @@ pub type MintPolarity {
   RBurn
 }
 
-// Vault Datum — merged oracle config + vault state + merkle root
-pub type VaultDatum {
-  // Config (immutable after creation)
+// Vault Oracle Datum — holds config + state, commits to Hydra
+pub type VaultOracleDatum {
+  // Config (all updatable via UpdateConfig)
   app_oracle: PolicyId,
+  vault_script_hash: ByteArray,
   l1_deposit_intent_script_hash: ByteArray,
   l1_withdrawal_intent_script_hash: ByteArray,
   l2_deposit_intent_script_hash: ByteArray,
@@ -33,11 +34,10 @@ pub type VaultDatum {
   operator_lp: Int,
   vault_cost: Int,
   lp_merkle_root: ByteArray,
-  is_active: Bool,
 }
 
-// Vault mint redeemer
-pub type VaultMintRedeemer {
+// Vault Oracle mint redeemer
+pub type VaultOracleMintRedeemer {
   CreateVault {
     initial_deposit: MValue,
     initial_lp: Int,
@@ -48,15 +48,23 @@ pub type VaultMintRedeemer {
   CloseVault
 }
 
-// Vault spend redeemer
-pub type VaultSpendRedeemer {
+// Vault Oracle spend redeemer
+pub type VaultOracleSpendRedeemer {
   ProcessL1Deposit
   ProcessL1Withdrawal
   ProcessL2Deposit
   ProcessL2Withdrawal
   HydraCommit
   HydraDecommit
-  Trade
+  PluggableLogic
+  UpdateConfig
+}
+
+// Vault spend redeemer — fund management validator
+pub type VaultSpendRedeemer {
+  ProcessWithdrawal
+  DepositIntoDeltaDeFi
+  StakeRotation
   PluggableLogic
 }
 
@@ -93,8 +101,20 @@ pub type DepositIntentDatum {
   amount: MValue,
 }
 
+// L2 Deposit intent datum — no value stored, only intent token
+pub type L2DepositIntentDatum {
+  lp_address: Address,
+  amount: MValue,
+}
+
 // Withdrawal intent datum
 pub type WithdrawalIntentDatum {
+  lp_address: Address,
+  amount: Int,
+}
+
+// L2 Withdrawal intent datum — no value stored, only intent token
+pub type L2WithdrawalIntentDatum {
   lp_address: Address,
   amount: Int,
 }

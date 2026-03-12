@@ -1,11 +1,9 @@
 use aiken/collection/list
 use cardano/address.{Script, from_script}
 use cardano/assets.{PolicyId, from_asset_list}
-use cardano/transaction.{
-  Mint, OutputReference, Transaction, find_input,
-}
+use cardano/transaction.{Mint, OutputReference, Transaction, find_input}
 use cocktail.{
-  input_inline_datum, key_signed, output_inline_datum,
+  get_all_value_to_script, input_inline_datum, key_signed, output_inline_datum,
   outputs_at_with_policy, value_geq,
 }
 use cocktail/vodka_inputs
@@ -14,11 +12,11 @@ use deposit_utils.{process_batched_deposit_intent_validation}
 use hydra_dex/types.{AppOracleDatum, HydraInfo} as dd_types
 use price_oracle_utils.{verify_prices_oracle_messages}
 use types.{
-  BurnIntent, CancelIntent, DepositIntentDatum, MintIntent, VaultDatum,
+  BurnIntent, CancelIntent, DepositIntentDatum, MintIntent, VaultOracleDatum,
 }
 use utils.{check_mint_redeemer_is_burn_intent, get_app_oracle_datum}
 
-validator l1_deposit_intent(vault_nft: PolicyId) {
+validator l1_deposit_intent(vault_oracle_nft: PolicyId) {
   spend(
     _datum: Option<DepositIntentDatum>,
     _r,
@@ -58,25 +56,25 @@ validator l1_deposit_intent(vault_nft: PolicyId) {
         is_value_deposited? && is_mint_value_correct?
       }
       BurnIntent(indices, message, signatures, mpf_actions) -> {
-        // 1. Get Vault UTxO input and output
-        expect [vault_input] =
-          vodka_inputs.inputs_with_policy(inputs, vault_nft)
-        expect vault_input_datum: VaultDatum =
-          input_inline_datum(vault_input)
+        // 1. Get Vault Oracle input and output
+        expect [oracle_input] =
+          vodka_inputs.inputs_with_policy(inputs, vault_oracle_nft)
+        expect oracle_input_datum: VaultOracleDatum =
+          input_inline_datum(oracle_input)
 
-        expect [vault_output] =
+        expect [oracle_output] =
           outputs_at_with_policy(
             outputs,
-            vault_input.output.address,
-            vault_nft,
+            oracle_input.output.address,
+            vault_oracle_nft,
           )
-        expect vault_output_datum: VaultDatum =
-          output_inline_datum(vault_output)
+        expect oracle_output_datum: VaultOracleDatum =
+          output_inline_datum(oracle_output)
 
         // 2. Verify prices message via app_oracle reference input
         let app_oracle_datum: AppOracleDatum =
           reference_inputs
-            |> get_app_oracle_datum(vault_input_datum.app_oracle)
+            |> get_app_oracle_datum(oracle_input_datum.app_oracle)
         let AppOracleDatum { hydra_info, .. } = app_oracle_datum
         let HydraInfo { hydra_signers } = hydra_info
         let (vault_balance, prices, is_prices_verified) =
@@ -84,13 +82,13 @@ validator l1_deposit_intent(vault_nft: PolicyId) {
             message,
             inputs,
             hydra_signers,
-            vault_input_datum.hydra_node_pub_keys,
+            oracle_input_datum.hydra_node_pub_keys,
             signatures,
           )
 
         // 3. Process batched deposit intents with MPF
-        let VaultDatum { total_lp, vault_cost, lp_merkle_root, .. } =
-          vault_input_datum
+        let VaultOracleDatum { total_lp, vault_cost, lp_merkle_root, .. } =
+          oracle_input_datum
 
         let (
           total_intent_datum_m_value,
@@ -109,17 +107,17 @@ validator l1_deposit_intent(vault_nft: PolicyId) {
             lp_merkle_root,
           )
 
-        // 4. Verify deposit value sent to vault UTxO
+        // 4. Verify deposit value sent to vault script
         let is_deposit_sent =
           value_geq(
-            vault_output.value,
+            get_all_value_to_script(outputs, oracle_input_datum.vault_script_hash),
             from_asset_list(total_intent_datum_m_value),
           )
 
-        // 5. Verify vault output datum updated correctly
-        let vault_datum_check =
-          vault_output_datum == VaultDatum {
-            ..vault_input_datum,
+        // 5. Verify oracle output datum updated correctly
+        let oracle_datum_check =
+          oracle_output_datum == VaultOracleDatum {
+            ..oracle_input_datum,
             total_lp: total_lp + total_lp_added,
             vault_cost: vault_cost + total_intent_datum_usd_value,
             lp_merkle_root: final_merkle_root,
@@ -134,7 +132,7 @@ validator l1_deposit_intent(vault_nft: PolicyId) {
             -list.length(indices),
           )
 
-        is_prices_verified? && is_deposit_sent? && vault_datum_check? && intent_burn_check?
+        is_prices_verified? && is_deposit_sent? && oracle_datum_check? && intent_burn_check?
       }
       CancelIntent -> {
         // Burn intent token, signed by depositor

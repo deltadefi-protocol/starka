@@ -4,23 +4,23 @@ use cardano/address.{Script, from_script, from_verification_key}
 use cardano/assets.{PolicyId}
 use cardano/transaction.{Mint, OutputReference, Transaction, find_input}
 use cocktail.{
-  input_inline_datum, key_signed, output_inline_datum,
-  outputs_at_with_policy,
+  input_inline_datum, key_signed, output_inline_datum, outputs_at_with_policy,
 }
 use cocktail/vodka_inputs
 use cocktail/vodka_mints.{policy_only_minted_token}
-use price_oracle_utils.{convert_value_to_usd, verify_prices_oracle_messages}
+use price_oracle_utils.{verify_prices_oracle_messages}
 use types.{
-  BurnIntent, CancelIntent, MintIntent, VaultDatum, WithdrawalIntentDatum,
+  BurnIntent, CancelIntent, L2WithdrawalIntentDatum, MintIntent,
+  VaultOracleDatum,
 }
 use utils.{check_mint_redeemer_is_burn_intent}
 use withdraw_utils.{
   apply_operator_fee_share, process_batched_withdrawal_intent_validation,
 }
 
-validator l2_withdrawal_intent(vault_nft: PolicyId) {
+validator l2_withdrawal_intent(vault_oracle_nft: PolicyId) {
   spend(
-    _datum: Option<WithdrawalIntentDatum>,
+    _datum: Option<L2WithdrawalIntentDatum>,
     _r,
     input: OutputReference,
     self: Transaction,
@@ -35,44 +35,40 @@ validator l2_withdrawal_intent(vault_nft: PolicyId) {
   }
 
   mint(redeemer: types.IntentRedeemer, policy_id: PolicyId, self: Transaction) {
-    let Transaction {
-      inputs,
-      outputs,
-      mint,
-      extra_signatories,
-      ..
-    } = self
+    let Transaction { inputs, outputs, mint, extra_signatories, .. } = self
 
     when redeemer is {
       MintIntent -> {
+        // Intent UTxO only contains the intent token (no value)
         expect [intent_output] =
           outputs_at_with_policy(outputs, from_script(policy_id), policy_id)
         let is_mint_value_correct =
           policy_only_minted_token(mint, policy_id, "", 1)
-        expect WithdrawalIntentDatum { amount, .. }: WithdrawalIntentDatum =
+        expect L2WithdrawalIntentDatum { amount, .. }: L2WithdrawalIntentDatum =
           output_inline_datum(intent_output)
 
+        // Withdrawal amount > 0
         let is_amount_valid = amount > 0
         is_amount_valid? && is_mint_value_correct?
       }
       BurnIntent(indices, message, signatures, mpf_actions) -> {
-        // 1. Get Vault UTxO input and output
-        expect [vault_input] =
-          vodka_inputs.inputs_with_policy(inputs, vault_nft)
-        expect vault_input_datum: VaultDatum =
-          input_inline_datum(vault_input)
+        // 1. Get Vault Oracle input and output
+        expect [oracle_input] =
+          vodka_inputs.inputs_with_policy(inputs, vault_oracle_nft)
+        expect oracle_input_datum: VaultOracleDatum =
+          input_inline_datum(oracle_input)
 
-        expect [vault_output] =
+        expect [oracle_output] =
           outputs_at_with_policy(
             outputs,
-            vault_input.output.address,
-            vault_nft,
+            oracle_input.output.address,
+            vault_oracle_nft,
           )
-        expect vault_output_datum: VaultDatum =
-          output_inline_datum(vault_output)
+        expect oracle_output_datum: VaultOracleDatum =
+          output_inline_datum(oracle_output)
 
         // 2. Verify prices message using hydra_node_pub_keys (no app_oracle in Hydra)
-        let hydra_node_pub_keys = vault_input_datum.hydra_node_pub_keys
+        let hydra_node_pub_keys = oracle_input_datum.hydra_node_pub_keys
         let hydra_signers =
           list.map(hydra_node_pub_keys, fn(key) { blake2b_224(key) })
         let (vault_balance, prices, is_prices_verified) =
@@ -85,7 +81,7 @@ validator l2_withdrawal_intent(vault_nft: PolicyId) {
           )
 
         // 3. Process batched withdrawal intents with MPF
-        let VaultDatum {
+        let VaultOracleDatum {
           total_lp,
           vault_cost,
           operator_lp,
@@ -93,7 +89,7 @@ validator l2_withdrawal_intent(vault_nft: PolicyId) {
           operator_key,
           lp_merkle_root,
           ..
-        } = vault_input_datum
+        } = oracle_input_datum
 
         // Split mpf_actions: user actions + last action for operator fee share
         let user_action_count = list.length(indices)
@@ -102,7 +98,7 @@ validator l2_withdrawal_intent(vault_nft: PolicyId) {
 
         let (
           total_intent_datum_lp_amount,
-          total_user_receives,
+          _total_user_receives,
           total_fee_lp,
           total_cost_removed,
           user_final_root,
@@ -139,18 +135,13 @@ validator l2_withdrawal_intent(vault_nft: PolicyId) {
             _ -> fail @"Too many operator MPF actions"
           }
 
-        // 5. Verify vault value unlocked equals total_user_receives
-        let value_from_vault =
-          convert_value_to_usd(vault_input.output.value, prices)
-        let value_to_vault =
-          convert_value_to_usd(vault_output.value, prices)
-        let vault_unlock_check =
-          value_from_vault - value_to_vault == total_user_receives
+        // 5. Balance transferred via TransferIntent (verified by HydraAccount validator)
+        // No vault value unlock check needed - tokens are in Account UTxOs
 
-        // 6. Verify vault output datum updated correctly
-        let vault_datum_check =
-          vault_output_datum == VaultDatum {
-            ..vault_input_datum,
+        // 6. Verify oracle output datum updated correctly
+        let oracle_datum_check =
+          oracle_output_datum == VaultOracleDatum {
+            ..oracle_input_datum,
             total_lp: total_lp - total_intent_datum_lp_amount + total_fee_lp,
             operator_lp: operator_lp + total_fee_lp,
             vault_cost: vault_cost - total_cost_removed,
@@ -159,16 +150,12 @@ validator l2_withdrawal_intent(vault_nft: PolicyId) {
 
         // 7. Verify intent burn count
         let intent_burn_check =
-          policy_only_minted_token(
-            mint,
-            policy_id,
-            "",
-            -list.length(indices),
-          )
+          policy_only_minted_token(mint, policy_id, "", -list.length(indices))
 
-        is_prices_verified? && vault_unlock_check? && vault_datum_check? && intent_burn_check?
+        is_prices_verified? && oracle_datum_check? && intent_burn_check?
       }
       CancelIntent -> {
+        // Burn intent token, signed by withdrawer
         let is_burn_correct =
           policy_only_minted_token(mint, policy_id, "", -1)
 
@@ -178,9 +165,10 @@ validator l2_withdrawal_intent(vault_nft: PolicyId) {
             from_script(policy_id),
             policy_id,
           )
-        expect intent_datum: WithdrawalIntentDatum =
+        expect intent_datum: L2WithdrawalIntentDatum =
           input_inline_datum(intent_input)
 
+        // No value refund needed (intent only contains intent token)
         expect Some(withdrawer_pkh) =
           cocktail.address_pub_key(intent_datum.lp_address)
         let is_signed = key_signed(extra_signatories, withdrawer_pkh)
