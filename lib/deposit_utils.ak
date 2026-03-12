@@ -1,13 +1,15 @@
 use aiken/cbor
 use aiken/collection/dict
-use aiken/collection/list
 use aiken/crypto.{ScriptHash}
+use aiken/merkle_patricia_forestry as mpf
 use cardano/address.{Script}
-use cardano/assets.{AssetName, PolicyId, Value, quantity_of}
-use cardano/transaction.{Input, Output}
+use cardano/assets.{AssetName, PolicyId, Value}
+use cardano/transaction.{Input}
 use cocktail.{input_inline_datum}
 use price_oracle_utils.{convert_m_value_to_usd}
-use types.{DepositIntentDatum, MValue}
+use types.{
+  DepositIntentDatum, LPInsert, LPMPFAction, LPRecordEntry, LPUpdate, MValue,
+}
 
 pub type Scott4<a, b, c, d, result> =
   fn(a, b, c, d) -> result
@@ -37,7 +39,6 @@ pub fn to_mvalue(value: Value) -> MValue {
   mvalue
 }
 
-// attention: AssetName sorted in ascending lexicographic
 pub fn combine_m_value(left_m_value: MValue, right_m_value: MValue) -> MValue {
   let left_dict = dict.from_pairs(left_m_value)
   let right_dict = dict.from_pairs(right_m_value)
@@ -61,132 +62,157 @@ pub fn combine_m_value(left_m_value: MValue, right_m_value: MValue) -> MValue {
     |> dict.to_pairs()
 }
 
-pub fn cal_lp_token_amount(
+pub fn cal_lp_amount(
   usd_value: Int,
   vault_balance: Int,
   total_lp: Int,
-  operator_fee: Int,
-  lp_decimal: Int,
 ) -> Int {
   when total_lp is {
-    0 -> usd_value * lp_decimal
-    _ -> usd_value * total_lp / ( vault_balance - operator_fee )
+    0 -> fail @"Total LP cannot be zero"
+    _ -> usd_value * total_lp / vault_balance
   }
 }
 
-// 1. sum up intent_datum_m_value
-// 2. sum up intent_datum_m_value in usd
-// 3. sum up lp_token sent
-// 4. output lp_token to address in intent_datum
-
+// Process batched deposit intents with MPF merkle root transitions.
+// Returns (total_m_value, total_usd_value, total_lp_added, final_merkle_root)
 pub fn process_batched_deposit_intent_validation(
   inputs: List<Input>,
-  outputs: List<Output>,
   indices: List<Int>,
+  mpf_actions: List<LPMPFAction>,
   vault_balance: Int,
   total_lp: Int,
-  operator_fee: Int,
   prices: Pairs<(PolicyId, AssetName), Int>,
   deposit_intent_script_hash: ScriptHash,
-  lp_token: PolicyId,
-  lp_decimal: Int,
-) -> (MValue, Int, Int) {
+  initial_merkle_root: ByteArray,
+) -> (MValue, Int, Int, ByteArray) {
   let empty_m_value: MValue = []
+
+  // Accumulate: (remaining_indices_and_actions, total_m_value, total_usd_value, total_lp_added)
+  // We pack indices, mpf_actions, and merkle_root into the first accumulator
   let
-    processed_indices,
+    processed_state,
     total_intent_datum_m_value,
     total_intent_datum_usd_value,
-    total_lp_token_sent,
+    total_lp_added,
   <-
     list_foldl4(
       inputs,
-      indices,
+      (indices, mpf_actions, initial_merkle_root),
       empty_m_value,
       0,
       0,
       fn(
         input,
-        remaining_indices,
+        remaining_state,
         cal_intent_datum_m_value,
         cal_intent_datum_usd_value,
-        cal_lp_token_sent,
+        cal_lp_added,
         return,
       ) {
+        let (remaining_indices, remaining_actions, current_root) =
+          remaining_state
         when input.output.address.payment_credential is {
           Script(script) ->
             if script == deposit_intent_script_hash {
-              // Found the deposit intent script address
               when remaining_indices is {
                 [] -> fail @"More UTxOs are spent than specified"
-                [output_index, ..rest_of_indices] -> {
-                  expect Some(out_utxo) = outputs |> list.at(output_index)
+                [_output_index, ..rest_of_indices] -> {
                   expect input_datum: DepositIntentDatum =
                     input_inline_datum(input)
-
                   let DepositIntentDatum { lp_address, amount } = input_datum
 
-                  // - Combine MValue in intent with total intent value
+                  // Combine MValue
                   let new_cal_intent_datum_m_value =
                     combine_m_value(cal_intent_datum_m_value, amount)
 
-                  // - Calculate intent value in usd
-                  // - Combine intent value with total intent value in usd
+                  // Calculate USD value
                   let intent_datum_usd_value =
                     convert_m_value_to_usd(amount, prices)
                   let new_cal_intent_datum_usd_value =
                     cal_intent_datum_usd_value + intent_datum_usd_value
-                  // - Calculate LP Token sent
-                  // - Combine LP Token sent with total LP Token sent
-                  let cal_lp_sent =
-                    cal_lp_token_amount(
+
+                  // Calculate LP amount (round DOWN)
+                  let cal_lp =
+                    cal_lp_amount(
                       intent_datum_usd_value,
                       vault_balance,
                       total_lp,
-                      operator_fee,
-                      lp_decimal,
                     )
-                  let new_cal_lp_token_sent = cal_lp_sent + cal_lp_token_sent
-                  // - Check the output value and address
-                  let output_check =
-                    quantity_of(out_utxo.value, lp_token, "") == cal_lp_sent && out_utxo.address == lp_address
-                  if output_check {
-                    return(
-                      rest_of_indices,
-                      new_cal_intent_datum_m_value,
-                      new_cal_intent_datum_usd_value,
-                      new_cal_lp_token_sent,
-                    )
-                  } else {
-                    fail @"Deposit intent output incorrect"
-                  }
+                  let new_cal_lp_added = cal_lp + cal_lp_added
+
+                  // Apply MPF action for this deposit
+                  expect [action, ..rest_actions] = remaining_actions
+                  let mpf_key = cbor.serialise(lp_address)
+
+                  let new_root =
+                    when action is {
+                      LPInsert { proof, new_value } -> {
+                        // New depositor
+                        let expected_entry =
+                          LPRecordEntry {
+                            lp: cal_lp,
+                            cost: intent_datum_usd_value,
+                          }
+                        let expected_value = cbor.serialise(expected_entry)
+                        expect new_value == expected_value
+                        let trie = mpf.from_root(current_root)
+                        let new_trie =
+                          mpf.insert(trie, mpf_key, new_value, proof)
+                        mpf.root(new_trie)
+                      }
+                      LPUpdate { from, to, to_proof } -> {
+                        // Existing depositor
+                        expect Some(from_data) = cbor.deserialise(from)
+                        expect old_entry: LPRecordEntry = from_data
+                        let expected_entry =
+                          LPRecordEntry {
+                            lp: old_entry.lp + cal_lp,
+                            cost: old_entry.cost + intent_datum_usd_value,
+                          }
+                        let expected_value = cbor.serialise(expected_entry)
+                        expect to == expected_value
+                        let trie = mpf.from_root(current_root)
+                        let new_trie =
+                          mpf.update(trie, mpf_key, to_proof, from, to)
+                        mpf.root(new_trie)
+                      }
+                      _ -> fail @"Invalid MPF action for deposit"
+                    }
+
+                  return(
+                    (rest_of_indices, rest_actions, new_root),
+                    new_cal_intent_datum_m_value,
+                    new_cal_intent_datum_usd_value,
+                    new_cal_lp_added,
+                  )
                 }
               }
             } else {
-              // - Not the deposit intent script address, skip
               return(
-                remaining_indices,
+                remaining_state,
                 cal_intent_datum_m_value,
                 cal_intent_datum_usd_value,
-                cal_lp_token_sent,
+                cal_lp_added,
               )
             }
           _ ->
-            // - Not a script address, skip
             return(
-              remaining_indices,
+              remaining_state,
               cal_intent_datum_m_value,
               cal_intent_datum_usd_value,
-              cal_lp_token_sent,
+              cal_lp_added,
             )
         }
       },
     )
-  when processed_indices is {
+  let (remaining_indices, _, final_root) = processed_state
+  when remaining_indices is {
     [] ->
       (
         total_intent_datum_m_value,
         total_intent_datum_usd_value,
-        total_lp_token_sent,
+        total_lp_added,
+        final_root,
       )
     _ -> fail @"Batch deposit intent UTxOs not fully processed"
   }

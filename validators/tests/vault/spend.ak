@@ -1,133 +1,171 @@
 use cardano/assets.{add, from_asset}
 use cardano/transaction.{Mint, Transaction}
 use mocktail.{
-  add_redeemer, complete, mint, mock_tx_hash, mock_utxo_ref, mocktail_tx, tx_in,
-  tx_in_inline_datum, tx_out,
+  add_redeemer, complete, mint, mock_tx_hash, mock_utxo_ref, mocktail_tx,
+  required_signer_hash, script_withdrawal, tx_in, tx_in_inline_datum, tx_out,
+  tx_out_inline_datum,
 }
 use tests/utils.{
-  mock_burn_intent_redeemer, mock_deposit_intent_script_hash, mock_vault_oracle,
-  mock_vault_oracle_address, mock_vault_oracle_datum,
-  mock_withdrawal_intent_script_hash,
+  mock_app_oracle, mock_hydra_signer_1, mock_hydra_signer_2, mock_hydra_signer_3,
+  mock_initial_utxo, mock_l1_deposit_intent_script_hash,
+  mock_l1_withdrawal_intent_script_hash, mock_l2_deposit_intent_script_hash,
+  mock_l2_withdrawal_intent_script_hash, mock_operator_key, mock_pluggable_logic,
+  mock_vault_address, mock_vault_datum, mock_vault_nft,
 }
-use types.{MintIntent, WithdrawFund}
-use vault/spend_and_withdraw as vault_spend_and_withdraw
-
-type ProcessWithdrawalTestCase {
-  is_vault_oracle_inputed: Bool,
-  is_mint_policy_correct: Bool,
-  is_mint_redeemer_correct: Bool,
+use types.{
+  BurnIntent, HydraCommit, HydraDecommit, PluggableLogic, ProcessL1Deposit,
+  ProcessL1Withdrawal, ProcessL2Deposit, ProcessL2Withdrawal, Trade,
 }
+use vault/spend_mint as vault
 
-fn mock_process_withdrawal_tx(
-  test_case: ProcessWithdrawalTestCase,
-) -> Transaction {
-  let ProcessWithdrawalTestCase {
-    is_vault_oracle_inputed,
-    is_mint_policy_correct,
-    is_mint_redeemer_correct,
-  } = test_case
+// ========== ProcessL1Deposit ==========
 
-  let mint_redeemer: Data =
-    if is_mint_redeemer_correct {
-      mock_burn_intent_redeemer
-    } else {
-      MintIntent
-    }
-  let intent_policy_id =
-    if is_mint_policy_correct {
-      mock_withdrawal_intent_script_hash
-    } else {
-      mock_deposit_intent_script_hash
-    }
-  let input_value =
-    from_asset(mock_vault_oracle, "", 1) |> add("", "", 2_000_000)
-
+fn mock_process_intent_tx(intent_script_hash: ByteArray) -> Transaction {
+  let burn_redeemer: Data = BurnIntent([0], "", [], [])
   mocktail_tx()
-    |> tx_in(
-        is_vault_oracle_inputed,
-        mock_tx_hash(1),
-        0,
-        input_value,
-        mock_vault_oracle_address,
-      )
-    |> tx_in_inline_datum(is_vault_oracle_inputed, mock_vault_oracle_datum)
-    |> tx_out(is_vault_oracle_inputed, mock_vault_oracle_address, input_value)
-    |> mint(True, 1, intent_policy_id, "")
+    |> mint(True, -1, intent_script_hash, "")
     |> complete()
-    |> add_redeemer(True, Pair(Mint(intent_policy_id), mint_redeemer))
+    |> add_redeemer(True, Pair(Mint(intent_script_hash), burn_redeemer))
 }
 
-test s2_spend_success_process_withdrawal() {
-  let tx =
-    mock_process_withdrawal_tx(
-      ProcessWithdrawalTestCase {
-        is_vault_oracle_inputed: True,
-        is_mint_policy_correct: True,
-        is_mint_redeemer_correct: True,
-      },
-    )
-
-  vault_spend_and_withdraw.vault.spend(
-    mock_vault_oracle,
-    None,
-    WithdrawFund,
+test test_process_l1_deposit_success() {
+  let tx = mock_process_intent_tx(mock_l1_deposit_intent_script_hash)
+  vault.vault.spend(
+    mock_initial_utxo,
+    mock_app_oracle,
+    Some(mock_vault_datum),
+    ProcessL1Deposit,
     mock_utxo_ref(0, 0),
     tx,
   )
 }
 
-test s2_spend_fail_process_withdrawal_with_no_vault_oracle_inputed() fail {
-  let tx =
-    mock_process_withdrawal_tx(
-      ProcessWithdrawalTestCase {
-        is_vault_oracle_inputed: False,
-        is_mint_policy_correct: True,
-        is_mint_redeemer_correct: True,
-      },
-    )
+// ========== ProcessL1Withdrawal ==========
 
-  vault_spend_and_withdraw.vault.spend(
-    mock_vault_oracle,
-    None,
-    WithdrawFund,
+test test_process_l1_withdrawal_success() {
+  let tx = mock_process_intent_tx(mock_l1_withdrawal_intent_script_hash)
+  vault.vault.spend(
+    mock_initial_utxo,
+    mock_app_oracle,
+    Some(mock_vault_datum),
+    ProcessL1Withdrawal,
     mock_utxo_ref(0, 0),
     tx,
   )
 }
 
-test s2_spend_fail_process_withdrawal_with_incorrect_mint_policy() fail {
-  let tx =
-    mock_process_withdrawal_tx(
-      ProcessWithdrawalTestCase {
-        is_vault_oracle_inputed: True,
-        is_mint_policy_correct: False,
-        is_mint_redeemer_correct: True,
-      },
-    )
+// ========== ProcessL2Deposit ==========
 
-  vault_spend_and_withdraw.vault.spend(
-    mock_vault_oracle,
-    None,
-    WithdrawFund,
+test test_process_l2_deposit_success() {
+  let tx = mock_process_intent_tx(mock_l2_deposit_intent_script_hash)
+  vault.vault.spend(
+    mock_initial_utxo,
+    mock_app_oracle,
+    Some(mock_vault_datum),
+    ProcessL2Deposit,
     mock_utxo_ref(0, 0),
     tx,
   )
 }
 
-test s2_spend_fail_process_withdrawal_with_incorrect_mint_redeemer() fail {
-  let tx =
-    mock_process_withdrawal_tx(
-      ProcessWithdrawalTestCase {
-        is_vault_oracle_inputed: True,
-        is_mint_policy_correct: True,
-        is_mint_redeemer_correct: False,
-      },
-    )
+// ========== ProcessL2Withdrawal ==========
 
-  vault_spend_and_withdraw.vault.spend(
-    mock_vault_oracle,
-    None,
-    WithdrawFund,
+test test_process_l2_withdrawal_success() {
+  let tx = mock_process_intent_tx(mock_l2_withdrawal_intent_script_hash)
+  vault.vault.spend(
+    mock_initial_utxo,
+    mock_app_oracle,
+    Some(mock_vault_datum),
+    ProcessL2Withdrawal,
+    mock_utxo_ref(0, 0),
+    tx,
+  )
+}
+
+// ========== HydraCommit ==========
+
+fn mock_hydra_tx() -> Transaction {
+  let vault_value = from_asset(mock_vault_nft, "", 1) |> add("", "", 2_000_000)
+  mocktail_tx()
+    |> tx_in(True, mock_tx_hash(0), 0, vault_value, mock_vault_address)
+    |> tx_in_inline_datum(True, mock_vault_datum)
+    |> tx_out(True, mock_vault_address, vault_value)
+    |> tx_out_inline_datum(True, mock_vault_datum)
+    |> required_signer_hash(True, mock_hydra_signer_1)
+    |> required_signer_hash(True, mock_hydra_signer_2)
+    |> required_signer_hash(True, mock_hydra_signer_3)
+    |> complete()
+}
+
+test test_hydra_commit_success() {
+  let tx = mock_hydra_tx()
+  vault.vault.spend(
+    mock_initial_utxo,
+    mock_app_oracle,
+    Some(mock_vault_datum),
+    HydraCommit,
+    mock_utxo_ref(0, 0),
+    tx,
+  )
+}
+
+// ========== HydraDecommit ==========
+
+test test_hydra_decommit_success() {
+  let tx = mock_hydra_tx()
+  vault.vault.spend(
+    mock_initial_utxo,
+    mock_app_oracle,
+    Some(mock_vault_datum),
+    HydraDecommit,
+    mock_utxo_ref(0, 0),
+    tx,
+  )
+}
+
+// ========== Trade ==========
+
+test test_trade_success() {
+  let vault_value_in =
+    from_asset(mock_vault_nft, "", 1) |> add("", "", 5_000_000)
+  let vault_value_out =
+    from_asset(mock_vault_nft, "", 1)
+      |> add("", "", 3_000_000)
+      |> add(
+          #"c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c913",
+          #"5553444d",
+          2_000_000,
+        )
+  let tx =
+    mocktail_tx()
+      |> tx_in(True, mock_tx_hash(0), 0, vault_value_in, mock_vault_address)
+      |> tx_in_inline_datum(True, mock_vault_datum)
+      |> tx_out(True, mock_vault_address, vault_value_out)
+      |> tx_out_inline_datum(True, mock_vault_datum)
+      |> required_signer_hash(True, mock_operator_key)
+      |> complete()
+  vault.vault.spend(
+    mock_initial_utxo,
+    mock_app_oracle,
+    Some(mock_vault_datum),
+    Trade,
+    mock_utxo_ref(0, 0),
+    tx,
+  )
+}
+
+// ========== PluggableLogic ==========
+
+test test_pluggable_logic_success() {
+  let tx =
+    mocktail_tx()
+      |> script_withdrawal(True, mock_pluggable_logic, 0)
+      |> complete()
+  vault.vault.spend(
+    mock_initial_utxo,
+    mock_app_oracle,
+    Some(mock_vault_datum),
+    PluggableLogic,
     mock_utxo_ref(0, 0),
     tx,
   )

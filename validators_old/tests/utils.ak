@@ -1,37 +1,24 @@
 use aiken/cbor
 use aiken/crypto.{blake2b_224}
-use aiken/merkle_patricia_forestry as mpf
-use cardano/address.{Address, from_script}
+use cardano/address.{from_script}
+use cardano/assets.{Value}
 use hydra_dex/types.{AppOracleDatum,
   HydraInfo, WithdrawalScriptHashes} as dd_types
 use mocktail.{
-  mock_policy_id, mock_pub_key_address, mock_pub_key_hash, mock_script_hash,
-  mock_utxo_ref,
+  mock_policy_id, mock_pub_key_address, mock_pub_key_hash, mock_script_address,
+  mock_script_hash,
 }
 use types.{
-  DepositIntentDatum, LPRecordEntry, MValue, VaultDatum, WithdrawalIntentDatum,
+  BurnIntent, DepositIntentDatum, MValue, VaultOracleDatum, VaultStateDatum,
+  WithdrawalIntentDatum,
 }
-
-// ========== Null hash (empty MPF trie root) ==========
-
-pub const null_hash =
-  #"0000000000000000000000000000000000000000000000000000000000000000"
-
-// ========== Keys ==========
+use utils.{cal_operator_fee}
 
 pub const mock_operation_key = mock_pub_key_hash(0)
 
 pub const mock_stop_key = mock_pub_key_hash(1)
 
-pub const mock_operator_key = mock_pub_key_hash(10)
-
-// ========== Oracle ==========
-
 pub const mock_app_oracle = mock_policy_id(0)
-
-pub const mock_app_oracle_address = from_script("app_oracle_address")
-
-pub const mock_app_vault_script_hash = "app_vault_address"
 
 pub const mock_app_deposit_request_token = mock_policy_id(1)
 
@@ -42,6 +29,10 @@ pub const mock_dex_account_balance_token = mock_policy_id(3)
 pub const mock_dex_order_book_token = mock_policy_id(4)
 
 pub const mock_emergency_cancel_order_request_token = mock_policy_id(400)
+
+pub const mock_app_oracle_address = from_script("app_oracle_address")
+
+pub const mock_app_vault_script_hash = "app_vault_address"
 
 pub const mock_app_deposit_request_address =
   from_script("app_deposit_request_address")
@@ -61,7 +52,7 @@ pub const mock_app_deposit = mock_script_hash(0)
 
 pub const mock_app_withdrawal = mock_script_hash(1)
 
-pub const mock_app_vault_stake_rotation_old = mock_script_hash(111)
+pub const mock_app_vault_stake_rotation = mock_script_hash(111)
 
 pub const mock_emergency_cancel_order = mock_script_hash(700)
 
@@ -69,18 +60,13 @@ pub const mock_withdrawal_script_hashes: WithdrawalScriptHashes =
   WithdrawalScriptHashes {
     app_deposit: mock_app_deposit,
     app_withdrawal: mock_app_withdrawal,
-    app_vault_stake_rotation: mock_app_vault_stake_rotation_old,
+    app_vault_stake_rotation: mock_app_vault_stake_rotation,
     emergency_cancel_order: mock_emergency_cancel_order,
   }
 
-// ========== Hydra node keys and signers ==========
+pub const mock_hydra_initial_hash = mock_script_hash(999)
 
-pub const mock_node_pub_keys =
-  [
-    #"8a2447b9e7f1705aa5b2dcb16a7254db089fbac7e462cf6008e9a6dc8a7a6c21",
-    #"312803d57366263f9e5310262fb9984f58dbc5602ad5ebdd5725719f4f913ced",
-    #"fa357c31b2e47f49d4e0da6eac605a4dc068f4e72fbc56bfef2850e2da1ba3a3",
-  ]
+pub const mock_hydra_script_address = mock_script_address(999, None)
 
 pub const mock_hydra_signer_1 =
   blake2b_224(
@@ -122,80 +108,84 @@ pub const mock_app_oracle_datum: AppOracleDatum =
     hydra_info: HydraInfo { hydra_signers: mock_hydra_signers },
   }
 
-// ========== Price oracle message and signatures ==========
+pub const mock_vault_oracle = mock_policy_id(10)
 
-// Message: vault_balance=2400000000, prices={USDM:1, ADA:2}, utxo_ref=mock_utxo_ref(0,0)
-pub const mock_message =
-  #"d8799f1a8f0d1800a29f581cc69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c913445553444dff019f4040ff02d8799f5820cd82a190d3b4ef95a50bd791882959f541e308adb69b12d022d94a6d9f02bcf000ffff"
+pub const mock_vault_oracle_address = from_script("vault_oracle_address")
 
-pub const mock_signatures =
+pub const mock_pluggable_logic = mock_script_hash(10)
+
+pub const mock_node_pub_keys =
   [
-    #"746bcbe44a67cfec83e98532d32fd10a7aeb93a2f328b2aced147c856d910fe0461614c5fcf90e20427333c7099e71de35a7a08d8e0ececdbeade9776069f102",
-    #"d09c37ac69820b7f19e5d2b0def60be06e89b026155b934bd0c3bf8de216c9d377265c14c7e42eb2b9011550ca3aa1825c57ddc999b028eebc5c5a94dbb8710f",
-    #"c9c6d6187fa41047e5df0cd59916cd8706a83d368ce2a99aee0e9c67a78c7095f1344d889c2007b788e8f18ad1ee49cd4dfad0488de674a497ef4477494a2e04",
+    #"8a2447b9e7f1705aa5b2dcb16a7254db089fbac7e462cf6008e9a6dc8a7a6c21",
+    #"312803d57366263f9e5310262fb9984f58dbc5602ad5ebdd5725719f4f913ced",
+    #"fa357c31b2e47f49d4e0da6eac605a4dc068f4e72fbc56bfef2850e2da1ba3a3",
   ]
-
-// ========== Vault NFT and addresses ==========
-
-pub const mock_vault_nft = mock_policy_id(20)
-
-pub const mock_vault_address = from_script(mock_vault_nft)
-
-pub const mock_initial_utxo = mock_utxo_ref(99, 0)
-
-// ========== Intent script hashes ==========
-
-pub const mock_l1_deposit_intent_script_hash = mock_script_hash(11)
-
-pub const mock_l1_withdrawal_intent_script_hash = mock_script_hash(12)
-
-pub const mock_l2_deposit_intent_script_hash = mock_script_hash(13)
-
-pub const mock_l2_withdrawal_intent_script_hash = mock_script_hash(14)
-
-pub const mock_pluggable_logic = mock_script_hash(15)
-
-pub const mock_vault_stake_rotation_script_hash = mock_script_hash(16)
-
-// ========== Vault state values ==========
 
 pub const mock_total_lp = 3000000000000000
 
 pub const mock_vault_balance = 2400000000
 
+pub const mock_hwm_lp_value = 2000000000
+
+pub const mock_operator_charge_percentage = 50
+
+pub const mock_operator_fee =
+  cal_operator_fee(
+    mock_vault_balance,
+    mock_hwm_lp_value,
+    mock_operator_charge_percentage,
+  )
+
+pub const mock_operator_key = mock_pub_key_hash(10)
+
 pub const mock_vault_cost = 2000000000
 
-pub const mock_operator_lp = 0
+pub const mock_vault_state_script_hash = mock_script_hash(9)
 
-pub const mock_operator_charge_percentage = 0
+pub const mock_vault_script_hash = mock_script_hash(10)
+
+pub const mock_deposit_intent_script_hash = mock_script_hash(11)
+
+pub const mock_withdrawal_intent_script_hash = mock_script_hash(12)
+
+pub const mock_lp_record_script_hash = mock_script_hash(13)
+
+pub const mock_vault_stake_rotation_script_hash = mock_script_hash(14)
+
+pub const mock_lp_token = mock_policy_id(11)
 
 pub const mock_operator_min_deposit_percentage = 10
 
-// ========== Vault datum ==========
+pub const mock_operator_lp = 0
 
-pub const mock_vault_datum: VaultDatum =
-  VaultDatum {
+pub const mock_vault_oracle_datum: VaultOracleDatum =
+  VaultOracleDatum {
     app_oracle: mock_app_oracle,
-    l1_deposit_intent_script_hash: mock_l1_deposit_intent_script_hash,
-    l1_withdrawal_intent_script_hash: mock_l1_withdrawal_intent_script_hash,
-    l2_deposit_intent_script_hash: mock_l2_deposit_intent_script_hash,
-    l2_withdrawal_intent_script_hash: mock_l2_withdrawal_intent_script_hash,
+    vault_state_script_hash: mock_vault_state_script_hash,
+    vault_script_hash: mock_vault_script_hash,
+    deposit_intent_script_hash: mock_deposit_intent_script_hash,
+    withdrawal_intent_script_hash: mock_withdrawal_intent_script_hash,
+    lp_record_script_hash: mock_lp_record_script_hash,
     pluggable_logic: mock_pluggable_logic,
     vault_stake_rotation_script_hash: mock_vault_stake_rotation_script_hash,
     operator_key: mock_operator_key,
     operator_charge_percentage: mock_operator_charge_percentage,
     operator_min_deposit_percentage: mock_operator_min_deposit_percentage,
     hydra_node_pub_keys: mock_node_pub_keys,
-    total_lp: mock_total_lp,
-    operator_lp: mock_operator_lp,
-    vault_cost: mock_vault_cost,
-    lp_merkle_root: null_hash,
     is_active: True,
   }
 
-// ========== Deposit / Withdrawal intent data ==========
+pub const mock_vault_state_datum: VaultStateDatum =
+  VaultStateDatum {
+    vault_oracle: mock_vault_oracle,
+    total_lp: mock_total_lp,
+    operator_lp: mock_operator_lp,
+    vault_cost: mock_vault_cost,
+  }
 
-pub const mock_deposit_m_value: MValue =
+pub const mock_burn_intent_redeemer = BurnIntent([0], [], "", [])
+
+pub const mock_deposit_m_value =
   [
     Pair("", [Pair("", 1749190790)]),
     Pair(
@@ -216,22 +206,25 @@ pub const mock_withdrawal_intent_datum =
     amount: 1000000,
   }
 
-// ========== USDM constants ==========
-
-pub const usdm_policy =
-  #"c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c913"
-
-pub const usdm_name = #"5553444d"
-
-// ========== MPF helper ==========
-
-pub fn compute_mpf_root_single_insert(
-  address: Address,
-  lp: Int,
-  cost: Int,
-) -> ByteArray {
-  let mpf_key = cbor.serialise(address)
-  let entry = LPRecordEntry { lp, cost }
-  let mpf_value = cbor.serialise(entry)
-  mpf.root(mpf.insert(mpf.empty, mpf_key, mpf_value, []))
+pub fn to_mvalue(value: Value) -> MValue {
+  let data = cbor.serialise(value)
+  expect Some(mvalue_raw): Option<Data> = cbor.deserialise(data)
+  expect mvalue: MValue = mvalue_raw
+  mvalue
 }
+
+// 121(
+// balance: [_ 2400000000, 
+// prices: {_ [_ h'C69B981DB7A65E339A6D783755F85A2E03AFA1CECE9714C55FE4C913', h'5553444D']: 1, [_ h'', h'']: 2 }, 
+// utxos: mock_utxo_ref(0, 0) -  121([_ h'CD82A190D3B4EF95A50BD791882959F541E308ADB69B12D022D94A6D9F02BCF0', 0])])
+pub const mock_message =
+  #"d8799f1a8f0d1800a29f581cc69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c913445553444dff019f4040ff02d8799f5820cd82a190d3b4ef95a50bd791882959f541e308adb69b12d022d94a6d9f02bcf000ffff"
+
+pub const mock_signatures =
+  [
+    #"746bcbe44a67cfec83e98532d32fd10a7aeb93a2f328b2aced147c856d910fe0461614c5fcf90e20427333c7099e71de35a7a08d8e0ececdbeade9776069f102",
+    #"d09c37ac69820b7f19e5d2b0def60be06e89b026155b934bd0c3bf8de216c9d377265c14c7e42eb2b9011550ca3aa1825c57ddc999b028eebc5c5a94dbb8710f",
+    #"c9c6d6187fa41047e5df0cd59916cd8706a83d368ce2a99aee0e9c67a78c7095f1344d889c2007b788e8f18ad1ee49cd4dfad0488de674a497ef4477494a2e04",
+  ]
+
+pub const mock_lp_decimal = 1000000
