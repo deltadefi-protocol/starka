@@ -1,14 +1,14 @@
 # Specification - L1 Withdrawal Intent
 
-L1 withdrawal intents are created and processed on L1 (before Hydra commit / after Hydra decommit).
+L1 withdrawal intents allow users to withdraw funds from the Trust Me Bro vault on L1. The vault performs a regular withdrawal (HydraAccount withdrawal) to get funds, then sends to user.
 
 ## Parameter
 
-- `vault_nft`: PolicyId
+- `vault_oracle_nft`: PolicyId
 
 ## Datum
 
-- `lp_address`: Address - receiver of vault value
+- `lp_address`: Address - receiver of funds
 - `amount`: `Int` - LP tokens to withdraw
 
 ## User Action - Spend
@@ -22,44 +22,48 @@ L1 withdrawal intents are created and processed on L1 (before Hydra commit / aft
 1. MintIntent - Redeemer `MintIntent`
 
    - Withdrawal amount > 0
-   - No vault reference input needed (user can create intent independently)
+   - No vault reference needed (user creates intent independently)
 
 2. BurnIntent - Redeemer `BurnIntent (List<Int>, List<Int>, ByteArray, List<ByteArray>, List<LPMPFAction>)`
 
    - `L1WithdrawalIntent` is burnt with total batched amount
-   - Vault UTxO input with datum (identified by `vault_nft`)
-   - Vault UTxO output with updated datum:
+   - Vault Oracle input with datum (identified by `vault_oracle_nft`)
+   - Vault Oracle output with updated datum:
      - `total_lp = total_lp - sum(amount) + sum(fee_lp)`
      - `operator_lp += sum(fee_lp)`
      - `vault_cost -= sum(cost_basis)`
-     - `lp_merkle_root` updated (see LP Merkle transition below)
+     - `lp_merkle_root` updated
      - All other datum fields unchanged
-   - Vault value (actual UTxO) decreases by `sum(net_payout)` only — fee stays in vault as equity backing operator's fee shares
-   - `net_payout = gross_value - fee` sent to user per intent
-   - Verify `prices` message using `hydra_node_pub_keys` from Vault datum:
-     - `utxo_ref` in `message` is Vault UTxO
-     - compute `hydra_signers = map(blake2b_224, hydra_node_pub_keys)`
-     - verify ed25519 signatures against `hydra_node_pub_keys`
+   - Vault performs HydraAccount withdrawal (decreases vault's account balance)
+   - `net_payout = gross_value - fee` sent to user
+   - Verify `prices` message using `hydra_node_pub_keys` from Oracle datum
    - LP Merkle root transition:
-     - Read Vault input datum -> `initial_root` (from `lp_merkle_root`)
-     - Read Vault output datum -> `expected_final_root` (from `lp_merkle_root`)
      - For each withdrawal intent (chained sequentially):
        - Calculate `gross_value = amount * vault_balance / total_lp`
-       - **Total withdrawal** (`LPDelete`): Deserialize `old_value` to get `lp_record.lp` and `lp_record.cost`. Verify `amount == lp_record.lp`. `cost_basis = lp_record.cost`. Delete leaf.
-       - **Partial withdrawal** (`LPUpdate`): Deserialize `from` to get old entry. `cost_basis = old_entry.cost * amount / old_entry.lp`. Verify `new_entry.lp == old_entry.lp - amount` and `new_entry.cost == old_entry.cost - cost_basis`. Update leaf.
-       - Fee calculation: `fee = max(0, (gross_value - cost_basis) * operator_charge_percentage / 100)` (round UP — fee never underpaid)
-       - Fee shares: `fee_lp = fee * total_lp / vault_balance` (round UP — protects operator)
-       - Net payout rounding: `net_payout = gross_value - fee` (round DOWN — protects vault)
-       - Each withdrawer action transitions `root_i -> root_{i+1}`
-     - After all withdrawer actions, apply operator fee share action:
-       - Accumulate `total_fee_lp = sum(fee_lp)` across all intents
-       - If `total_fee_lp > 0` and operator has existing entry: `LPUpdate` operator's entry with `new_entry.lp == old_entry.lp + total_fee_lp`, `new_entry.cost` unchanged (zero cost basis for fee shares)
-       - If `total_fee_lp > 0` and operator has no existing entry: `LPInsert` with `LPRecordEntry { lp: total_fee_lp, cost: 0 }`
+       - **Total withdrawal** (`LPDelete`): Verify `amount == lp_record.lp`. `cost_basis = lp_record.cost`. Delete leaf.
+       - **Partial withdrawal** (`LPUpdate`): `cost_basis = old_entry.cost * amount / old_entry.lp`. Verify `new_entry.lp == old_entry.lp - amount`
+       - Fee calculation: `fee = max(0, (gross_value - cost_basis) * operator_charge_percentage / 100)` (round UP)
+       - Fee shares: `fee_lp = fee * total_lp / vault_balance` (round UP)
+       - Net payout: `net_payout = gross_value - fee` (round DOWN)
+     - After all withdrawals, apply operator fee share action if `total_fee_lp > 0`
      - Verify `computed_final_root == expected_final_root`
 
 3. CancelIntent - Redeemer `CancelIntent`
 
    - `L1WithdrawalIntent` token is burnt
-   - The intent UTxO value is returned to the withdrawer (refund)
+   - The intent UTxO value returned to withdrawer (refund)
    - Signed by the withdrawer (derived from `lp_address`)
-   - No vault interaction required (enables shutdown refunds)
+   - No vault interaction required
+
+## Fund Flow
+
+```
+Vault's account balance (HydraWithdrawal) → Vault → User
+```
+
+## Notes
+
+- Processed on L1 (after HydraDecommit)
+- User redeems LP shares for actual funds
+- Vault acts as a normal user doing HydraAccount withdrawal from main system
+- Performance fee calculated on profit (gross_value - cost_basis)

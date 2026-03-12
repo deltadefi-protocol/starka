@@ -1,15 +1,15 @@
 # Specification - L2 Deposit Intent
 
-L2 deposit intents are created and processed inside the Hydra head.
+L2 deposit intents are created and processed inside the Hydra head. User transfers balance from their Account UTxO to the vault to receive LP shares.
 
 ## Parameter
 
-- `vault_nft`: PolicyId
+- `vault_oracle_nft`: PolicyId
 
 ## Datum
 
 - `lp_address`: Address - receiver of LP
-- `amount`: `MValue` - in hydra token representation (`hydra_token_policy_id`, `hash_token(policy_id, asset_name)`)
+- `amount`: `MValue` - in hydra token representation
 
 ## User Action - Spend
 
@@ -22,42 +22,45 @@ L2 deposit intents are created and processed inside the Hydra head.
 1. MintIntent - Redeemer `MintIntent`
 
    - Deposit amount > 0
-   - The net deposit value sent to `L2DepositIntent` address is equal to the datum value of `L2DepositIntent`
+   - Intent UTxO only contains the intent token (no deposit value)
+   - Tokens are stored in user's Account UTxO
 
 2. BurnIntent - Redeemer `BurnIntent (List<Int>, List<Int>, ByteArray, List<ByteArray>, List<LPMPFAction>)`
 
    - `L2DepositIntent` is burnt with total batched amount
-   - Vault UTxO input with datum (identified by `vault_nft`)
-   - Vault UTxO output with updated datum:
+   - Vault Oracle input with datum (identified by `vault_oracle_nft`)
+   - Vault Oracle output with updated datum:
      - `total_lp += sum(cal_lp)` across all intents
      - `vault_cost += sum(intent_usd_value)` across all intents
      - `lp_merkle_root` updated (see LP Merkle transition below)
      - All other datum fields unchanged
-   - The deposit value is sent to the Vault UTxO in hydra token representation
-   - Verify `prices` message using `hydra_node_pub_keys` from Vault datum:
-     - `utxo_ref` in `message` is Vault UTxO
-     - compute `hydra_signers = map(blake2b_224, hydra_node_pub_keys)`
-     - verify ed25519 signatures against `hydra_node_pub_keys`
+   - Balance transferred from user's Account UTxO to vault (via TransferIntent)
+   - Verify `prices` message using `hydra_node_pub_keys` from Oracle datum
    - LP Merkle root transition:
-     - Read Vault input datum -> `initial_root` (from `lp_merkle_root`)
-     - Read Vault output datum -> `expected_final_root` (from `lp_merkle_root`)
      - For each deposit intent (chained sequentially):
-       - Calculate `cal_lp = intent_usd_value * total_lp / vault_balance` (round DOWN — protects vault)
-       - **New depositor** (`LPInsert`): Insert `LPRecordEntry { lp: cal_lp, cost: intent_usd_value }`. Verify `new_value` matches expected entry.
+       - Calculate `cal_lp = intent_usd_value * total_lp / vault_balance` (round DOWN)
+       - **New depositor** (`LPInsert`): Insert `LPRecordEntry { lp: cal_lp, cost: intent_usd_value }`
        - **Existing depositor** (`LPUpdate`): Verify `new_entry.lp == old_entry.lp + cal_lp` and `new_entry.cost == old_entry.cost + intent_usd_value`
-       - Each action transitions `root_i -> root_{i+1}`
      - Verify `computed_final_root == expected_final_root`
 
 3. CancelIntent - Redeemer `CancelIntent`
 
    - `L2DepositIntent` token is burnt
-   - The intent UTxO value is returned to the depositor (refund)
    - Signed by the depositor (derived from `lp_address`)
+   - No value refund needed (tokens are in Account UTxO, not intent)
    - No vault interaction required
+
+## Balance Flow
+
+```
+User's Account UTxO → (TransferIntent) → Vault's Account UTxO
+```
 
 ## Notes
 
-- This validator is deployed inside the Hydra head
-- The Vault UTxO is the only UTxO committed to the head
-- Token amounts are in hydra representation but USD conversion uses the same price oracle mechanism
-- Price verification uses `hydra_node_pub_keys` from Vault datum (same as L1 — `app_oracle` is only used at CreateVault)
+- Deployed inside the Hydra head
+- Intent UTxO only holds the intent token (tokens are stored in Account UTxOs)
+- Vault Oracle is the only Starka UTxO in Hydra (LP funds stay in Vault on L1)
+- User must have sufficient balance in their Account UTxO (from prior regular deposit)
+- Balance transfer uses HydraAccount TransferIntent mechanism
+- Vault is treated as a normal user with its own Account UTxO
