@@ -1,36 +1,35 @@
 # Specification - Vault
 
-The Vault UTxO holds the LP funds. It stays on L1 and is NOT committed to Hydra. The vault is treated as a **normal user** in the main DeltaDefi system - it has its own account balance in DexAccountBalance merkle tree.
-
 ## Parameter
 
-- `vault_oracle_nft`: PolicyId (links to the Vault Oracle)
-
-## Datum
-
-- `None` (funds only, no state)
+- `app_oracle`: PolicyId
+- `vault_oracle`: PolicyId
 
 ## User Action - Spend
 
-1. ProcessL1Deposit
+1. ProcessWithdrawal
 
-   - `L1DepositIntent` token is burnt with `BurnIntent` redeemer
-   - User funds added to Vault
-   - Vault performs regular deposit to AppVault (increases vault's account balance)
+   - `WithdrawalIntent` is burnt
 
-2. ProcessL1Withdrawal
+2. Deposit into DeltaDeFi
 
-   - `L1WithdrawalIntent` token is burnt with `BurnIntent` redeemer
-   - Vault performs regular withdrawal (HydraAccount withdrawal) in L2
-   - User receives funds from Vault
+   - Obtain DeltaDeFi's `AppOracleDatum`
+   - `app_deposit_request_token` is minted
+   - Vault value is exactly deducted by the deposit amount
 
-3. PluggableLogic
+3. StakeRotation
 
-   - Withdrawal Script `pluggable_logic` (from Oracle datum) is validated
+   - Withdrawal Script `vault_stake_rotation` is validated
 
-## Notes
+4. PluggableLogic
 
-- Vault acts as a normal user in the main DeltaDefi system
-- L1 Deposit: User → Vault → Vault does AppDeposit → Vault's account balance increases
-- L1 Withdrawal: Vault does HydraWithdrawal → Vault → User
-- L2 Deposit/Withdrawal: Account balance transfers between user and vault (handled by Oracle)
+   - Withdrawal Script `pluggable_logic` is validated
+
+## User Action - Withdrawal
+
+1. Withdraw
+
+   - **Signed by `operator_key` OR `operation_key` from `app_oracle`**
+   - Either one of below cases:
+      - Create intent - deposit into other vault
+      - Create intent - hydra withdrawal

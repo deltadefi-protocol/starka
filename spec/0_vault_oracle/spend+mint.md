@@ -53,14 +53,14 @@ Each depositor has one entry in the LP merkle tree:
    - `initial_lp` must equal `vault_cost` (genesis share price = 1.0)
    - `lp_merkle_root`: computed from inserting operator's initial LP entry
    - `initial_deposit` value goes to Vault UTxO (separate from Oracle)
-   - Signed by operator
+   - **Signed by `operation_key` from `app_oracle`**
 
 2. CloseVault - `CloseVault`
 
    - Vault Oracle NFT is burnt
    - `lp_merkle_root` must equal empty tree hash (`null_hash`)
    - `total_lp` == 0
-   - Signed by operator
+   - **Signed by `operation_key` from `app_oracle`**
 
 ## User Action - Spend
 
@@ -105,7 +105,7 @@ Each depositor has one entry in the LP merkle tree:
 
 8. UpdateConfig
 
-   - Signed by current `operator_key`
+   - **Signed by `operation_key` from `app_oracle`**
    - All config fields can be modified
    - Constraints:
      - `operator_charge_percentage` must be >= 0 and <= 100
