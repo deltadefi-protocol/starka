@@ -8,7 +8,7 @@
 ## User Action - Spend (L1 only)
 
 1. ProcessWithdrawal
-   - `WithdrawalIntent` is burnt
+   - `WithdrawalIntent` is burnt (no signature needed - burn intent check validates)
 
 2. Deposit into DeltaDeFi
    - Obtain DeltaDeFi's `AppOracleDatum`

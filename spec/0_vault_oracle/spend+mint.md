@@ -54,13 +54,13 @@ Each depositor has one entry in the shares merkle tree:
    - `initial_shares` must equal `total_deposited` (genesis share price = 1.0)
    - `shares_merkle_root`: computed from inserting operator's initial shares entry
    - `initial_deposit` value goes to Vault UTxO (separate from Oracle)
-   - **Signed by `operation_key` from `app_oracle`**
+   - **Signed by `operator_key` AND `operation_key` (from app_oracle)**
 
 2. CloseVault - `CloseVault`
    - Vault Oracle NFT is burnt
    - `shares_merkle_root` must equal empty tree hash (`null_hash`)
    - `total_shares` == 0
-   - **Signed by `operation_key` from `app_oracle`**
+   - **Signed by `operator_key` AND `operation_key` (from app_oracle)**
 
 ## User Action - Spend
 
@@ -97,7 +97,7 @@ Each depositor has one entry in the shares merkle tree:
    - Withdrawal Script `pluggable_logic` is validated
 
 8. UpdateConfig
-   - **Signed by `operation_key` from `app_oracle`**
+   - **Signed by all `hydra_node_pub_keys`**
    - All config fields can be modified
    - Constraints:
      - `operator_charge_percentage` must be >= 0 and <= 100
