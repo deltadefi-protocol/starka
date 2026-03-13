@@ -8,7 +8,7 @@ use cardano/assets.{AssetName, PolicyId, Value}
 use cardano/transaction.{Input, Output}
 use cocktail.{input_inline_datum}
 use types.{
-  LPDelete, LPInsert, LPMPFAction, LPRecordEntry, LPUpdate,
+  SharesDelete, SharesInsert, SharesMPFAction, SharesRecordEntry, SharesUpdate,
   WithdrawalIntentDatum,
 }
 
@@ -35,12 +35,12 @@ pub fn list_foldl5(
   }
 }
 
-pub fn convert_lp_to_usd(
-  lp_amount: Int,
-  total_lp: Int,
-  vault_balance: Int,
+pub fn convert_shares_to_usd(
+  shares_amount: Int,
+  total_shares: Int,
+  vault_equity: Int,
 ) -> Int {
-  lp_amount * vault_balance / total_lp
+  shares_amount * vault_equity / total_shares
 }
 
 // Round UP: ceil(a * b / c) = (a * b + c - 1) / c
@@ -62,18 +62,18 @@ pub fn cal_per_user_operator_fee(
   }
 }
 
-pub fn compute_fee_lp(
+pub fn compute_fee_shares(
   fee: Int,
-  total_lp: Int,
-  vault_balance: Int,
+  total_shares: Int,
+  vault_equity: Int,
 ) -> Int {
   // Round UP — protects operator
-  ceil_div(fee * total_lp, vault_balance)
+  ceil_div(fee * total_shares, vault_equity)
 }
 
-pub fn check_output_value_equal_to_lp_usd_value(
+pub fn check_output_value_equal_to_shares_usd_value(
   output_value: Value,
-  lp_usd_value: Int,
+  shares_usd_value: Int,
   prices: Pairs<(PolicyId, AssetName), Int>,
 ) -> Bool {
   assets.reduce(
@@ -84,29 +84,29 @@ pub fn check_output_value_equal_to_lp_usd_value(
 
       acc + amount * price
     },
-  ) == lp_usd_value
+  ) == shares_usd_value
 }
 
 // Process batched withdrawal intents with MPF merkle root transitions.
-// Returns (total_lp_amount, total_user_receives, total_fee_lp, total_cost_removed, final_merkle_root)
+// Returns (total_shares_amount, total_user_receives, total_fee_shares, total_cost_removed, final_merkle_root)
 pub fn process_batched_withdrawal_intent_validation(
   inputs: List<Input>,
   outputs: List<Output>,
   indices: List<Int>,
-  mpf_actions: List<LPMPFAction>,
-  vault_balance: Int,
-  total_lp: Int,
+  mpf_actions: List<SharesMPFAction>,
+  vault_equity: Int,
+  total_shares: Int,
   operator_charge_percentage: Int,
   prices: Pairs<(PolicyId, AssetName), Int>,
   withdrawal_intent_script_hash: ScriptHash,
   initial_merkle_root: ByteArray,
 ) -> (Int, Int, Int, Int, ByteArray) {
-  // Accumulate: (state_triple, total_lp, total_user_receives, total_fee_lp, total_cost_removed)
+  // Accumulate: (state_triple, total_shares, total_user_receives, total_fee_shares, total_cost_removed)
   let
     processed_state,
-    total_intent_datum_lp_amount,
+    total_intent_datum_shares_amount,
     total_user_receives,
-    total_fee_lp,
+    total_fee_shares,
     total_cost_removed,
   <-
     list_foldl5(
@@ -119,9 +119,9 @@ pub fn process_batched_withdrawal_intent_validation(
       fn(
         input,
         remaining_state,
-        cal_intent_datum_lp_amount,
+        cal_intent_datum_shares_amount,
         cal_user_receives,
-        cal_fee_lp,
+        cal_fee_shares,
         cal_cost_removed,
         return,
       ) {
@@ -137,43 +137,48 @@ pub fn process_batched_withdrawal_intent_validation(
                   expect input_datum: WithdrawalIntentDatum =
                     input_inline_datum(input)
 
-                  let WithdrawalIntentDatum { lp_address, amount } =
+                  let WithdrawalIntentDatum { withdrawer, shares_to_redeem } =
                     input_datum
 
-                  let new_cal_intent_datum_lp_amount =
-                    cal_intent_datum_lp_amount + amount
+                  let new_cal_intent_datum_shares_amount =
+                    cal_intent_datum_shares_amount + shares_to_redeem
 
                   // Calculate gross value
                   let gross_value =
-                    convert_lp_to_usd(amount, total_lp, vault_balance)
+                    convert_shares_to_usd(
+                      shares_to_redeem,
+                      total_shares,
+                      vault_equity,
+                    )
 
                   // Apply MPF action and compute cost_basis
                   expect [action, ..rest_actions] = remaining_actions
-                  let mpf_key = cbor.serialise(lp_address)
+                  let mpf_key = cbor.serialise(withdrawer)
 
                   let (cost_basis, new_root) =
                     when action is {
-                      LPDelete { proof, old_value } -> {
+                      SharesDelete { proof, old_value } -> {
                         // Total withdrawal
                         expect Some(old_data) = cbor.deserialise(old_value)
-                        expect old_entry: LPRecordEntry = old_data
-                        expect amount == old_entry.lp
-                        let cb = old_entry.cost
+                        expect old_entry: SharesRecordEntry = old_data
+                        expect shares_to_redeem == old_entry.shares
+                        let cb = old_entry.total_deposited
                         let trie = mpf.from_root(current_root)
                         let new_trie =
                           mpf.delete(trie, mpf_key, old_value, proof)
                         (cb, mpf.root(new_trie))
                       }
-                      LPUpdate { from, to, to_proof } -> {
+                      SharesUpdate { from, to, to_proof } -> {
                         // Partial withdrawal
                         expect Some(from_data) = cbor.deserialise(from)
-                        expect old_entry: LPRecordEntry = from_data
-                        expect old_entry.lp >= amount
-                        let cb = old_entry.cost * amount / old_entry.lp
+                        expect old_entry: SharesRecordEntry = from_data
+                        expect old_entry.shares >= shares_to_redeem
+                        let cb =
+                          old_entry.total_deposited * shares_to_redeem / old_entry.shares
                         let expected_entry =
-                          LPRecordEntry {
-                            lp: old_entry.lp - amount,
-                            cost: old_entry.cost - cb,
+                          SharesRecordEntry {
+                            shares: old_entry.shares - shares_to_redeem,
+                            total_deposited: old_entry.total_deposited - cb,
                           }
                         let expected_value = cbor.serialise(expected_entry)
                         expect to == expected_value
@@ -192,26 +197,27 @@ pub fn process_batched_withdrawal_intent_validation(
                       cost_basis,
                       operator_charge_percentage,
                     )
-                  let fee_lp = compute_fee_lp(fee, total_lp, vault_balance)
+                  let fee_shares =
+                    compute_fee_shares(fee, total_shares, vault_equity)
                   let user_receives = gross_value - fee
 
                   let new_cal_user_receives = cal_user_receives + user_receives
-                  let new_cal_fee_lp = cal_fee_lp + fee_lp
+                  let new_cal_fee_shares = cal_fee_shares + fee_shares
 
                   // Check output value and address
                   let output_check =
-                    check_output_value_equal_to_lp_usd_value(
+                    check_output_value_equal_to_shares_usd_value(
                       out_utxo.value,
                       user_receives,
                       prices,
-                    ) && out_utxo.address == lp_address
+                    ) && out_utxo.address == withdrawer
 
                   if output_check {
                     return(
                       (rest_of_indices, rest_actions, new_root),
-                      new_cal_intent_datum_lp_amount,
+                      new_cal_intent_datum_shares_amount,
                       new_cal_user_receives,
-                      new_cal_fee_lp,
+                      new_cal_fee_shares,
                       cal_cost_removed + cost_basis,
                     )
                   } else {
@@ -222,18 +228,18 @@ pub fn process_batched_withdrawal_intent_validation(
             } else {
               return(
                 remaining_state,
-                cal_intent_datum_lp_amount,
+                cal_intent_datum_shares_amount,
                 cal_user_receives,
-                cal_fee_lp,
+                cal_fee_shares,
                 cal_cost_removed,
               )
             }
           _ ->
             return(
               remaining_state,
-              cal_intent_datum_lp_amount,
+              cal_intent_datum_shares_amount,
               cal_user_receives,
-              cal_fee_lp,
+              cal_fee_shares,
               cal_cost_removed,
             )
         }
@@ -243,9 +249,9 @@ pub fn process_batched_withdrawal_intent_validation(
   when remaining_indices is {
     [] ->
       (
-        total_intent_datum_lp_amount,
+        total_intent_datum_shares_amount,
         total_user_receives,
-        total_fee_lp,
+        total_fee_shares,
         total_cost_removed,
         final_root,
       )
@@ -256,30 +262,34 @@ pub fn process_batched_withdrawal_intent_validation(
 // Apply operator fee share MPF action after all user withdrawals
 pub fn apply_operator_fee_share(
   current_root: ByteArray,
-  total_fee_lp: Int,
+  total_fee_shares: Int,
   operator_address: Address,
-  operator_action: LPMPFAction,
+  operator_action: SharesMPFAction,
 ) -> ByteArray {
-  if total_fee_lp <= 0 {
+  if total_fee_shares <= 0 {
     current_root
   } else {
     let mpf_key = cbor.serialise(operator_address)
     when operator_action is {
-      LPInsert { proof, new_value } -> {
+      SharesInsert { proof, new_value } -> {
         // Operator has no existing entry
-        let expected_entry = LPRecordEntry { lp: total_fee_lp, cost: 0 }
+        let expected_entry =
+          SharesRecordEntry { shares: total_fee_shares, total_deposited: 0 }
         let expected_value = cbor.serialise(expected_entry)
         expect new_value == expected_value
         let trie = mpf.from_root(current_root)
         let new_trie = mpf.insert(trie, mpf_key, new_value, proof)
         mpf.root(new_trie)
       }
-      LPUpdate { from, to, to_proof } -> {
-        // Operator has existing entry — add fee shares, cost unchanged
+      SharesUpdate { from, to, to_proof } -> {
+        // Operator has existing entry — add fee shares, total_deposited unchanged
         expect Some(from_data) = cbor.deserialise(from)
-        expect old_entry: LPRecordEntry = from_data
+        expect old_entry: SharesRecordEntry = from_data
         let expected_entry =
-          LPRecordEntry { lp: old_entry.lp + total_fee_lp, cost: old_entry.cost }
+          SharesRecordEntry {
+            shares: old_entry.shares + total_fee_shares,
+            total_deposited: old_entry.total_deposited,
+          }
         let expected_value = cbor.serialise(expected_entry)
         expect to == expected_value
         let trie = mpf.from_root(current_root)

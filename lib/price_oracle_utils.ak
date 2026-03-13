@@ -14,7 +14,7 @@ pub fn verify_prices_oracle_messages(
   signatures: List<ByteArray>,
 ) -> (Int, Pairs<(PolicyId, AssetName), Int>, Bool) {
   expect Some(signed_data) = cbor.deserialise(prices_message)
-  expect Message { vault_balance, prices, utxo_ref }: Message = signed_data
+  expect Message { vault_equity, prices, utxo_ref }: Message = signed_data
 
   let is_utxo_consumed =
     list.any(inputs, fn(input) { input.output_reference == utxo_ref })
@@ -25,7 +25,7 @@ pub fn verify_prices_oracle_messages(
 
   let message_verified = is_utxo_consumed? && keys_check? && signatures_check?
 
-  (vault_balance, prices, message_verified)
+  (vault_equity, prices, message_verified)
 }
 
 pub fn convert_value_to_usd(

@@ -29,21 +29,23 @@ pub type VaultOracleDatum {
   operator_charge_percentage: Int,
   operator_min_deposit_percentage: Int,
   hydra_node_pub_keys: List<VerificationKey>,
+  is_active: Bool,
   // State (mutable)
-  total_lp: Int,
-  operator_lp: Int,
-  vault_cost: Int,
-  lp_merkle_root: ByteArray,
+  total_shares: Int,
+  operator_shares: Int,
+  total_deposited: Int,
+  shares_merkle_root: ByteArray,
+  total_fee_collected: Int,
 }
 
 // Vault Oracle mint redeemer
 pub type VaultOracleMintRedeemer {
   CreateVault {
     initial_deposit: MValue,
-    initial_lp: Int,
+    initial_shares: Int,
     prices_message: ByteArray,
     signatures: List<ByteArray>,
-    initial_lp_proof: Proof,
+    initial_shares_proof: Proof,
   }
   CloseVault
 }
@@ -71,50 +73,50 @@ pub type VaultSpendRedeemer {
 // Intent redeemer (shared by all 4 intent validators)
 pub type IntentRedeemer {
   MintIntent
-  BurnIntent(List<Int>, ByteArray, List<ByteArray>, List<LPMPFAction>)
+  BurnIntent(List<Int>, ByteArray, List<ByteArray>, List<SharesMPFAction>)
   CancelIntent
 }
 
-// LP Merkle Patricia Forestry action type
-pub type LPMPFAction {
-  LPInsert { proof: Proof, new_value: ByteArray }
-  LPUpdate { from: ByteArray, to: ByteArray, to_proof: Proof }
-  LPDelete { proof: Proof, old_value: ByteArray }
+// Shares Merkle Patricia Forestry action type
+pub type SharesMPFAction {
+  SharesInsert { proof: Proof, new_value: ByteArray }
+  SharesUpdate { from: ByteArray, to: ByteArray, to_proof: Proof }
+  SharesDelete { proof: Proof, old_value: ByteArray }
 }
 
-// LP Record entry (serialized into MPF values)
-pub type LPRecordEntry {
-  lp: Int,
-  cost: Int,
+// Shares Record entry (serialized into MPF values)
+pub type SharesRecordEntry {
+  shares: Int,
+  total_deposited: Int,
 }
 
 // Price oracle message
 pub type Message {
-  vault_balance: Int,
+  vault_equity: Int,
   prices: Pairs<(PolicyId, AssetName), Int>,
   utxo_ref: OutputReference,
 }
 
 // Deposit intent datum
 pub type DepositIntentDatum {
-  lp_address: Address,
-  amount: MValue,
+  depositor: Address,
+  deposit_amount: MValue,
 }
 
 // L2 Deposit intent datum — no value stored, only intent token
 pub type L2DepositIntentDatum {
-  lp_address: Address,
-  amount: MValue,
+  depositor: Address,
+  deposit_amount: MValue,
 }
 
 // Withdrawal intent datum
 pub type WithdrawalIntentDatum {
-  lp_address: Address,
-  amount: Int,
+  withdrawer: Address,
+  shares_to_redeem: Int,
 }
 
 // L2 Withdrawal intent datum — no value stored, only intent token
 pub type L2WithdrawalIntentDatum {
-  lp_address: Address,
-  amount: Int,
+  withdrawer: Address,
+  shares_to_redeem: Int,
 }
