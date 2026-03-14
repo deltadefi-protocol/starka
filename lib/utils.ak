@@ -1,4 +1,4 @@
-use aiken/collection/list
+use aiken/collection/list.{all, has}
 use aiken/collection/pairs.{has_key}
 use aiken/crypto.{
   ScriptHash, VerificationKey, VerificationKeyHash, blake2b_224,
@@ -115,4 +115,21 @@ pub fn check_any_policy_burned(mint: Value, policy_id: PolicyId) -> Bool {
 
 pub fn check_any_policy_minted(mint: Value, policy_id: PolicyId) -> Bool {
   quantity_of(mint, policy_id, "") > 0
+}
+
+pub fn validate_hydra_signatures(
+  reference_inputs: List<Input>,
+  oracle_nft: ScriptHash,
+  extra_signatories: List<VerificationKeyHash>,
+) -> Bool {
+  let oracle_input_datum: AppOracleDatum =
+    reference_inputs |> get_app_oracle_datum(oracle_nft)
+  let hydra_required_signers: List<VerificationKeyHash> =
+    oracle_input_datum.hydra_info.hydra_signers
+  let hydra_signers_check =
+    hydra_required_signers
+      |> all(
+          fn(signer: VerificationKeyHash) { extra_signatories |> has(signer) },
+        )
+  hydra_signers_check
 }

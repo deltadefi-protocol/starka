@@ -67,7 +67,7 @@ pub type VaultSpendRedeemer {
   ProcessWithdrawal
   DepositIntoDeltaDeFi
   StakeRotation
-  PluggableLogic
+  VaultPluggableLogic
 }
 
 // Intent redeemer (shared by all 4 intent validators)
