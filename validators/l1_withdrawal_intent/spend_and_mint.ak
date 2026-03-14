@@ -58,24 +58,24 @@ validator l1_withdrawal_intent(vault_oracle_nft: PolicyId) {
       }
       BurnIntent(indices, message, signatures, mpf_actions) -> {
         // 1. Get Vault Oracle input and output
-        expect [oracle_input] =
+        expect [vault_oracle_input] =
           vodka_inputs.inputs_with_policy(inputs, vault_oracle_nft)
-        expect oracle_input_datum: VaultOracleDatum =
-          input_inline_datum(oracle_input)
+        expect vault_oracle_input_datum: VaultOracleDatum =
+          input_inline_datum(vault_oracle_input)
 
-        expect [oracle_output] =
+        expect [vault_oracle_output] =
           outputs_at_with_policy(
             outputs,
-            oracle_input.output.address,
+            vault_oracle_input.output.address,
             vault_oracle_nft,
           )
-        expect oracle_output_datum: VaultOracleDatum =
-          output_inline_datum(oracle_output)
+        expect vault_oracle_output_datum: VaultOracleDatum =
+          output_inline_datum(vault_oracle_output)
 
         // 2. Verify prices message via app_oracle reference input
         let app_oracle_datum: AppOracleDatum =
           reference_inputs
-            |> get_app_oracle_datum(oracle_input_datum.app_oracle)
+            |> get_app_oracle_datum(vault_oracle_input_datum.app_oracle)
         let AppOracleDatum { hydra_info, .. } = app_oracle_datum
         let HydraInfo { hydra_signers } = hydra_info
         let (vault_equity, prices, is_prices_verified) =
@@ -83,7 +83,7 @@ validator l1_withdrawal_intent(vault_oracle_nft: PolicyId) {
             message,
             inputs,
             hydra_signers,
-            oracle_input_datum.hydra_node_pub_keys,
+            vault_oracle_input_datum.hydra_node_pub_keys,
             signatures,
           )
 
@@ -98,7 +98,7 @@ validator l1_withdrawal_intent(vault_oracle_nft: PolicyId) {
           vault_script_hash,
           total_fee_collected,
           ..
-        } = oracle_input_datum
+        } = vault_oracle_input_datum
 
         // Split mpf_actions: user actions + last action for operator fee share
         let user_action_count = list.length(indices)
@@ -167,9 +167,9 @@ validator l1_withdrawal_intent(vault_oracle_nft: PolicyId) {
         let total_fee = total_gross_value - total_user_receives
 
         // 7. Verify oracle output datum updated correctly
-        let oracle_datum_check =
-          oracle_output_datum == VaultOracleDatum {
-            ..oracle_input_datum,
+        let vault_oracle_datum_check =
+          vault_oracle_output_datum == VaultOracleDatum {
+            ..vault_oracle_input_datum,
             total_shares: total_shares - total_intent_datum_shares_amount + total_fee_shares,
             operator_shares: operator_shares + total_fee_shares,
             total_deposited: total_deposited - total_cost_removed,
@@ -193,7 +193,7 @@ validator l1_withdrawal_intent(vault_oracle_nft: PolicyId) {
           key_signed(extra_signatories, operator_key)
         let is_authorized = is_operation_signed || is_operator_signed
 
-        is_prices_verified? && vault_unlock_check? && oracle_datum_check? && intent_burn_check? && is_authorized?
+        is_prices_verified? && vault_unlock_check? && vault_oracle_datum_check? && intent_burn_check? && is_authorized?
       }
       CancelIntent -> {
         let is_burn_correct =

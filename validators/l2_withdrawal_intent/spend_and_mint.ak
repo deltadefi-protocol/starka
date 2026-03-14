@@ -55,22 +55,22 @@ validator l2_withdrawal_intent(vault_oracle_nft: PolicyId) {
       }
       BurnIntent(indices, message, signatures, mpf_actions) -> {
         // 1. Get Vault Oracle input and output
-        expect [oracle_input] =
+        expect [vault_oracle_input] =
           vodka_inputs.inputs_with_policy(inputs, vault_oracle_nft)
-        expect oracle_input_datum: VaultOracleDatum =
-          input_inline_datum(oracle_input)
+        expect vault_oracle_input_datum: VaultOracleDatum =
+          input_inline_datum(vault_oracle_input)
 
-        expect [oracle_output] =
+        expect [vault_oracle_output] =
           outputs_at_with_policy(
             outputs,
-            oracle_input.output.address,
+            vault_oracle_input.output.address,
             vault_oracle_nft,
           )
-        expect oracle_output_datum: VaultOracleDatum =
-          output_inline_datum(oracle_output)
+        expect vault_oracle_output_datum: VaultOracleDatum =
+          output_inline_datum(vault_oracle_output)
 
         // 2. Verify prices message using hydra_node_pub_keys (no app_oracle in Hydra)
-        let hydra_node_pub_keys = oracle_input_datum.hydra_node_pub_keys
+        let hydra_node_pub_keys = vault_oracle_input_datum.hydra_node_pub_keys
         let hydra_signers =
           list.map(hydra_node_pub_keys, fn(key) { blake2b_224(key) })
         let (vault_equity, prices, is_prices_verified) =
@@ -92,7 +92,7 @@ validator l2_withdrawal_intent(vault_oracle_nft: PolicyId) {
           shares_merkle_root,
           total_fee_collected,
           ..
-        } = oracle_input_datum
+        } = vault_oracle_input_datum
 
         // Split mpf_actions: user actions + last action for operator fee share
         let user_action_count = list.length(indices)
@@ -147,9 +147,9 @@ validator l2_withdrawal_intent(vault_oracle_nft: PolicyId) {
         let total_fee = total_gross_value - total_user_receives
 
         // 7. Verify oracle output datum updated correctly
-        let oracle_datum_check =
-          oracle_output_datum == VaultOracleDatum {
-            ..oracle_input_datum,
+        let vault_oracle_datum_check =
+          vault_oracle_output_datum == VaultOracleDatum {
+            ..vault_oracle_input_datum,
             total_shares: total_shares - total_intent_datum_shares_amount + total_fee_shares,
             operator_shares: operator_shares + total_fee_shares,
             total_deposited: total_deposited - total_cost_removed,
@@ -163,13 +163,13 @@ validator l2_withdrawal_intent(vault_oracle_nft: PolicyId) {
 
         // 9. Signed by operation_key from app_oracle OR operator_key from vault oracle
         let app_oracle_datum: AppOracleDatum =
-          get_app_oracle_datum(reference_inputs, oracle_input_datum.app_oracle)
+          get_app_oracle_datum(reference_inputs, vault_oracle_input_datum.app_oracle)
         let is_operation_signed =
           key_signed(extra_signatories, app_oracle_datum.operation_key)
         let is_operator_signed = key_signed(extra_signatories, operator_key)
         let is_authorized = is_operation_signed || is_operator_signed
 
-        is_prices_verified? && oracle_datum_check? && intent_burn_check? && is_authorized?
+        is_prices_verified? && vault_oracle_datum_check? && intent_burn_check? && is_authorized?
       }
       CancelIntent -> {
         // Burn intent token, signed by operation_key from app_oracle
@@ -177,13 +177,14 @@ validator l2_withdrawal_intent(vault_oracle_nft: PolicyId) {
           policy_only_minted_token(mint, policy_id, "", -1)
 
         // Get vault oracle to find app_oracle
-        expect [oracle_input] =
+        expect [vault_oracle_input] =
           vodka_inputs.inputs_with_policy(inputs, vault_oracle_nft)
-        expect oracle_datum: VaultOracleDatum = input_inline_datum(oracle_input)
+        expect vault_oracle_datum: VaultOracleDatum =
+          input_inline_datum(vault_oracle_input)
 
         // Get app_oracle and check operation_key signature
         let app_oracle_datum: AppOracleDatum =
-          get_app_oracle_datum(reference_inputs, oracle_datum.app_oracle)
+          get_app_oracle_datum(reference_inputs, vault_oracle_datum.app_oracle)
         let is_signed =
           key_signed(extra_signatories, app_oracle_datum.operation_key)
 
