@@ -261,12 +261,12 @@ fn run_create_vault(test_case: CreateVaultTestCase) -> Bool {
 
 // ========== CreateVault Tests ==========
 
-test test_create_vault_success() {
+test s0_mint_success_create_vault() {
   let test_case = default_create_vault_test_case()
   run_create_vault(test_case)
 }
 
-test test_create_vault_fail_without_initial_utxo_consumed() {
+test s0_mint_fail_create_vault_without_initial_utxo_consumed() {
   let test_case =
     CreateVaultTestCase {
       ..default_create_vault_test_case(),
@@ -275,7 +275,7 @@ test test_create_vault_fail_without_initial_utxo_consumed() {
   !run_create_vault(test_case)
 }
 
-test test_create_vault_fail_without_oracle_nft_minted() {
+test s0_mint_fail_create_vault_without_oracle_nft_minted() {
   let test_case =
     CreateVaultTestCase {
       ..default_create_vault_test_case(),
@@ -284,7 +284,7 @@ test test_create_vault_fail_without_oracle_nft_minted() {
   !run_create_vault(test_case)
 }
 
-test test_create_vault_fail_without_app_oracle_referenced() fail {
+test s0_mint_fail_create_vault_without_app_oracle_referenced() fail {
   let test_case =
     CreateVaultTestCase {
       ..default_create_vault_test_case(),
@@ -293,7 +293,7 @@ test test_create_vault_fail_without_app_oracle_referenced() fail {
   run_create_vault(test_case)
 }
 
-test test_create_vault_fail_with_invalid_hydra_keys() {
+test s0_mint_fail_create_vault_with_invalid_hydra_keys() {
   let test_case =
     CreateVaultTestCase {
       ..default_create_vault_test_case(),
@@ -302,7 +302,7 @@ test test_create_vault_fail_with_invalid_hydra_keys() {
   !run_create_vault(test_case)
 }
 
-test test_create_vault_fail_with_incorrect_total_shares() {
+test s0_mint_fail_create_vault_with_incorrect_total_shares() {
   let test_case =
     CreateVaultTestCase {
       ..default_create_vault_test_case(),
@@ -311,7 +311,7 @@ test test_create_vault_fail_with_incorrect_total_shares() {
   !run_create_vault(test_case)
 }
 
-test test_create_vault_fail_with_incorrect_operator_shares() {
+test s0_mint_fail_create_vault_with_incorrect_operator_shares() {
   let test_case =
     CreateVaultTestCase {
       ..default_create_vault_test_case(),
@@ -320,7 +320,7 @@ test test_create_vault_fail_with_incorrect_operator_shares() {
   !run_create_vault(test_case)
 }
 
-test test_create_vault_fail_with_incorrect_total_deposited() {
+test s0_mint_fail_create_vault_with_incorrect_total_deposited() {
   let test_case =
     CreateVaultTestCase {
       ..default_create_vault_test_case(),
@@ -329,7 +329,7 @@ test test_create_vault_fail_with_incorrect_total_deposited() {
   !run_create_vault(test_case)
 }
 
-test test_create_vault_fail_when_shares_not_equal_deposited() {
+test s0_mint_fail_create_vault_when_shares_not_equal_deposited() {
   let test_case =
     CreateVaultTestCase {
       ..default_create_vault_test_case(),
@@ -338,7 +338,7 @@ test test_create_vault_fail_when_shares_not_equal_deposited() {
   !run_create_vault(test_case)
 }
 
-test test_create_vault_fail_with_incorrect_merkle_root() {
+test s0_mint_fail_create_vault_with_incorrect_merkle_root() {
   let test_case =
     CreateVaultTestCase {
       ..default_create_vault_test_case(),
@@ -347,7 +347,7 @@ test test_create_vault_fail_with_incorrect_merkle_root() {
   !run_create_vault(test_case)
 }
 
-test test_create_vault_fail_with_invalid_charge_percentage() {
+test s0_mint_fail_create_vault_with_invalid_charge_percentage() {
   let test_case =
     CreateVaultTestCase {
       ..default_create_vault_test_case(),
@@ -356,7 +356,7 @@ test test_create_vault_fail_with_invalid_charge_percentage() {
   !run_create_vault(test_case)
 }
 
-test test_create_vault_fail_when_not_active() {
+test s0_mint_fail_create_vault_when_not_active() {
   let test_case =
     CreateVaultTestCase {
       ..default_create_vault_test_case(),
@@ -365,7 +365,7 @@ test test_create_vault_fail_when_not_active() {
   !run_create_vault(test_case)
 }
 
-test test_create_vault_fail_when_fee_collected_not_zero() {
+test s0_mint_fail_create_vault_when_fee_collected_not_zero() {
   let test_case =
     CreateVaultTestCase {
       ..default_create_vault_test_case(),
@@ -374,7 +374,7 @@ test test_create_vault_fail_when_fee_collected_not_zero() {
   !run_create_vault(test_case)
 }
 
-test test_create_vault_fail_without_deposit_in_vault() {
+test s0_mint_fail_create_vault_without_deposit_in_vault() {
   let test_case =
     CreateVaultTestCase {
       ..default_create_vault_test_case(),
@@ -383,7 +383,7 @@ test test_create_vault_fail_without_deposit_in_vault() {
   !run_create_vault(test_case)
 }
 
-test test_create_vault_fail_without_operator_signed() {
+test s0_mint_fail_create_vault_without_operator_signed() {
   let test_case =
     CreateVaultTestCase {
       ..default_create_vault_test_case(),
@@ -392,7 +392,7 @@ test test_create_vault_fail_without_operator_signed() {
   !run_create_vault(test_case)
 }
 
-test test_create_vault_fail_without_operation_signed() {
+test s0_mint_fail_create_vault_without_operation_signed() {
   let test_case =
     CreateVaultTestCase {
       ..default_create_vault_test_case(),
@@ -516,12 +516,12 @@ fn run_close_vault(test_case: CloseVaultTestCase) -> Bool {
 
 // ========== CloseVault Tests ==========
 
-test test_close_vault_success() {
+test s0_mint_success_close_vault() {
   let test_case = default_close_vault_test_case()
   run_close_vault(test_case)
 }
 
-test test_close_vault_fail_without_oracle_input() fail {
+test s0_mint_fail_close_vault_without_oracle_input() fail {
   let test_case =
     CloseVaultTestCase {
       ..default_close_vault_test_case(),
@@ -530,7 +530,7 @@ test test_close_vault_fail_without_oracle_input() fail {
   run_close_vault(test_case)
 }
 
-test test_close_vault_fail_without_nft_burnt() {
+test s0_mint_fail_close_vault_without_nft_burnt() {
   let test_case =
     CloseVaultTestCase {
       ..default_close_vault_test_case(),
@@ -539,7 +539,7 @@ test test_close_vault_fail_without_nft_burnt() {
   !run_close_vault(test_case)
 }
 
-test test_close_vault_fail_without_app_oracle_referenced() fail {
+test s0_mint_fail_close_vault_without_app_oracle_referenced() fail {
   let test_case =
     CloseVaultTestCase {
       ..default_close_vault_test_case(),
@@ -548,7 +548,7 @@ test test_close_vault_fail_without_app_oracle_referenced() fail {
   run_close_vault(test_case)
 }
 
-test test_close_vault_fail_with_non_zero_total_shares() {
+test s0_mint_fail_close_vault_with_non_zero_total_shares() {
   let test_case =
     CloseVaultTestCase {
       ..default_close_vault_test_case(),
@@ -557,7 +557,7 @@ test test_close_vault_fail_with_non_zero_total_shares() {
   !run_close_vault(test_case)
 }
 
-test test_close_vault_fail_with_non_empty_merkle() {
+test s0_mint_fail_close_vault_with_non_empty_merkle() {
   let test_case =
     CloseVaultTestCase {
       ..default_close_vault_test_case(),
@@ -566,7 +566,7 @@ test test_close_vault_fail_with_non_empty_merkle() {
   !run_close_vault(test_case)
 }
 
-test test_close_vault_fail_without_operator_signed() {
+test s0_mint_fail_close_vault_without_operator_signed() {
   let test_case =
     CloseVaultTestCase {
       ..default_close_vault_test_case(),
@@ -575,7 +575,7 @@ test test_close_vault_fail_without_operator_signed() {
   !run_close_vault(test_case)
 }
 
-test test_close_vault_fail_without_operation_signed() {
+test s0_mint_fail_close_vault_without_operation_signed() {
   let test_case =
     CloseVaultTestCase {
       ..default_close_vault_test_case(),

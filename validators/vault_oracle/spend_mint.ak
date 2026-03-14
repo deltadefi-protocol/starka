@@ -1,6 +1,5 @@
 use aiken/cbor
 use aiken/collection/list
-use aiken/crypto
 use aiken/merkle_patricia_forestry as mpf
 use cardano/address.{Script, from_script, from_verification_key}
 use cardano/assets.{PolicyId, from_asset, from_asset_list}
@@ -33,7 +32,21 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
     input: OutputReference,
     self: Transaction,
   ) {
-    expect Some(oracle_datum) = datum
+    expect Some(vault_oracle_datum) = datum
+    let VaultOracleDatum {
+      l1_deposit_intent_script_hash,
+      l1_withdrawal_intent_script_hash,
+      l2_deposit_intent_script_hash,
+      l2_withdrawal_intent_script_hash,
+      hydra_node_pub_keys,
+      pluggable_logic,
+      total_shares,
+      operator_shares,
+      total_deposited,
+      shares_merkle_root,
+      total_fee_collected,
+      ..
+    } = vault_oracle_datum
     let Transaction {
       inputs,
       outputs,
@@ -45,25 +58,25 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
 
     when redeemer is {
       ProcessL1Deposit -> {
-        let mint_purpose = Mint(oracle_datum.l1_deposit_intent_script_hash)
+        let mint_purpose = Mint(l1_deposit_intent_script_hash)
         check_mint_redeemer_is_burn_intent(mint_purpose, redeemers)?
       }
       ProcessL1Withdrawal -> {
-        let mint_purpose = Mint(oracle_datum.l1_withdrawal_intent_script_hash)
+        let mint_purpose = Mint(l1_withdrawal_intent_script_hash)
         check_mint_redeemer_is_burn_intent(mint_purpose, redeemers)?
       }
       ProcessL2Deposit -> {
-        let mint_purpose = Mint(oracle_datum.l2_deposit_intent_script_hash)
+        let mint_purpose = Mint(l2_deposit_intent_script_hash)
         check_mint_redeemer_is_burn_intent(mint_purpose, redeemers)?
       }
       ProcessL2Withdrawal -> {
-        let mint_purpose = Mint(oracle_datum.l2_withdrawal_intent_script_hash)
+        let mint_purpose = Mint(l2_withdrawal_intent_script_hash)
         check_mint_redeemer_is_burn_intent(mint_purpose, redeemers)?
       }
       HydraCommit -> {
         let all_hydra_signed =
           validate_hydra_signatures_with_verification_key(
-            oracle_datum.hydra_node_pub_keys,
+            hydra_node_pub_keys,
             extra_signatories,
           )
         all_hydra_signed?
@@ -75,19 +88,19 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
 
         let all_hydra_signed =
           validate_hydra_signatures_with_verification_key(
-            oracle_datum.hydra_node_pub_keys,
+            hydra_node_pub_keys,
             extra_signatories,
           )
         all_hydra_signed? && is_input_equal_output?
       }
       PluggableLogic ->
-        withdrawal_script_validated(withdrawals, oracle_datum.pluggable_logic)
+        withdrawal_script_validated(withdrawals, pluggable_logic)
       UpdateConfig -> {
         // Require all hydra_node_pub_keys signatures
         let all_hydra_signed =
-          list.all(
-            oracle_datum.hydra_node_pub_keys,
-            fn(key) { list.has(extra_signatories, crypto.blake2b_224(key)) },
+          validate_hydra_signatures_with_verification_key(
+            hydra_node_pub_keys,
+            extra_signatories,
           )
 
         // Get oracle output
@@ -100,11 +113,11 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
 
         // State fields must remain unchanged
         let is_state_unchanged = and {
-            oracle_output_datum.total_shares == oracle_datum.total_shares,
-            oracle_output_datum.operator_shares == oracle_datum.operator_shares,
-            oracle_output_datum.total_deposited == oracle_datum.total_deposited,
-            oracle_output_datum.shares_merkle_root == oracle_datum.shares_merkle_root,
-            oracle_output_datum.total_fee_collected == oracle_datum.total_fee_collected,
+            oracle_output_datum.total_shares == total_shares,
+            oracle_output_datum.operator_shares == operator_shares,
+            oracle_output_datum.total_deposited == total_deposited,
+            oracle_output_datum.shares_merkle_root == shares_merkle_root,
+            oracle_output_datum.total_fee_collected == total_fee_collected,
           }
 
         // Validate operator_charge_percentage
