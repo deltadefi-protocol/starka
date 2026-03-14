@@ -30,7 +30,7 @@ pub const mock_operator_key = mock_pub_key_hash(10)
 
 pub const mock_app_oracle = mock_policy_id(0)
 
-pub const mock_app_oracle_address = from_script("app_oracle_address")
+pub const mock_app_oracle_address = from_script(mock_app_oracle)
 
 pub const mock_app_vault_script_hash = "app_vault_address"
 
