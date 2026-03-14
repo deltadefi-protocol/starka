@@ -50,19 +50,19 @@ const m_value_a_in_usd = 300
 // m_value_b: 200 * 2 (ADA) + 200 * 1 (USDM) = 600
 const m_value_b_in_usd = 600
 
-test convert_m_value_a() {
+test du_convert_m_value_to_usd_a() {
   convert_m_value_to_usd(m_value_a, prices) == m_value_a_in_usd
 }
 
-test convert_m_value_b() {
+test du_convert_m_value_to_usd_b() {
   convert_m_value_to_usd(m_value_b, prices) == m_value_b_in_usd
 }
 
-test convert_empty_m_value() {
+test du_convert_m_value_to_usd_empty() {
   convert_m_value_to_usd(empty_m_value, prices) == 0
 }
 
 // m_value_c has an asset with no price - should fail
-test convert_m_value_c() fail {
+test du_convert_m_value_to_usd_fail_no_price() fail {
   convert_m_value_to_usd(m_value_c, prices) == 0
 }

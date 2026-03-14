@@ -65,18 +65,18 @@ const m_value_a_and_b_and_c =
 
 const empty_m_value: MValue = []
 
-test combine_a_and_b() {
+test du_combine_m_value_a_and_b() {
   combine_m_value(m_value_a, m_value_b) == m_value_a_and_b
 }
 
-test combine_a_and_b_wrong() {
+test du_combine_m_value_a_and_b_wrong() {
   combine_m_value(m_value_a, m_value_b) != m_value_a_and_b_wrong
 }
 
-test combine_a_and_b_and_c() {
+test du_combine_m_value_a_and_b_and_c() {
   (combine_m_value(m_value_a_and_b, m_value_c) == m_value_a_and_b_and_c)?
 }
 
-test combine_empty_and_a() {
+test du_combine_m_value_empty_and_a() {
   combine_m_value(empty_m_value, m_value_a) == m_value_a
 }
