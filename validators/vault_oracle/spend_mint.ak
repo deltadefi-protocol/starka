@@ -5,14 +5,13 @@ use aiken/merkle_patricia_forestry as mpf
 use cardano/address.{Script, from_script, from_verification_key}
 use cardano/assets.{PolicyId, from_asset, from_asset_list}
 use cardano/transaction.{
-  InlineDatum, Mint, OutputReference, Transaction, find_input,
+  InlineDatum, Mint, Output, OutputReference, Transaction, find_input,
 }
 use cocktail.{
   get_all_value_to_script, input_inline_datum, inputs_at_with_policy,
-  inputs_with_policy, output_inline_datum, outputs_at_with_policy, value_geq,
+  inputs_with_policy, only_minted_token, output_inline_datum,
+  outputs_at_with_policy, value_geq,
 }
-use cocktail/vodka_inputs
-use cocktail/vodka_mints
 use hydra_dex/types.{AppOracleDatum, HydraInfo} as dd_types
 use price_oracle_utils.{convert_m_value_to_usd, verify_prices_oracle_messages}
 use types.{
@@ -22,7 +21,8 @@ use types.{
   VaultOracleSpendRedeemer,
 }
 use utils.{
-  check_mint_redeemer_is_burn_intent, verify_pub_keys,
+  check_mint_redeemer_is_burn_intent,
+  validate_hydra_signatures_with_verification_key, verify_pub_keys,
   withdrawal_script_validated,
 }
 
@@ -61,34 +61,24 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
         check_mint_redeemer_is_burn_intent(mint_purpose, redeemers)?
       }
       HydraCommit -> {
-        expect Some(own_input) = find_input(inputs, input)
-        expect Script(own_hash) = own_input.output.address.payment_credential
         let all_hydra_signed =
-          list.all(
+          validate_hydra_signatures_with_verification_key(
             oracle_datum.hydra_node_pub_keys,
-            fn(key) { list.has(extra_signatories, crypto.blake2b_224(key)) },
+            extra_signatories,
           )
-        expect [oracle_output] =
-          outputs_at_with_policy(outputs, from_script(own_hash), own_hash)
-        expect oracle_output_datum: VaultOracleDatum =
-          output_inline_datum(oracle_output)
-        let is_datum_unchanged = oracle_output_datum == oracle_datum
-        all_hydra_signed? && is_datum_unchanged?
+        all_hydra_signed?
       }
       HydraDecommit -> {
         expect Some(own_input) = find_input(inputs, input)
-        expect Script(own_hash) = own_input.output.address.payment_credential
+        let is_input_equal_output =
+          list.any(outputs, fn(output: Output) { output == own_input.output })
+
         let all_hydra_signed =
-          list.all(
+          validate_hydra_signatures_with_verification_key(
             oracle_datum.hydra_node_pub_keys,
-            fn(key) { list.has(extra_signatories, crypto.blake2b_224(key)) },
+            extra_signatories,
           )
-        expect [oracle_output] =
-          outputs_at_with_policy(outputs, from_script(own_hash), own_hash)
-        expect oracle_output_datum: VaultOracleDatum =
-          output_inline_datum(oracle_output)
-        let is_datum_unchanged = oracle_output_datum == oracle_datum
-        all_hydra_signed? && is_datum_unchanged?
+        all_hydra_signed? && is_input_equal_output?
       }
       PluggableLogic ->
         withdrawal_script_validated(withdrawals, oracle_datum.pluggable_logic)
@@ -263,8 +253,7 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
         let AppOracleDatum { operation_key, .. } = app_oracle_datum
 
         // Burn oracle NFT
-        let is_burn_correct =
-          vodka_mints.only_minted_token(mint, policy_id, "", -1)
+        let is_burn_correct = only_minted_token(mint, policy_id, "", -1)
 
         // Verify conditions
         let is_total_shares_zero = total_shares == 0

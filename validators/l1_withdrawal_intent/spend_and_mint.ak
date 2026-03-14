@@ -50,10 +50,10 @@ validator l1_withdrawal_intent(vault_oracle_nft: PolicyId) {
           outputs_at_with_policy(outputs, from_script(policy_id), policy_id)
         let is_mint_value_correct =
           policy_only_minted_token(mint, policy_id, "", 1)
-        expect WithdrawalIntentDatum { amount, .. }: WithdrawalIntentDatum =
+        expect WithdrawalIntentDatum { shares_to_redeem, .. }: WithdrawalIntentDatum =
           output_inline_datum(intent_output)
 
-        let is_amount_valid = amount > 0
+        let is_amount_valid = shares_to_redeem > 0
         is_amount_valid? && is_mint_value_correct?
       }
       BurnIntent(indices, message, signatures, mpf_actions) -> {
@@ -78,7 +78,7 @@ validator l1_withdrawal_intent(vault_oracle_nft: PolicyId) {
             |> get_app_oracle_datum(oracle_input_datum.app_oracle)
         let AppOracleDatum { hydra_info, .. } = app_oracle_datum
         let HydraInfo { hydra_signers } = hydra_info
-        let (vault_balance, prices, is_prices_verified) =
+        let (vault_equity, prices, is_prices_verified) =
           verify_prices_oracle_messages(
             message,
             inputs,
@@ -89,13 +89,14 @@ validator l1_withdrawal_intent(vault_oracle_nft: PolicyId) {
 
         // 3. Process batched withdrawal intents with MPF
         let VaultOracleDatum {
-          total_lp,
-          vault_cost,
-          operator_lp,
+          total_shares,
+          total_deposited,
+          operator_shares,
           operator_charge_percentage,
           operator_key,
-          lp_merkle_root,
+          shares_merkle_root,
           vault_script_hash,
+          total_fee_collected,
           ..
         } = oracle_input_datum
 
@@ -105,9 +106,9 @@ validator l1_withdrawal_intent(vault_oracle_nft: PolicyId) {
           split_at(mpf_actions, user_action_count)
 
         let (
-          total_intent_datum_lp_amount,
+          total_intent_datum_shares_amount,
           total_user_receives,
-          total_fee_lp,
+          total_fee_shares,
           total_cost_removed,
           user_final_root,
         ) =
@@ -116,12 +117,12 @@ validator l1_withdrawal_intent(vault_oracle_nft: PolicyId) {
             outputs,
             indices,
             user_mpf_actions,
-            vault_balance,
-            total_lp,
+            vault_equity,
+            total_shares,
             operator_charge_percentage,
             prices,
             policy_id,
-            lp_merkle_root,
+            shares_merkle_root,
           )
 
         // 4. Apply operator fee share MPF action
@@ -130,12 +131,12 @@ validator l1_withdrawal_intent(vault_oracle_nft: PolicyId) {
             [operator_action] ->
               apply_operator_fee_share(
                 user_final_root,
-                total_fee_lp,
+                total_fee_shares,
                 from_verification_key(operator_key),
                 operator_action,
               )
             [] ->
-              if total_fee_lp <= 0 {
+              if total_fee_shares <= 0 {
                 user_final_root
               } else {
                 fail @"Missing operator fee share MPF action"
@@ -160,17 +161,23 @@ validator l1_withdrawal_intent(vault_oracle_nft: PolicyId) {
         let vault_unlock_check =
           value_from_vault - value_to_vault == total_user_receives
 
-        // 6. Verify oracle output datum updated correctly
+        // 6. Calculate total fee collected (gross_value - user_receives)
+        let total_gross_value =
+          total_intent_datum_shares_amount * vault_equity / total_shares
+        let total_fee = total_gross_value - total_user_receives
+
+        // 7. Verify oracle output datum updated correctly
         let oracle_datum_check =
           oracle_output_datum == VaultOracleDatum {
             ..oracle_input_datum,
-            total_lp: total_lp - total_intent_datum_lp_amount + total_fee_lp,
-            operator_lp: operator_lp + total_fee_lp,
-            vault_cost: vault_cost - total_cost_removed,
-            lp_merkle_root: final_merkle_root,
+            total_shares: total_shares - total_intent_datum_shares_amount + total_fee_shares,
+            operator_shares: operator_shares + total_fee_shares,
+            total_deposited: total_deposited - total_cost_removed,
+            shares_merkle_root: final_merkle_root,
+            total_fee_collected: total_fee_collected + total_fee,
           }
 
-        // 7. Verify intent burn count
+        // 8. Verify intent burn count
         let intent_burn_check =
           policy_only_minted_token(
             mint,
@@ -179,7 +186,14 @@ validator l1_withdrawal_intent(vault_oracle_nft: PolicyId) {
             -list.length(indices),
           )
 
-        is_prices_verified? && vault_unlock_check? && oracle_datum_check? && intent_burn_check?
+        // 9. Signed by operation_key from app_oracle OR operator_key from vault oracle
+        let is_operation_signed =
+          key_signed(extra_signatories, app_oracle_datum.operation_key)
+        let is_operator_signed =
+          key_signed(extra_signatories, operator_key)
+        let is_authorized = is_operation_signed || is_operator_signed
+
+        is_prices_verified? && vault_unlock_check? && oracle_datum_check? && intent_burn_check? && is_authorized?
       }
       CancelIntent -> {
         let is_burn_correct =
@@ -195,7 +209,7 @@ validator l1_withdrawal_intent(vault_oracle_nft: PolicyId) {
           input_inline_datum(intent_input)
 
         expect Some(withdrawer_pkh) =
-          cocktail.address_pub_key(intent_datum.lp_address)
+          cocktail.address_pub_key(intent_datum.withdrawer)
         let is_signed = key_signed(extra_signatories, withdrawer_pkh)
 
         is_burn_correct? && is_signed?

@@ -3,7 +3,7 @@ use cardano/transaction.{Mint, OutputReference, Transaction}
 use cocktail.{key_signed}
 use hydra_dex/types.{AppOracleDatum} as dd_types
 use types.{
-  DepositIntoDeltaDeFi, PluggableLogic, ProcessWithdrawal, StakeRotation,
+  DepositIntoDeltaDeFi, VaultPluggableLogic, ProcessWithdrawal, StakeRotation,
   VaultOracleDatum, VaultSpendRedeemer,
 }
 use utils.{
@@ -44,7 +44,7 @@ validator vault(app_oracle: PolicyId, vault_oracle: PolicyId) {
           withdrawals,
           oracle_datum.vault_stake_rotation_script_hash,
         )
-      PluggableLogic ->
+      VaultPluggableLogic ->
         // Withdrawal Script pluggable_logic is validated
         withdrawal_script_validated(withdrawals, oracle_datum.pluggable_logic)
     }

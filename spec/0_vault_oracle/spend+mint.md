@@ -86,12 +86,10 @@ Each depositor has one entry in the shares merkle tree:
 
 5. HydraCommit
    - All `hydra_node_pub_keys` sign the transaction
-   - Datum unchanged
-   - Only Oracle commits to Hydra (Vault stays on L1)
 
 6. HydraDecommit
    - All `hydra_node_pub_keys` sign the transaction
-   - Datum unchanged
+   - Input and output equal
 
 7. PluggableLogic (aribtrage vault)
    - Withdrawal Script `pluggable_logic` is validated

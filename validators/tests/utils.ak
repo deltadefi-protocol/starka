@@ -9,7 +9,8 @@ use mocktail.{
   mock_utxo_ref,
 }
 use types.{
-  DepositIntentDatum, LPRecordEntry, MValue, VaultDatum, WithdrawalIntentDatum,
+  DepositIntentDatum, MValue, SharesRecordEntry, VaultOracleDatum,
+  WithdrawalIntentDatum,
 }
 
 // ========== Null hash (empty MPF trie root) ==========
@@ -124,7 +125,7 @@ pub const mock_app_oracle_datum: AppOracleDatum =
 
 // ========== Price oracle message and signatures ==========
 
-// Message: vault_balance=2400000000, prices={USDM:1, ADA:2}, utxo_ref=mock_utxo_ref(0,0)
+// Message: vault_equity=2400000000, prices={USDM:1, ADA:2}, utxo_ref=mock_utxo_ref(0,0)
 pub const mock_message =
   #"d8799f1a8f0d1800a29f581cc69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c913445553444dff019f4040ff02d8799f5820cd82a190d3b4ef95a50bd791882959f541e308adb69b12d022d94a6d9f02bcf000ffff"
 
@@ -157,25 +158,56 @@ pub const mock_pluggable_logic = mock_script_hash(15)
 
 pub const mock_vault_stake_rotation_script_hash = mock_script_hash(16)
 
+pub const mock_vault_script_hash = mock_script_hash(17)
+
 // ========== Vault state values ==========
 
-pub const mock_total_lp = 3000000000000000
+pub const mock_total_shares = 3000000000000000
 
-pub const mock_vault_balance = 2400000000
+pub const mock_vault_equity = 2400000000
 
-pub const mock_vault_cost = 2000000000
+pub const mock_total_deposited = 2000000000
 
-pub const mock_operator_lp = 0
+pub const mock_operator_shares = 0
 
 pub const mock_operator_charge_percentage = 0
 
-pub const mock_operator_min_deposit_percentage = 10
+// ========== USDM constants ==========
 
-// ========== Vault datum ==========
+pub const usdm_policy =
+  #"c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c913"
 
-pub const mock_vault_datum: VaultDatum =
-  VaultDatum {
+pub const usdm_name = #"5553444d"
+
+// ========== CreateVault test values ==========
+// Simple test values: 1000 ADA + 1000 USDM with prices ADA=1, USDM=1
+// Total USD value = 1000 + 1000 = 2000 USD = 2_000_000_000 (with 6 decimal precision)
+// Genesis rule: initial_shares = total_deposited
+
+pub const mock_create_vault_initial_shares = 2_000_000_000
+
+pub const mock_create_vault_total_deposited = 2_000_000_000
+
+// Simple deposit: 1000 ADA + 1000 USDM
+pub const mock_create_vault_deposit_m_value: MValue =
+  [
+    Pair("", [Pair("", 1_000_000_000)]),
+    Pair(usdm_policy, [Pair(usdm_name, 1_000_000_000)]),
+  ]
+
+// Placeholder message - TODO: replace with signed message matching above values
+// Expected message content: prices={ADA:1, USDM:1}, utxo_ref=mock_utxo_ref(99,0)
+pub const mock_create_vault_message: ByteArray = #""
+
+// Placeholder signatures - TODO: replace with real signatures
+pub const mock_create_vault_signatures: List<ByteArray> = [#"", #"", #""]
+
+// ========== Vault oracle datum ==========
+
+pub const mock_vault_oracle_datum: VaultOracleDatum =
+  VaultOracleDatum {
     app_oracle: mock_app_oracle,
+    vault_script_hash: mock_vault_script_hash,
     l1_deposit_intent_script_hash: mock_l1_deposit_intent_script_hash,
     l1_withdrawal_intent_script_hash: mock_l1_withdrawal_intent_script_hash,
     l2_deposit_intent_script_hash: mock_l2_deposit_intent_script_hash,
@@ -184,13 +216,14 @@ pub const mock_vault_datum: VaultDatum =
     vault_stake_rotation_script_hash: mock_vault_stake_rotation_script_hash,
     operator_key: mock_operator_key,
     operator_charge_percentage: mock_operator_charge_percentage,
-    operator_min_deposit_percentage: mock_operator_min_deposit_percentage,
+    operator_min_deposit_percentage: 10,
     hydra_node_pub_keys: mock_node_pub_keys,
-    total_lp: mock_total_lp,
-    operator_lp: mock_operator_lp,
-    vault_cost: mock_vault_cost,
-    lp_merkle_root: null_hash,
     is_active: True,
+    total_shares: mock_total_shares,
+    operator_shares: mock_operator_shares,
+    total_deposited: mock_total_deposited,
+    shares_merkle_root: null_hash,
+    total_fee_collected: 0,
   }
 
 // ========== Deposit / Withdrawal intent data ==========
@@ -206,32 +239,25 @@ pub const mock_deposit_m_value: MValue =
 
 pub const mock_deposit_intent_datum =
   DepositIntentDatum {
-    lp_address: mock_pub_key_address(0, None),
-    amount: mock_deposit_m_value,
+    depositor: mock_pub_key_address(0, None),
+    deposit_amount: mock_deposit_m_value,
   }
 
 pub const mock_withdrawal_intent_datum =
   WithdrawalIntentDatum {
-    lp_address: mock_pub_key_address(0, None),
-    amount: 1000000,
+    withdrawer: mock_pub_key_address(0, None),
+    shares_to_redeem: 1000000,
   }
-
-// ========== USDM constants ==========
-
-pub const usdm_policy =
-  #"c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c913"
-
-pub const usdm_name = #"5553444d"
 
 // ========== MPF helper ==========
 
 pub fn compute_mpf_root_single_insert(
   address: Address,
-  lp: Int,
-  cost: Int,
+  shares: Int,
+  total_deposited: Int,
 ) -> ByteArray {
   let mpf_key = cbor.serialise(address)
-  let entry = LPRecordEntry { lp, cost }
+  let entry = SharesRecordEntry { shares, total_deposited }
   let mpf_value = cbor.serialise(entry)
   mpf.root(mpf.insert(mpf.empty, mpf_key, mpf_value, []))
 }

@@ -117,7 +117,7 @@ pub fn check_any_policy_minted(mint: Value, policy_id: PolicyId) -> Bool {
   quantity_of(mint, policy_id, "") > 0
 }
 
-pub fn validate_hydra_signatures(
+pub fn validate_hydra_signatures_from_app_oracle(
   reference_inputs: List<Input>,
   oracle_nft: ScriptHash,
   extra_signatories: List<VerificationKeyHash>,
@@ -132,4 +132,14 @@ pub fn validate_hydra_signatures(
           fn(signer: VerificationKeyHash) { extra_signatories |> has(signer) },
         )
   hydra_signers_check
+}
+
+pub fn validate_hydra_signatures_with_verification_key(
+  hydra_node_pub_keys: List<VerificationKeyHash>,
+  extra_signatories: List<VerificationKeyHash>,
+) -> Bool {
+  list.all(
+    hydra_node_pub_keys,
+    fn(key) { list.has(extra_signatories, crypto.blake2b_224(key)) },
+  )
 }

@@ -10,10 +10,11 @@ use cocktail/vodka_inputs
 use cocktail/vodka_mints.{policy_only_minted_token}
 use deposit_utils.{process_batched_deposit_intent_validation}
 use price_oracle_utils.{verify_prices_oracle_messages}
+use hydra_dex/types.{AppOracleDatum} as dd_types
 use types.{
   BurnIntent, CancelIntent, L2DepositIntentDatum, MintIntent, VaultOracleDatum,
 }
-use utils.{check_mint_redeemer_is_burn_intent}
+use utils.{check_mint_redeemer_is_burn_intent, get_app_oracle_datum}
 
 validator l2_deposit_intent(vault_oracle_nft: PolicyId) {
   spend(
@@ -32,7 +33,8 @@ validator l2_deposit_intent(vault_oracle_nft: PolicyId) {
   }
 
   mint(redeemer: types.IntentRedeemer, policy_id: PolicyId, self: Transaction) {
-    let Transaction { inputs, outputs, mint, extra_signatories, .. } = self
+    let Transaction { inputs, outputs, mint, extra_signatories, reference_inputs, .. } =
+      self
 
     when redeemer is {
       MintIntent -> {
@@ -41,11 +43,11 @@ validator l2_deposit_intent(vault_oracle_nft: PolicyId) {
           outputs_at_with_policy(outputs, from_script(policy_id), policy_id)
         let is_mint_value_correct =
           policy_only_minted_token(mint, policy_id, "", 1)
-        expect L2DepositIntentDatum { amount, .. }: L2DepositIntentDatum =
+        expect L2DepositIntentDatum { deposit_amount, .. }: L2DepositIntentDatum =
           output_inline_datum(intent_output)
 
         // Deposit amount > 0 (tokens stored in Account UTxO, not intent)
-        let is_amount_valid = !list.is_empty(amount)
+        let is_amount_valid = !list.is_empty(deposit_amount)
         is_amount_valid? && is_mint_value_correct?
       }
       BurnIntent(indices, message, signatures, mpf_actions) -> {
@@ -68,7 +70,7 @@ validator l2_deposit_intent(vault_oracle_nft: PolicyId) {
         let hydra_node_pub_keys = oracle_input_datum.hydra_node_pub_keys
         let hydra_signers =
           list.map(hydra_node_pub_keys, fn(key) { blake2b_224(key) })
-        let (vault_balance, prices, is_prices_verified) =
+        let (vault_equity, prices, is_prices_verified) =
           verify_prices_oracle_messages(
             message,
             inputs,
@@ -78,24 +80,28 @@ validator l2_deposit_intent(vault_oracle_nft: PolicyId) {
           )
 
         // 3. Process batched deposit intents with MPF
-        let VaultOracleDatum { total_lp, vault_cost, lp_merkle_root, .. } =
-          oracle_input_datum
+        let VaultOracleDatum {
+          total_shares,
+          total_deposited,
+          shares_merkle_root,
+          ..
+        } = oracle_input_datum
 
         let (
           _total_intent_datum_m_value,
           total_intent_datum_usd_value,
-          total_lp_added,
+          total_shares_added,
           final_merkle_root,
         ) =
           process_batched_deposit_intent_validation(
             inputs,
             indices,
             mpf_actions,
-            vault_balance,
-            total_lp,
+            vault_equity,
+            total_shares,
             prices,
             policy_id,
-            lp_merkle_root,
+            shares_merkle_root,
           )
 
         // 4. Balance transferred via TransferIntent (verified by HydraAccount validator)
@@ -105,35 +111,38 @@ validator l2_deposit_intent(vault_oracle_nft: PolicyId) {
         let oracle_datum_check =
           oracle_output_datum == VaultOracleDatum {
             ..oracle_input_datum,
-            total_lp: total_lp + total_lp_added,
-            vault_cost: vault_cost + total_intent_datum_usd_value,
-            lp_merkle_root: final_merkle_root,
+            total_shares: total_shares + total_shares_added,
+            total_deposited: total_deposited + total_intent_datum_usd_value,
+            shares_merkle_root: final_merkle_root,
           }
 
         // 6. Verify intent burn count
         let intent_burn_check =
           policy_only_minted_token(mint, policy_id, "", -list.length(indices))
 
-        is_prices_verified? && oracle_datum_check? && intent_burn_check?
+        // 7. Signed by operation_key from app_oracle
+        let app_oracle_datum: AppOracleDatum =
+          get_app_oracle_datum(reference_inputs, oracle_input_datum.app_oracle)
+        let is_operation_signed =
+          key_signed(extra_signatories, app_oracle_datum.operation_key)
+
+        is_prices_verified? && oracle_datum_check? && intent_burn_check? && is_operation_signed?
       }
       CancelIntent -> {
-        // Burn intent token, signed by depositor
+        // Burn intent token, signed by operation_key from app_oracle
         let is_burn_correct =
           policy_only_minted_token(mint, policy_id, "", -1)
 
-        expect [intent_input] =
-          vodka_inputs.inputs_at_with_policy(
-            inputs,
-            from_script(policy_id),
-            policy_id,
-          )
-        expect intent_datum: L2DepositIntentDatum =
-          input_inline_datum(intent_input)
+        // Get vault oracle to find app_oracle
+        expect [oracle_input] =
+          vodka_inputs.inputs_with_policy(inputs, vault_oracle_nft)
+        expect oracle_datum: VaultOracleDatum = input_inline_datum(oracle_input)
 
-        // No value refund needed (tokens are in Account UTxO, not intent)
-        expect Some(depositor_pkh) =
-          cocktail.address_pub_key(intent_datum.lp_address)
-        let is_signed = key_signed(extra_signatories, depositor_pkh)
+        // Get app_oracle and check operation_key signature
+        let app_oracle_datum: AppOracleDatum =
+          get_app_oracle_datum(reference_inputs, oracle_datum.app_oracle)
+        let is_signed =
+          key_signed(extra_signatories, app_oracle_datum.operation_key)
 
         is_burn_correct? && is_signed?
       }
