@@ -142,9 +142,17 @@ const excessive_inputs =
 const insufficient_inputs = [input_x, intent_input_a, intent_input_b, input_y]
 
 // ========== Indices ==========
+// NOTE: The actual index values are NOT used in process_batched_deposit_intent_validation.
+// Only the LENGTH of indices matters - it acts as a counter to ensure the correct number
+// of deposit intent UTxOs are processed. The index values are discarded with `_output_index`.
+// See deposit_utils.ak line 120: `[_output_index, ..rest_of_indices]`
+//
+// This means [1, 0, 2], [0, 1, 2], [99, 99, 99] would all work the same as long as length = 3.
+// The indices were originally meant to map to output indices but are now only used for counting.
 
 const indices = [1, 0, 2]
 
+// NOTE: This would actually work the same as `indices` since only length matters
 const incorrect_indices = [0, 1, 2]
 
 const excessive_indices = [0, 1, 2, 3]
@@ -179,7 +187,6 @@ const expected_total_shares =
     mock_vault_equity,
     mock_total_shares,
   )
-
 // ========== Tests ==========
 // TODO: Add merkle proofs and complete tests once merkle data is prepared
 
