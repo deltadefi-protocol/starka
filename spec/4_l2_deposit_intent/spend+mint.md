@@ -33,6 +33,7 @@ L2 deposit intents are created and processed inside the Hydra head. User transfe
      - `shares_merkle_root` updated (see Shares Merkle transition below)
      - All other datum fields unchanged
    - Balance transferred from user's Account UTxO to vault (via TransferIntent)
+   - **Each deposit intent's `deposit_amount` must equal the corresponding TransferIntent's `amount_l2`**
    - Verify `prices` message using `hydra_node_pub_keys` from Oracle datum
    - Shares Merkle root transition:
      - For each deposit intent (chained sequentially):
@@ -57,10 +58,11 @@ User's Account UTxO → (TransferIntent) → Vault's Account UTxO
 
 1. `deposit_amount > 0` (non-empty MValue)
 2. Balance transferred from user's Account to vault's Account (via TransferIntent)
-3. `shares_minted` computed correctly: `shares = usd_value * total_shares / vault_equity`
-4. `new_total_shares = old_total_shares + shares_minted`
-5. `new_total_deposited = old_total_deposited + usd_value`
-6. Depositor shares record updated correctly in merkle tree
+3. **Each `deposit_amount` in intent datum must equal the corresponding `amount_l2` in TransferIntent** (prevents claiming more shares than actually transferred)
+4. `shares_minted` computed correctly: `shares = usd_value * total_shares / vault_equity`
+5. `new_total_shares = old_total_shares + shares_minted`
+6. `new_total_deposited = old_total_deposited + usd_value`
+7. Depositor shares record updated correctly in merkle tree
 
 > **Asset Flexibility**: Script accepts ANY asset. Backend restricts accepted assets (e.g., USDC only). Scripts should never change; backend rules can evolve.
 

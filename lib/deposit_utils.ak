@@ -219,3 +219,148 @@ pub fn process_batched_deposit_intent_validation(
     _ -> fail @"Batch deposit intent UTxOs not fully processed"
   }
 }
+
+// L2-specific batch processing that validates each deposit intent amount
+// matches the corresponding transfer amount from TransferIntent.
+// Returns (total_usd_value, total_shares_added, final_merkle_root)
+pub fn process_batched_l2_deposit_intent_validation(
+  inputs: List<Input>,
+  indices: List<Int>,
+  mpf_actions: List<SharesMPFAction>,
+  transfer_amounts: List<MValue>,
+  vault_equity: Int,
+  total_shares: Int,
+  prices: Pairs<(PolicyId, AssetName), Int>,
+  deposit_intent_script_hash: ScriptHash,
+  initial_merkle_root: ByteArray,
+) -> (Int, Int, ByteArray) {
+  // Accumulate: (remaining_state, total_usd_value, total_shares_added)
+  // remaining_state = (indices, mpf_actions, transfer_amounts, merkle_root)
+  let
+    processed_state,
+    total_intent_datum_usd_value,
+    total_shares_added,
+    _unused,
+  <-
+    list_foldl4(
+      inputs,
+      (indices, mpf_actions, transfer_amounts, initial_merkle_root),
+      0,
+      0,
+      0,
+      fn(
+        input,
+        remaining_state,
+        cal_intent_datum_usd_value,
+        cal_shares_added,
+        _,
+        return,
+      ) {
+        let (remaining_indices, remaining_actions, remaining_transfers, current_root) =
+          remaining_state
+        when input.output.address.payment_credential is {
+          Script(script) ->
+            if script == deposit_intent_script_hash {
+              when remaining_indices is {
+                [] -> fail @"More UTxOs are spent than specified"
+                [_output_index, ..rest_of_indices] -> {
+                  expect input_datum: DepositIntentDatum =
+                    input_inline_datum(input)
+                  let DepositIntentDatum { depositor, deposit_amount } =
+                    input_datum
+
+                  // L2: Verify deposit amount matches transfer amount
+                  expect [transfer_amount, ..rest_of_transfers] =
+                    remaining_transfers
+                  expect deposit_amount == transfer_amount
+
+                  // Calculate USD value
+                  let intent_datum_usd_value =
+                    convert_m_value_to_usd(deposit_amount, prices)
+                  let new_cal_intent_datum_usd_value =
+                    cal_intent_datum_usd_value + intent_datum_usd_value
+
+                  // Calculate shares amount (round DOWN)
+                  let cal_shares =
+                    cal_shares_amount(
+                      intent_datum_usd_value,
+                      vault_equity,
+                      total_shares,
+                    )
+                  let new_cal_shares_added = cal_shares + cal_shares_added
+
+                  // Apply MPF action for this deposit
+                  expect [action, ..rest_actions] = remaining_actions
+                  let mpf_key = cbor.serialise(depositor)
+
+                  let new_root =
+                    when action is {
+                      SharesInsert { proof, new_value } -> {
+                        // New depositor
+                        let expected_entry =
+                          SharesRecordEntry {
+                            shares: cal_shares,
+                            total_deposited: intent_datum_usd_value,
+                          }
+                        let expected_value = cbor.serialise(expected_entry)
+                        expect new_value == expected_value
+                        let trie = mpf.from_root(current_root)
+                        let new_trie =
+                          mpf.insert(trie, mpf_key, new_value, proof)
+                        mpf.root(new_trie)
+                      }
+                      SharesUpdate { from, to, to_proof } -> {
+                        // Existing depositor
+                        expect Some(from_data) = cbor.deserialise(from)
+                        expect old_entry: SharesRecordEntry = from_data
+                        let expected_entry =
+                          SharesRecordEntry {
+                            shares: old_entry.shares + cal_shares,
+                            total_deposited: old_entry.total_deposited + intent_datum_usd_value,
+                          }
+                        let expected_value = cbor.serialise(expected_entry)
+                        expect to == expected_value
+                        let trie = mpf.from_root(current_root)
+                        let new_trie =
+                          mpf.update(trie, mpf_key, to_proof, from, to)
+                        mpf.root(new_trie)
+                      }
+                      _ -> fail @"Invalid MPF action for deposit"
+                    }
+
+                  return(
+                    (rest_of_indices, rest_actions, rest_of_transfers, new_root),
+                    new_cal_intent_datum_usd_value,
+                    new_cal_shares_added,
+                    0,
+                  )
+                }
+              }
+            } else {
+              return(
+                remaining_state,
+                cal_intent_datum_usd_value,
+                cal_shares_added,
+                0,
+              )
+            }
+          _ ->
+            return(
+              remaining_state,
+              cal_intent_datum_usd_value,
+              cal_shares_added,
+              0,
+            )
+        }
+      },
+    )
+  let (remaining_indices, _, remaining_transfers, final_root) = processed_state
+  when remaining_indices is {
+    [] ->
+      when remaining_transfers is {
+        [] -> (total_intent_datum_usd_value, total_shares_added, final_root)
+        _ -> fail @"More transfer amounts than deposit intents"
+      }
+    _ -> fail @"Batch L2 deposit intent UTxOs not fully processed"
+  }
+}

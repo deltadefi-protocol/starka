@@ -2,19 +2,40 @@ use aiken/collection/list
 use aiken/crypto.{blake2b_224}
 use cardano/address.{Script, from_script}
 use cardano/assets.{PolicyId}
-use cardano/transaction.{Mint, OutputReference, Transaction, find_input}
+use cardano/transaction.{Input, Mint, OutputReference, Transaction, find_input}
 use cocktail.{
-  input_inline_datum, key_signed, output_inline_datum, outputs_at_with_policy,
+  input_inline_datum, inputs_at_with_policy, key_signed, output_inline_datum,
+  outputs_at_with_policy,
 }
 use cocktail/vodka_inputs
 use cocktail/vodka_mints.{policy_only_minted_token}
-use deposit_utils.{process_batched_deposit_intent_validation}
+use deposit_utils.{process_batched_l2_deposit_intent_validation}
+use hydra_dex/types.{
+  AppOracleDatum, DexOrderBookDatum, HydraAccountIntent, HydraUserIntentDatum,
+  MasterIntent, TransferIntent,
+} as dd_types
+use hydra_dex/utils.{get_dex_order_book_datum} as dd_utils
 use price_oracle_utils.{verify_prices_oracle_messages}
-use hydra_dex/types.{AppOracleDatum} as dd_types
 use types.{
-  BurnIntent, CancelIntent, L2DepositIntentDatum, MintIntent, VaultOracleDatum,
+  BurnIntent, CancelIntent, L2DepositIntentDatum, MValue, MintIntent,
+  VaultOracleDatum,
 }
 use utils.{check_mint_redeemer_is_burn_intent, get_app_oracle_datum}
+
+// Extract transfer amounts from TransferIntent inputs
+fn extract_transfer_amounts(
+  transfer_intent_inputs: List<Input>,
+) -> List<MValue> {
+  list.map(
+    transfer_intent_inputs,
+    fn(input) {
+      expect MasterIntent { intent, .. }: HydraUserIntentDatum =
+        input_inline_datum(input)
+      expect TransferIntent { amount_l2, .. }: HydraAccountIntent = intent
+      amount_l2
+    },
+  )
+}
 
 validator l2_deposit_intent(vault_oracle_nft: PolicyId) {
   spend(
@@ -33,8 +54,14 @@ validator l2_deposit_intent(vault_oracle_nft: PolicyId) {
   }
 
   mint(redeemer: types.IntentRedeemer, policy_id: PolicyId, self: Transaction) {
-    let Transaction { inputs, outputs, mint, extra_signatories, reference_inputs, .. } =
-      self
+    let Transaction {
+      inputs,
+      outputs,
+      mint,
+      extra_signatories,
+      reference_inputs,
+      ..
+    } = self
 
     when redeemer is {
       MintIntent -> {
@@ -79,7 +106,30 @@ validator l2_deposit_intent(vault_oracle_nft: PolicyId) {
             signatures,
           )
 
-        // 3. Process batched deposit intents with MPF
+        // 3. Get app_oracle datum (needed for operation_key and dex_order_book_token)
+        let app_oracle_datum: AppOracleDatum =
+          get_app_oracle_datum(
+            reference_inputs,
+            vault_oracle_input_datum.app_oracle,
+          )
+
+        // 4. Get DexOrderBook datum to find hydra_user_intent_script_hash
+        let DexOrderBookDatum { hydra_user_intent_script_hash, .. }: DexOrderBookDatum =
+          dd_utils.get_dex_order_book_datum(
+            reference_inputs,
+            app_oracle_datum.dex_order_book_token,
+          )
+
+        // 5. Extract transfer amounts from all TransferIntent inputs
+        let transfer_intent_inputs =
+          inputs_at_with_policy(
+            inputs,
+            from_script(hydra_user_intent_script_hash),
+            hydra_user_intent_script_hash,
+          )
+        let transfer_amounts = extract_transfer_amounts(transfer_intent_inputs)
+
+        // 6. Process batched L2 deposit intents with transfer amount validation
         let VaultOracleDatum {
           total_shares,
           total_deposited,
@@ -87,16 +137,12 @@ validator l2_deposit_intent(vault_oracle_nft: PolicyId) {
           ..
         } = vault_oracle_input_datum
 
-        let (
-          _total_intent_datum_m_value,
-          total_intent_datum_usd_value,
-          total_shares_added,
-          final_merkle_root,
-        ) =
-          process_batched_deposit_intent_validation(
+        let (total_intent_datum_usd_value, total_shares_added, final_merkle_root) =
+          process_batched_l2_deposit_intent_validation(
             inputs,
             indices,
             mpf_actions,
+            transfer_amounts,
             vault_equity,
             total_shares,
             prices,
@@ -104,10 +150,7 @@ validator l2_deposit_intent(vault_oracle_nft: PolicyId) {
             shares_merkle_root,
           )
 
-        // 4. Balance transferred via TransferIntent (verified by HydraAccount validator)
-        // No deposit value check needed - tokens are in Account UTxOs
-
-        // 5. Verify oracle output datum updated correctly
+        // 7. Verify oracle output datum updated correctly
         let vault_oracle_datum_check =
           vault_oracle_output_datum == VaultOracleDatum {
             ..vault_oracle_input_datum,
@@ -116,13 +159,11 @@ validator l2_deposit_intent(vault_oracle_nft: PolicyId) {
             shares_merkle_root: final_merkle_root,
           }
 
-        // 6. Verify intent burn count
+        // 8. Verify intent burn count
         let intent_burn_check =
           policy_only_minted_token(mint, policy_id, "", -list.length(indices))
 
-        // 7. Signed by operation_key from app_oracle
-        let app_oracle_datum: AppOracleDatum =
-          get_app_oracle_datum(reference_inputs, vault_oracle_input_datum.app_oracle)
+        // 9. Signed by operation_key from app_oracle
         let is_operation_signed =
           key_signed(extra_signatories, app_oracle_datum.operation_key)
 
@@ -130,8 +171,7 @@ validator l2_deposit_intent(vault_oracle_nft: PolicyId) {
       }
       CancelIntent -> {
         // Burn intent token, signed by operation_key from app_oracle
-        let is_burn_correct =
-          policy_only_minted_token(mint, policy_id, "", -1)
+        let is_burn_correct = policy_only_minted_token(mint, policy_id, "", -1)
 
         // Get vault oracle to find app_oracle
         expect [vault_oracle_input] =
