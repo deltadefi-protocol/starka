@@ -13,7 +13,7 @@ use hydra_dex/types.{
   AppOracleDatum, DexOrderBookDatum, HydraAccountIntent, HydraUserIntentDatum,
   MasterIntent, TransferIntent,
 } as dd_types
-use hydra_dex/utils.{get_dex_order_book_datum} as dd_utils
+use hydra_dex/utils as dd_utils
 use price_oracle_utils.{verify_prices_oracle_messages}
 use types.{
   BurnIntent, CancelIntent, L2WithdrawalIntentDatum, MValue, MintIntent,
@@ -25,9 +25,7 @@ use withdraw_utils.{
 }
 
 // Extract transfer amounts from TransferIntent inputs
-fn extract_transfer_amounts(
-  transfer_intent_inputs: List<Input>,
-) -> List<MValue> {
+fn extract_transfer_amounts(transfer_intent_inputs: List<Input>) -> List<MValue> {
   list.map(
     transfer_intent_inputs,
     fn(input) {
@@ -56,8 +54,14 @@ validator l2_withdrawal_intent(vault_oracle_nft: PolicyId) {
   }
 
   mint(redeemer: types.IntentRedeemer, policy_id: PolicyId, self: Transaction) {
-    let Transaction { inputs, outputs, mint, extra_signatories, reference_inputs, .. } =
-      self
+    let Transaction {
+      inputs,
+      outputs,
+      mint,
+      extra_signatories,
+      reference_inputs,
+      ..
+    } = self
 
     when redeemer is {
       MintIntent -> {
@@ -211,8 +215,7 @@ validator l2_withdrawal_intent(vault_oracle_nft: PolicyId) {
       }
       CancelIntent -> {
         // Burn intent token, signed by operation_key from app_oracle
-        let is_burn_correct =
-          policy_only_minted_token(mint, policy_id, "", -1)
+        let is_burn_correct = policy_only_minted_token(mint, policy_id, "", -1)
 
         // Get vault oracle to find app_oracle
         expect [vault_oracle_input] =

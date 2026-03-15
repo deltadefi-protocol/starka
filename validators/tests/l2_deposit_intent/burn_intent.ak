@@ -5,22 +5,21 @@ use cardano/assets.{add, from_asset, from_lovelace}
 use cardano/transaction.{Transaction}
 use deposit_utils.{cal_shares_amount}
 use hydra_dex/types.{
-  Account, DexOrderBookDatum, HydraAccountIntent, HydraUserIntentDatum,
-  MasterIntent, TransferIntent, UserTradeAccount,
+  Account, HydraAccountIntent, HydraUserIntentDatum, MasterIntent,
+  TransferIntent, UserTradeAccount,
 } as dd_types
 use l2_deposit_intent/spend_and_mint as l2_deposit_intent
 use mocktail.{
-  complete, mint, mock_pub_key_address, mock_script_hash, mock_tx_hash,
-  mocktail_tx, ref_tx_in, ref_tx_in_inline_datum, required_signer_hash, tx_in,
-  tx_in_inline_datum, tx_out, tx_out_inline_datum,
+  complete, mint, mock_pub_key_address, mock_tx_hash, mocktail_tx, ref_tx_in,
+  ref_tx_in_inline_datum, required_signer_hash, tx_in, tx_in_inline_datum,
+  tx_out, tx_out_inline_datum,
 }
 use tests/utils.{
-  mock_app_oracle, mock_app_oracle_address, mock_app_oracle_datum,
-  mock_dex_account_balance_address, mock_dex_account_balance_token,
-  mock_dex_order_book_address, mock_dex_order_book_token,
-  mock_l2_deposit_intent_script_hash, mock_message, mock_operation_key,
-  mock_signatures, mock_total_deposited, mock_total_shares, mock_vault_equity,
-  mock_vault_nft, mock_vault_oracle_datum, null_hash,
+  build_dex_order_book_datum, mock_app_oracle, mock_app_oracle_address,
+  mock_app_oracle_datum, mock_dex_order_book_address, mock_dex_order_book_token,
+  mock_hydra_user_intent_script_hash, mock_l2_deposit_intent_script_hash,
+  mock_message, mock_operation_key, mock_signatures, mock_total_deposited,
+  mock_total_shares, mock_vault_equity, mock_vault_nft, mock_vault_oracle_datum,
 }
 use types.{
   BurnIntent, L2DepositIntentDatum, MValue, SharesInsert, SharesRecordEntry,
@@ -45,36 +44,6 @@ use types.{
 // Transfer amounts are matched in order with intent UTxOs as they're processed.
 // See deposit_utils.ak: `[_output_index, ..rest_of_indices]`
 // This means [0], [99], [123] would all work the same for a single intent since length = 1.
-
-// ========== Mock hydra user intent script hash ==========
-
-const mock_hydra_user_intent_script_hash = mock_script_hash(50)
-
-// ========== Mock DexOrderBookDatum ==========
-
-fn build_dex_order_book_datum() -> DexOrderBookDatum {
-  DexOrderBookDatum {
-    operation_key: mock_operation_key,
-    stop_key: mock_operation_key,
-    fee_account: UserTradeAccount {
-      account: Account {
-        account_id: "fee_account",
-        master_key: from_script(mock_hydra_user_intent_script_hash).payment_credential,
-        operation_key: from_script(mock_hydra_user_intent_script_hash).payment_credential,
-      },
-      trading_logic: mock_hydra_user_intent_script_hash,
-    },
-    limit_orders_merkle_root: null_hash,
-    dex_account_balance_token: mock_dex_account_balance_token,
-    dex_account_balance_address: mock_dex_account_balance_address,
-    dex_order_book_token: mock_dex_order_book_token,
-    dex_order_book_address: mock_dex_order_book_address,
-    hydra_user_intent_script_hash: mock_hydra_user_intent_script_hash,
-    hydra_account_script_hash: mock_hydra_user_intent_script_hash,
-    hydra_order_book_script_hash: mock_hydra_user_intent_script_hash,
-    hydra_token_policy_id: mock_dex_order_book_token,
-  }
-}
 
 // ========== Mock deposit values ==========
 // Using simple values for predictable USD calculation

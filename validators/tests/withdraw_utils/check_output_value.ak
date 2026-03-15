@@ -6,10 +6,7 @@ const usdm_policy = #"c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c913"
 const usdm_name = #"5553444d"
 
 const prices: Pairs<(PolicyId, AssetName), Int> =
-  [
-    Pair((#"", #""), 2),
-    Pair((usdm_policy, usdm_name), 1),
-  ]
+  [Pair((#"", #""), 2), Pair((usdm_policy, usdm_name), 1)]
 
 // ========== check_output_value_equal_to_shares_usd_value tests ==========
 
@@ -47,11 +44,7 @@ test wu_check_output_value_mixed_b() {
 
 // Wrong USD value should return false
 test wu_check_output_value_wrong() {
-  !check_output_value_equal_to_shares_usd_value(
-    output_value_a,
-    4000000,
-    prices,
-  )
+  !check_output_value_equal_to_shares_usd_value(output_value_a, 4000000, prices)
 }
 
 // Output with asset that has no price should fail
