@@ -14,7 +14,7 @@ use hydra_dex/types.{
   AppOracleDatum, DexOrderBookDatum, HydraAccountIntent, HydraUserIntentDatum,
   MasterIntent, TransferIntent,
 } as dd_types
-use hydra_dex/utils.{get_dex_order_book_datum} as dd_utils
+use hydra_dex/utils as dd_utils
 use price_oracle_utils.{verify_prices_oracle_messages}
 use types.{
   BurnIntent, CancelIntent, L2DepositIntentDatum, MValue, MintIntent,
@@ -23,9 +23,7 @@ use types.{
 use utils.{check_mint_redeemer_is_burn_intent, get_app_oracle_datum}
 
 // Extract transfer amounts from TransferIntent inputs
-fn extract_transfer_amounts(
-  transfer_intent_inputs: List<Input>,
-) -> List<MValue> {
+fn extract_transfer_amounts(transfer_intent_inputs: List<Input>) -> List<MValue> {
   list.map(
     transfer_intent_inputs,
     fn(input) {
@@ -137,7 +135,11 @@ validator l2_deposit_intent(vault_oracle_nft: PolicyId) {
           ..
         } = vault_oracle_input_datum
 
-        let (total_intent_datum_usd_value, total_shares_added, final_merkle_root) =
+        let (
+          total_intent_datum_usd_value,
+          total_shares_added,
+          final_merkle_root,
+        ) =
           process_batched_l2_deposit_intent_validation(
             inputs,
             indices,

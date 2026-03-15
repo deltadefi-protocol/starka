@@ -223,6 +223,12 @@ pub fn process_batched_deposit_intent_validation(
 // L2-specific batch processing that validates each deposit intent amount
 // matches the corresponding transfer amount from TransferIntent.
 // Returns (total_usd_value, total_shares_added, final_merkle_root)
+//
+// Note on `indices` parameter:
+// In L2, indices are only used for COUNTING intent UTxOs (the actual index values
+// are ignored). Unlike L1 where indices point to specific outputs, L2 uses
+// TransferIntent mechanism where transfer_amounts are matched in order with
+// intent UTxOs as they're processed.
 pub fn process_batched_l2_deposit_intent_validation(
   inputs: List<Input>,
   indices: List<Int>,
@@ -256,8 +262,12 @@ pub fn process_batched_l2_deposit_intent_validation(
         _,
         return,
       ) {
-        let (remaining_indices, remaining_actions, remaining_transfers, current_root) =
-          remaining_state
+        let (
+          remaining_indices,
+          remaining_actions,
+          remaining_transfers,
+          current_root,
+        ) = remaining_state
         when input.output.address.payment_credential is {
           Script(script) ->
             if script == deposit_intent_script_hash {
@@ -269,14 +279,16 @@ pub fn process_batched_l2_deposit_intent_validation(
                   let DepositIntentDatum { depositor, deposit_amount } =
                     input_datum
 
-                  // L2: Verify deposit amount matches transfer amount
-                  expect [transfer_amount, ..rest_of_transfers] =
-                    remaining_transfers
-                  expect deposit_amount == transfer_amount
-
-                  // Calculate USD value
+                  // Calculate USD value from deposit datum
                   let intent_datum_usd_value =
                     convert_m_value_to_usd(deposit_amount, prices)
+
+                  // L2: Verify deposit amount in datum matches transfer amount (in USD value)
+                  expect [transfer_amount, ..rest_of_transfers] =
+                    remaining_transfers
+                  let transfer_usd_value =
+                    convert_m_value_to_usd(transfer_amount, prices)
+                  expect intent_datum_usd_value == transfer_usd_value
                   let new_cal_intent_datum_usd_value =
                     cal_intent_datum_usd_value + intent_datum_usd_value
 

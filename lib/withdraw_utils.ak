@@ -7,9 +7,10 @@ use cardano/address.{Address, Script}
 use cardano/assets.{AssetName, PolicyId, Value}
 use cardano/transaction.{Input, Output}
 use cocktail.{input_inline_datum}
+use price_oracle_utils.{convert_m_value_to_usd}
 use types.{
-  SharesDelete, SharesInsert, SharesMPFAction, SharesRecordEntry, SharesUpdate,
-  WithdrawalIntentDatum,
+  MValue, SharesDelete, SharesInsert, SharesMPFAction, SharesRecordEntry,
+  SharesUpdate, WithdrawalIntentDatum,
 }
 
 pub type Scott5<a, b, c, d, e, result> =
@@ -28,8 +29,13 @@ pub fn list_foldl5(
   when self is {
     [] -> return(zero_a, zero_b, zero_c, zero_d, zero_e)
     [x, ..xs] -> {
-      let acc_a, acc_b, acc_c, acc_d, acc_e <-
-        with(x, zero_a, zero_b, zero_c, zero_d, zero_e)
+      let
+        acc_a,
+        acc_b,
+        acc_c,
+        acc_d,
+        acc_e,
+      <- with(x, zero_a, zero_b, zero_c, zero_d, zero_e)
       list_foldl5(xs, acc_a, acc_b, acc_c, acc_d, acc_e, with, return)
     }
   }
@@ -62,11 +68,7 @@ pub fn cal_per_user_operator_fee(
   }
 }
 
-pub fn compute_fee_shares(
-  fee: Int,
-  total_shares: Int,
-  vault_equity: Int,
-) -> Int {
+pub fn compute_fee_shares(fee: Int, total_shares: Int, vault_equity: Int) -> Int {
   // Round UP — protects operator
   ceil_div(fee * total_shares, vault_equity)
 }
@@ -256,6 +258,188 @@ pub fn process_batched_withdrawal_intent_validation(
         final_root,
       )
     _ -> fail @"Batch withdrawal intent UTxOs not fully processed"
+  }
+}
+
+// L2-specific batch processing that validates each withdrawal payout
+// matches the corresponding TransferIntent amount (in USD value).
+// Returns (total_shares_amount, total_user_receives, total_fee_shares, total_cost_removed, final_merkle_root)
+//
+// Note on `indices` parameter:
+// In L2, indices are only used for COUNTING intent UTxOs (the actual index values
+// are ignored). Unlike L1 where indices point to specific outputs, L2 uses
+// TransferIntent mechanism where transfer_amounts are matched in order with
+// intent UTxOs as they're processed.
+pub fn process_batched_l2_withdrawal_intent_validation(
+  inputs: List<Input>,
+  indices: List<Int>,
+  mpf_actions: List<SharesMPFAction>,
+  transfer_amounts: List<MValue>,
+  vault_equity: Int,
+  total_shares: Int,
+  operator_charge_percentage: Int,
+  prices: Pairs<(PolicyId, AssetName), Int>,
+  withdrawal_intent_script_hash: ScriptHash,
+  initial_merkle_root: ByteArray,
+) -> (Int, Int, Int, Int, ByteArray) {
+  // Accumulate: (state_tuple, total_shares, total_user_receives, total_fee_shares, total_cost_removed)
+  // state_tuple = (indices, mpf_actions, transfer_amounts, merkle_root)
+  let
+    processed_state,
+    total_intent_datum_shares_amount,
+    total_user_receives,
+    total_fee_shares,
+    total_cost_removed,
+  <-
+    list_foldl5(
+      inputs,
+      (indices, mpf_actions, transfer_amounts, initial_merkle_root),
+      0,
+      0,
+      0,
+      0,
+      fn(
+        input,
+        remaining_state,
+        cal_intent_datum_shares_amount,
+        cal_user_receives,
+        cal_fee_shares,
+        cal_cost_removed,
+        return,
+      ) {
+        let (
+          remaining_indices,
+          remaining_actions,
+          remaining_transfers,
+          current_root,
+        ) = remaining_state
+        when input.output.address.payment_credential is {
+          Script(script) ->
+            if script == withdrawal_intent_script_hash {
+              when remaining_indices is {
+                [] -> fail @"More UTxOs are spent than specified"
+                [_output_index, ..rest_of_indices] -> {
+                  expect input_datum: WithdrawalIntentDatum =
+                    input_inline_datum(input)
+
+                  let WithdrawalIntentDatum { withdrawer, shares_to_redeem } =
+                    input_datum
+
+                  let new_cal_intent_datum_shares_amount =
+                    cal_intent_datum_shares_amount + shares_to_redeem
+
+                  // Calculate gross value
+                  let gross_value =
+                    convert_shares_to_usd(
+                      shares_to_redeem,
+                      total_shares,
+                      vault_equity,
+                    )
+
+                  // Apply MPF action and compute cost_basis
+                  expect [action, ..rest_actions] = remaining_actions
+                  let mpf_key = cbor.serialise(withdrawer)
+
+                  let (cost_basis, new_root) =
+                    when action is {
+                      SharesDelete { proof, old_value } -> {
+                        // Total withdrawal
+                        expect Some(old_data) = cbor.deserialise(old_value)
+                        expect old_entry: SharesRecordEntry = old_data
+                        expect shares_to_redeem == old_entry.shares
+                        let cb = old_entry.total_deposited
+                        let trie = mpf.from_root(current_root)
+                        let new_trie =
+                          mpf.delete(trie, mpf_key, old_value, proof)
+                        (cb, mpf.root(new_trie))
+                      }
+                      SharesUpdate { from, to, to_proof } -> {
+                        // Partial withdrawal
+                        expect Some(from_data) = cbor.deserialise(from)
+                        expect old_entry: SharesRecordEntry = from_data
+                        expect old_entry.shares >= shares_to_redeem
+                        let cb =
+                          old_entry.total_deposited * shares_to_redeem / old_entry.shares
+                        let expected_entry =
+                          SharesRecordEntry {
+                            shares: old_entry.shares - shares_to_redeem,
+                            total_deposited: old_entry.total_deposited - cb,
+                          }
+                        let expected_value = cbor.serialise(expected_entry)
+                        expect to == expected_value
+                        let trie = mpf.from_root(current_root)
+                        let new_trie =
+                          mpf.update(trie, mpf_key, to_proof, from, to)
+                        (cb, mpf.root(new_trie))
+                      }
+                      _ -> fail @"Invalid MPF action for withdrawal"
+                    }
+
+                  // Fee calculation (round UP)
+                  let fee =
+                    cal_per_user_operator_fee(
+                      gross_value,
+                      cost_basis,
+                      operator_charge_percentage,
+                    )
+                  let fee_shares =
+                    compute_fee_shares(fee, total_shares, vault_equity)
+                  let user_receives = gross_value - fee
+
+                  let new_cal_user_receives = cal_user_receives + user_receives
+                  let new_cal_fee_shares = cal_fee_shares + fee_shares
+
+                  // L2: Verify transfer amount matches calculated user_receives
+                  expect [transfer_amount, ..rest_of_transfers] =
+                    remaining_transfers
+                  let transfer_usd_value =
+                    convert_m_value_to_usd(transfer_amount, prices)
+                  expect transfer_usd_value == user_receives
+
+                  return(
+                    (rest_of_indices, rest_actions, rest_of_transfers, new_root),
+                    new_cal_intent_datum_shares_amount,
+                    new_cal_user_receives,
+                    new_cal_fee_shares,
+                    cal_cost_removed + cost_basis,
+                  )
+                }
+              }
+            } else {
+              return(
+                remaining_state,
+                cal_intent_datum_shares_amount,
+                cal_user_receives,
+                cal_fee_shares,
+                cal_cost_removed,
+              )
+            }
+          _ ->
+            return(
+              remaining_state,
+              cal_intent_datum_shares_amount,
+              cal_user_receives,
+              cal_fee_shares,
+              cal_cost_removed,
+            )
+        }
+      },
+    )
+  let (remaining_indices, _, remaining_transfers, final_root) = processed_state
+  when remaining_indices is {
+    [] ->
+      when remaining_transfers is {
+        [] ->
+          (
+            total_intent_datum_shares_amount,
+            total_user_receives,
+            total_fee_shares,
+            total_cost_removed,
+            final_root,
+          )
+        _ -> fail @"More transfer amounts than withdrawal intents"
+      }
+    _ -> fail @"Batch L2 withdrawal intent UTxOs not fully processed"
   }
 }
 
