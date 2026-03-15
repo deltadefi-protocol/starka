@@ -188,6 +188,7 @@ const expected_total_shares =
     mock_vault_equity,
     mock_total_shares,
   )
+
 // ========== Tests ==========
 // TODO: Add merkle proofs and complete tests once merkle data is prepared
 
@@ -295,7 +296,6 @@ fn l2_transfer_amounts() -> List<MValue> {
 fn l2_incorrect_transfer_amounts() -> List<MValue> {
   [m_value_b, m_value_a, m_value_c]
 }
-
 // ========== L2 Tests ==========
 // L2 uses TransferIntent mechanism instead of storing value in intent UTxO.
 // indices are only for counting (values ignored), transfer_amounts matched in order.
