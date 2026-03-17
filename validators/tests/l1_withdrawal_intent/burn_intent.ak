@@ -13,8 +13,8 @@ use tests/utils.{
   mock_app_oracle, mock_app_oracle_address, mock_app_oracle_datum,
   mock_l1_withdrawal_intent_script_hash, mock_message, mock_operation_key,
   mock_operator_key, mock_signatures, mock_total_deposited, mock_total_shares,
-  mock_vault_equity, mock_vault_nft, mock_vault_oracle_datum,
-  mock_vault_script_hash, null_hash,
+  mock_user_account, mock_user_trade_account, mock_vault_equity, mock_vault_nft,
+  mock_vault_oracle_datum, mock_vault_script_hash, null_hash,
 }
 use types.{
   BurnIntent, IntentRedeemerL1, SharesDelete, SharesRecordEntry,
@@ -58,7 +58,7 @@ const mock_cost_basis = 1_000_000_000
 
 fn mock_l1_withdrawal_datum() -> WithdrawalIntentDatum {
   WithdrawalIntentDatum {
-    withdrawer: mock_pub_key_address(0, None),
+    withdrawer: mock_user_trade_account,
     shares_to_redeem: mock_shares_to_redeem,
   }
 }
@@ -78,8 +78,8 @@ fn computed_user_receives() -> Int {
 
 // Build initial merkle root with withdrawer's shares
 fn build_initial_merkle_root() -> ByteArray {
-  let withdrawer = mock_pub_key_address(0, None)
-  let mpf_key = cbor.serialise(withdrawer)
+  // Use Account directly as MPF key
+  let mpf_key = cbor.serialise(mock_user_account)
   let entry =
     SharesRecordEntry {
       shares: mock_shares_to_redeem,
@@ -145,7 +145,7 @@ fn mock_burn_intent_tx(test_case: BurnIntentTestCase) -> Transaction {
   } = test_case
 
   let policy_id = mock_l1_withdrawal_intent_script_hash
-  let withdrawer = mock_pub_key_address(0, None)
+  let withdrawer_address = mock_pub_key_address(0, None)
   let user_receives = computed_user_receives()
 
   // Vault Oracle + Vault combined (single UTxO holds both oracle datum and vault funds)
@@ -245,7 +245,7 @@ fn mock_burn_intent_tx(test_case: BurnIntentTestCase) -> Transaction {
     |> tx_out(True, vault_address, vault_oracle_output_value)
     |> tx_out_inline_datum(True, vault_oracle_output_datum)
     // Withdrawer output (receives unlocked funds)
-    |> tx_out(True, withdrawer, withdrawer_output_value)
+    |> tx_out(True, withdrawer_address, withdrawer_output_value)
     // Burn intent token
     |> mint(True, burn_amount, policy_id, "")
     // Signed by operation_key and/or operator_key

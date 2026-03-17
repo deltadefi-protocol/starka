@@ -1,7 +1,8 @@
+use cardano/address.{VerificationKey}
 use cardano/assets.{PolicyId}
 use cardano/transaction.{Mint, OutputReference, Transaction}
 use cocktail.{key_signed}
-use hydra_dex/types.{AppOracleDatum} as dd_types
+use hydra_dex/types.{AppOracleDatum, UserTradeAccount} as dd_types
 use types.{
   DepositIntoDeltaDeFi, ProcessWithdrawal, StakeRotation, VaultOracleDatum,
   VaultPluggableLogic, VaultSpendRedeemer,
@@ -83,13 +84,18 @@ validator vault(vault_oracle: PolicyId) {
     let vault_oracle_datum: VaultOracleDatum =
       get_vault_oracle_datum(reference_inputs, vault_oracle)
 
-    let VaultOracleDatum { app_oracle, operator_key, .. } = vault_oracle_datum
+    let VaultOracleDatum { app_oracle, operator_account, .. } = vault_oracle_datum
+
+    // Extract operator PKH from UserTradeAccount
+    expect UserTradeAccount { account: operator_acc, .. } = operator_account
+    expect VerificationKey(operator_pkh) = operator_acc.master_key
+
     // Get app_oracle reference input
     let app_oracle_datum: AppOracleDatum =
       get_app_oracle_datum(reference_inputs, app_oracle)
 
     // Signed by either operator_key OR operation_key from app_oracle
-    let is_operator_signed = key_signed(extra_signatories, operator_key)
+    let is_operator_signed = key_signed(extra_signatories, operator_pkh)
     let is_operation_signed =
       key_signed(extra_signatories, app_oracle_datum.operation_key)
 

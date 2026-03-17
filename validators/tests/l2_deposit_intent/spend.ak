@@ -3,10 +3,12 @@ use cardano/assets.{add, from_lovelace}
 use cardano/transaction.{Transaction}
 use l2_deposit_intent/spend_and_mint as l2_deposit_intent
 use mocktail.{
-  complete, mint, mock_pub_key_address, mock_tx_hash, mock_utxo_ref, mocktail_tx,
-  tx_in, tx_in_inline_datum,
+  complete, mint, mock_tx_hash, mock_utxo_ref, mocktail_tx, tx_in,
+  tx_in_inline_datum,
 }
-use tests/utils.{mock_l2_deposit_intent_script_hash, mock_vault_nft}
+use tests/utils.{
+  mock_l2_deposit_intent_script_hash, mock_user_trade_account, mock_vault_nft,
+}
 use types.{L2DepositIntentDatum, MValue}
 
 // ========== ProcessIntent (Spend) Tests ==========
@@ -24,7 +26,8 @@ const mock_l2_deposit_m_value: MValue =
 
 const mock_l2_deposit_intent_datum: L2DepositIntentDatum =
   L2DepositIntentDatum {
-    depositor: mock_pub_key_address(0, None),
+    vault_oracle_nft: mock_vault_nft,
+    depositor: mock_user_trade_account,
     deposit_amount: mock_l2_deposit_m_value,
   }
 

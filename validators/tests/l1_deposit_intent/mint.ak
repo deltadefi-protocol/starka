@@ -3,13 +3,12 @@ use cardano/assets.{add, from_asset, from_asset_list}
 use cardano/transaction.{Transaction}
 use l1_deposit_intent/spend_and_mint as l1_deposit_intent
 use mocktail.{
-  complete, mint, mock_policy_id, mock_pub_key_address, mock_pub_key_hash,
-  mock_tx_hash, mocktail_tx, required_signer_hash, tx_in, tx_in_inline_datum,
-  tx_out, tx_out_inline_datum,
+  complete, mint, mock_policy_id, mock_pub_key_hash, mock_tx_hash, mocktail_tx,
+  required_signer_hash, tx_in, tx_in_inline_datum, tx_out, tx_out_inline_datum,
 }
 use tests/utils.{
   mock_deposit_intent_datum, mock_deposit_m_value,
-  mock_l1_deposit_intent_script_hash, mock_vault_nft,
+  mock_l1_deposit_intent_script_hash, mock_user_trade_account, mock_vault_nft,
 }
 use types.{CancelIntent, DepositIntentDatum, MintIntent}
 
@@ -249,7 +248,7 @@ test s2_mint_mint_intent_with_empty_deposit_passes() {
   let empty_m_value = []
   let empty_datum =
     DepositIntentDatum {
-      depositor: mock_pub_key_address(0, None),
+      depositor: mock_user_trade_account,
       deposit_amount: empty_m_value,
     }
 

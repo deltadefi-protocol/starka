@@ -3,11 +3,12 @@ use cardano/assets.{add, from_lovelace}
 use cardano/transaction.{Transaction}
 use l1_withdrawal_intent/spend_and_mint as l1_withdrawal_intent
 use mocktail.{
-  complete, mint, mock_policy_id, mock_pub_key_address, mock_pub_key_hash,
-  mock_tx_hash, mocktail_tx, required_signer_hash, tx_in, tx_in_inline_datum,
-  tx_out, tx_out_inline_datum,
+  complete, mint, mock_policy_id, mock_pub_key_hash, mock_tx_hash, mocktail_tx,
+  required_signer_hash, tx_in, tx_in_inline_datum, tx_out, tx_out_inline_datum,
 }
-use tests/utils.{mock_l1_withdrawal_intent_script_hash, mock_vault_nft}
+use tests/utils.{
+  mock_l1_withdrawal_intent_script_hash, mock_user_trade_account, mock_vault_nft,
+}
 use types.{CancelIntent, MintIntent, WithdrawalIntentDatum}
 
 // ========== MintIntent Tests ==========
@@ -15,9 +16,9 @@ use types.{CancelIntent, MintIntent, WithdrawalIntentDatum}
 // - Withdrawal amount > 0 (shares_to_redeem > 0)
 // - No vault reference needed (user creates intent independently)
 
-const mock_withdrawal_intent_datum: WithdrawalIntentDatum =
+const mock_l1_withdrawal_intent_datum: WithdrawalIntentDatum =
   WithdrawalIntentDatum {
-    withdrawer: mock_pub_key_address(0, None),
+    withdrawer: mock_user_trade_account,
     shares_to_redeem: 1_000_000,
   }
 
@@ -57,10 +58,10 @@ fn mock_mint_intent_tx(test_case: MintIntentTestCase) -> Transaction {
   // Datum with shares amount (or 0 if testing invalid)
   let datum =
     if is_shares_valid {
-      mock_withdrawal_intent_datum
+      mock_l1_withdrawal_intent_datum
     } else {
       WithdrawalIntentDatum {
-        withdrawer: mock_pub_key_address(0, None),
+        withdrawer: mock_user_trade_account,
         shares_to_redeem: 0,
       }
     }
@@ -186,7 +187,7 @@ fn mock_cancel_intent_tx(test_case: CancelIntentTestCase) -> Transaction {
 
   mocktail_tx()
     |> tx_in(True, mock_tx_hash(0), 0, input_value, from_script(policy_id))
-    |> tx_in_inline_datum(True, mock_withdrawal_intent_datum)
+    |> tx_in_inline_datum(True, mock_l1_withdrawal_intent_datum)
     |> mint(True, burn_amount, policy_id, "")
     |> required_signer_hash(True, signer_pkh)
     |> complete()

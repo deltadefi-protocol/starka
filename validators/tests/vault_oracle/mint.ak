@@ -1,5 +1,5 @@
 use aiken/merkle_patricia_forestry as mpf
-use cardano/address.{from_script, from_verification_key}
+use cardano/address.{from_script}
 use cardano/assets.{add, from_asset}
 use cardano/transaction.{Transaction}
 use mocktail.{
@@ -9,12 +9,12 @@ use mocktail.{
 }
 use tests/utils.{
   compute_mpf_root_single_insert, mock_app_oracle, mock_app_oracle_address,
-  mock_app_oracle_datum, mock_initial_utxo,
-  mock_l1_deposit_intent_script_hash, mock_l1_withdrawal_intent_script_hash,
-  mock_l2_deposit_intent_script_hash, mock_l2_withdrawal_intent_script_hash,
-  mock_node_pub_keys, mock_operation_key, mock_operator_key, mock_pluggable_logic,
-  mock_vault_nft, mock_vault_oracle_datum, mock_vault_script_hash,
-  mock_vault_stake_rotation_script_hash, null_hash,
+  mock_app_oracle_datum, mock_initial_utxo, mock_l1_deposit_intent_script_hash,
+  mock_l1_withdrawal_intent_script_hash, mock_l2_deposit_intent_script_hash,
+  mock_l2_withdrawal_intent_script_hash, mock_node_pub_keys, mock_operation_key,
+  mock_operator_account, mock_operator_inner_account, mock_operator_key,
+  mock_pluggable_logic, mock_vault_nft, mock_vault_oracle_datum,
+  mock_vault_script_hash, mock_vault_stake_rotation_script_hash, null_hash,
 }
 use types.{CloseVault, MintVault, VaultOracleDatum}
 use vault_oracle/spend_mint as vault_oracle
@@ -89,12 +89,8 @@ fn mock_mint_vault_datum(test_case: MintVaultTestCase) -> VaultOracleDatum {
     if is_merkle_root_empty {
       mpf.root(mpf.empty)
     } else {
-      // Non-empty root
-      compute_mpf_root_single_insert(
-        from_verification_key(mock_operator_key),
-        1000,
-        1000,
-      )
+      // Non-empty root - use operator's Account as MPF key
+      compute_mpf_root_single_insert(mock_operator_inner_account, 1000, 1000)
     }
 
   let total_fee_collected =
@@ -120,7 +116,7 @@ fn mock_mint_vault_datum(test_case: MintVaultTestCase) -> VaultOracleDatum {
     }
 
   VaultOracleDatum {
-    app_oracle: app_oracle,
+    app_oracle,
     vault_script_hash: mock_vault_script_hash,
     l1_deposit_intent_script_hash: mock_l1_deposit_intent_script_hash,
     l1_withdrawal_intent_script_hash: mock_l1_withdrawal_intent_script_hash,
@@ -128,7 +124,7 @@ fn mock_mint_vault_datum(test_case: MintVaultTestCase) -> VaultOracleDatum {
     l2_withdrawal_intent_script_hash: mock_l2_withdrawal_intent_script_hash,
     pluggable_logic: mock_pluggable_logic,
     vault_stake_rotation_script_hash: mock_vault_stake_rotation_script_hash,
-    operator_key: mock_operator_key,
+    operator_account: mock_operator_account,
     operator_charge_percentage,
     operator_min_deposit_percentage: 10,
     hydra_node_pub_keys: mock_node_pub_keys,
@@ -142,11 +138,8 @@ fn mock_mint_vault_datum(test_case: MintVaultTestCase) -> VaultOracleDatum {
 }
 
 fn mock_mint_vault_tx(test_case: MintVaultTestCase) -> Transaction {
-  let MintVaultTestCase {
-    is_initial_utxo_consumed,
-    is_oracle_nft_minted,
-    ..
-  } = test_case
+  let MintVaultTestCase { is_initial_utxo_consumed, is_oracle_nft_minted, .. } =
+    test_case
 
   let vault_datum = mock_mint_vault_datum(test_case)
   let vault_nft_policy = mock_vault_nft
@@ -324,12 +317,8 @@ fn mock_close_vault_datum(test_case: CloseVaultTestCase) -> VaultOracleDatum {
     if is_merkle_empty {
       null_hash
     } else {
-      // Non-empty root
-      compute_mpf_root_single_insert(
-        from_verification_key(mock_operator_key),
-        1000,
-        1000,
-      )
+      // Non-empty root - use operator's Account as MPF key
+      compute_mpf_root_single_insert(mock_operator_inner_account, 1000, 1000)
     }
 
   VaultOracleDatum {

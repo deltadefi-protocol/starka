@@ -11,8 +11,8 @@ use mocktail.{
   mock_utxo_ref,
 }
 use types.{
-  DepositIntentDatum, L2WithdrawalIntentDatum, MValue, SharesRecordEntry,
-  VaultOracleDatum, WithdrawalIntentDatum,
+  DepositIntentDatum, L2DepositIntentDatum, L2WithdrawalIntentDatum, MValue,
+  SharesRecordEntry, VaultOracleDatum, WithdrawalIntentDatum,
 }
 
 // ========== Null hash (empty MPF trie root) ==========
@@ -27,6 +27,20 @@ pub const mock_operation_key = mock_pub_key_hash(0)
 pub const mock_stop_key = mock_pub_key_hash(1)
 
 pub const mock_operator_key = mock_pub_key_hash(10)
+
+// Mock operator inner account (Account type for MPF key computation)
+pub const mock_operator_inner_account: Account =
+  Account {
+    account_id: "operator_0",
+    master_key: mock_pub_key_address(10, None).payment_credential,
+    operation_key: mock_pub_key_address(10, None).payment_credential,
+  }
+
+pub const mock_operator_account: dd_types.UserAccount =
+  UserTradeAccount {
+    account: mock_operator_inner_account,
+    trading_logic: mock_script_hash(10),
+  }
 
 // ========== Oracle ==========
 
@@ -224,7 +238,7 @@ pub const mock_vault_oracle_datum: VaultOracleDatum =
     l2_withdrawal_intent_script_hash: mock_l2_withdrawal_intent_script_hash,
     pluggable_logic: mock_pluggable_logic,
     vault_stake_rotation_script_hash: mock_vault_stake_rotation_script_hash,
-    operator_key: mock_operator_key,
+    operator_account: mock_operator_account,
     operator_charge_percentage: mock_operator_charge_percentage,
     operator_min_deposit_percentage: 10,
     hydra_node_pub_keys: mock_node_pub_keys,
@@ -272,32 +286,72 @@ pub const mock_deposit_m_value: MValue =
     ),
   ]
 
+pub const mock_l2_deposit_m_value: MValue =
+  [
+    Pair("", [Pair("", 1749190790)]),
+    Pair(
+      #"c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c913",
+      [Pair(#"5553444d", 143533706)],
+    ),
+  ]
+
+// Mock user account for intents (inner Account)
+pub const mock_user_account: Account =
+  Account {
+    account_id: "user_0",
+    master_key: mock_pub_key_address(0, None).payment_credential,
+    operation_key: mock_pub_key_address(0, None).payment_credential,
+  }
+
+// Mock user trade account (UserAccount wrapper for intent datums)
+pub const mock_user_trade_account: dd_types.UserAccount =
+  UserTradeAccount {
+    account: mock_user_account,
+    trading_logic: mock_script_hash(0),
+  }
+
+// Derive address from mock_user_account's master_key (for MPF key computation)
+pub fn mock_user_address() -> Address {
+  Address {
+    payment_credential: mock_user_account.master_key,
+    stake_credential: None,
+  }
+}
+
 pub const mock_deposit_intent_datum =
   DepositIntentDatum {
-    depositor: mock_pub_key_address(0, None),
+    depositor: mock_user_trade_account,
     deposit_amount: mock_deposit_m_value,
   }
 
 pub const mock_withdrawal_intent_datum =
   WithdrawalIntentDatum {
-    withdrawer: mock_pub_key_address(0, None),
+    withdrawer: mock_user_trade_account,
     shares_to_redeem: 1000000,
+  }
+
+pub const mock_l2_deposit_intent_datum =
+  L2DepositIntentDatum {
+    vault_oracle_nft: mock_vault_nft,
+    depositor: mock_user_trade_account,
+    deposit_amount: mock_l2_deposit_m_value,
   }
 
 pub const mock_l2_withdrawal_intent_datum =
   L2WithdrawalIntentDatum {
-    withdrawer: mock_pub_key_address(0, None),
+    vault_oracle_nft: mock_vault_nft,
+    withdrawer: mock_user_trade_account,
     shares_to_redeem: 1000000,
   }
 
 // ========== MPF helper ==========
 
 pub fn compute_mpf_root_single_insert(
-  address: Address,
+  account: Account,
   shares: Int,
   total_deposited: Int,
 ) -> ByteArray {
-  let mpf_key = cbor.serialise(address)
+  let mpf_key = cbor.serialise(account)
   let entry = SharesRecordEntry { shares, total_deposited }
   let mpf_value = cbor.serialise(entry)
   mpf.root(mpf.insert(mpf.empty, mpf_key, mpf_value, []))

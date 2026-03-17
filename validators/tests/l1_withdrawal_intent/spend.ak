@@ -3,10 +3,12 @@ use cardano/assets.{add, from_lovelace}
 use cardano/transaction.{Mint, Transaction}
 use l1_withdrawal_intent/spend_and_mint as l1_withdrawal_intent
 use mocktail.{
-  add_redeemer, complete, mint, mock_pub_key_address, mock_script_hash,
-  mock_tx_hash, mock_utxo_ref, mocktail_tx, tx_in, tx_in_inline_datum,
+  add_redeemer, complete, mint, mock_script_hash, mock_tx_hash, mock_utxo_ref,
+  mocktail_tx, tx_in, tx_in_inline_datum,
 }
-use tests/utils.{mock_l1_withdrawal_intent_script_hash, mock_vault_nft}
+use tests/utils.{
+  mock_l1_withdrawal_intent_script_hash, mock_user_trade_account, mock_vault_nft,
+}
 use types.{BurnIntent, MintIntent, WithdrawalIntentDatum}
 
 // ========== ProcessIntent (Spend) Tests ==========
@@ -14,7 +16,7 @@ use types.{BurnIntent, MintIntent, WithdrawalIntentDatum}
 
 const mock_withdrawal_intent_datum: WithdrawalIntentDatum =
   WithdrawalIntentDatum {
-    withdrawer: mock_pub_key_address(0, None),
+    withdrawer: mock_user_trade_account,
     shares_to_redeem: 1_000_000,
   }
 

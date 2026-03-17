@@ -8,7 +8,7 @@ L1 deposit intents allow users to deposit funds to the Trust Me Bro vault on L1.
 
 ## Datum
 
-- `depositor`: Address - receiver of LP shares
+- `depositor`: UserAccount - receiver of LP shares (contains Account with account_id, master_key, operation_key)
 - `deposit_amount`: `MValue` - value being deposited
 
 ## User Action - Spend

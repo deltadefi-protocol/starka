@@ -7,7 +7,8 @@ use cocktail.{
   outputs_at_with_policy, outputs_with_policy, policy_only_minted_token,
   withdrawal_redeemer,
 }
-use hydra_dex/types.{AppOracleDatum, DexOrderBookDatum} as dd_types
+use hydra_dex/types.{AppOracleDatum,
+  DexOrderBookDatum, UserTradeAccount} as dd_types
 use hydra_dex/utils as dd_utils
 use types.{
   BurnIntentL2, CancelIntentL2, HydraAccountOperation, IntentRedeemerL2,
@@ -61,17 +62,25 @@ validator l2_withdrawal_intent(vault_oracle_nft: PolicyId) {
           policy_only_minted_token(mint, policy_id, "", 1)
 
         // 2. Parse intent datum
-        expect L2WithdrawalIntentDatum { withdrawer, shares_to_redeem }: L2WithdrawalIntentDatum =
-          output_inline_datum(intent_output)
+        expect L2WithdrawalIntentDatum {
+          vault_oracle_nft: datum_vault_oracle_nft,
+          withdrawer,
+          shares_to_redeem,
+        }: L2WithdrawalIntentDatum = output_inline_datum(intent_output)
 
-        // 3. Withdrawal amount > 0
+        // 3. Check vault_oracle_nft in datum matches validator parameter
+        let is_vault_oracle_nft_valid =
+          datum_vault_oracle_nft == vault_oracle_nft
+
+        // 4. Withdrawal amount > 0
         let is_amount_valid = shares_to_redeem > 0
 
-        // 4. Signed by withdrawer PKH
-        expect VerificationKey(withdrawer_pkh) = withdrawer.payment_credential
+        // 5. Signed by withdrawer master_key
+        expect UserTradeAccount { account: withdrawer_acc, .. } = withdrawer
+        expect VerificationKey(withdrawer_pkh) = withdrawer_acc.master_key
         let is_withdrawer_signed = key_signed(extra_signatories, withdrawer_pkh)
 
-        is_amount_valid? && is_mint_value_correct? && is_withdrawer_signed?
+        is_vault_oracle_nft_valid? && is_amount_valid? && is_mint_value_correct? && is_withdrawer_signed?
       }
 
       BurnIntentL2 -> {

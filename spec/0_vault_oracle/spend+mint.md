@@ -19,7 +19,7 @@ The Vault Oracle UTxO holds config and shares state. This is the only UTxO commi
 - `vault_stake_rotation_script_hash`: ByteArray
 - `hydra_node_pub_keys`: List\<VerificationKey\>
 - `pluggable_logic`: ByteArray
-- `operator_key`: VerificationKeyHash
+- `operator_account`: UserAccount (contains Account with master_key, operation_key, account_id)
 - `operator_charge_percentage`: Int
 - `operator_min_deposit_percentage`: Int
 - `is_active`: Bool - whether the vault accepts new deposits
@@ -36,7 +36,7 @@ The Vault Oracle UTxO holds config and shares state. This is the only UTxO commi
 
 Each depositor has one entry in the shares merkle tree:
 
-- **Key**: `cbor.serialise(address)` — the depositor's Cardano Address
+- **Key**: `cbor.serialise(account)` — the depositor's Account (account_id, master_key, operation_key)
 - **Value**: `cbor.serialise(SharesRecordEntry { shares: Int, total_deposited: Int })`
   - `shares`: the depositor's share count
   - `total_deposited`: the depositor's total cost basis in USD (used for performance fee calculation)
@@ -56,7 +56,7 @@ The mint policy is a simple one-time minting policy (similar to `app_oracle/orac
    - Vault Oracle NFT is burnt
    - `shares_merkle_root` must equal empty tree hash (`null_hash`)
    - `total_shares == 0`
-   - **Signed by `operator_key` AND `operation_key` (from app_oracle)**
+   - **Signed by `operator_account.account.master_key` AND `operation_key` (from app_oracle)**
 
 ## User Action - Spend
 
@@ -67,9 +67,9 @@ The mint policy is a simple one-time minting policy (similar to `app_oracle/orac
    - Verify `prices` message signatures using `hydra_signers`
    - Calculate `initial_shares` from `initial_deposit` USD value
    - Initial state: `total_shares = initial_shares`, `operator_shares = initial_shares`, `total_deposited = initial_shares` (genesis share price = 1.0)
-   - `shares_merkle_root`: computed from inserting operator's initial shares entry
+   - `shares_merkle_root`: computed from inserting operator's initial shares entry (key = operator_account.account)
    - `initial_deposit` value goes to Vault UTxO (separate from Oracle)
-   - **Signed by `operator_key` AND `operation_key` (from app_oracle)**
+   - **Signed by `operator_account.account.master_key` AND `operation_key` (from app_oracle)**
 
 2. L2InitialDeposit - `L2InitialDeposit { initial_deposit, prices_message, signatures, initial_shares_proof }`
    - **Precondition**: `total_shares == 0` (vault is empty/new)
@@ -78,10 +78,10 @@ The mint policy is a simple one-time minting policy (similar to `app_oracle/orac
    - Verify `prices` message signatures using `hydra_signers`
    - Calculate `initial_shares` from `initial_deposit` USD value
    - Initial state: `total_shares = initial_shares`, `operator_shares = initial_shares`, `total_deposited = initial_shares` (genesis share price = 1.0)
-   - `shares_merkle_root`: computed from inserting operator's initial shares entry
+   - `shares_merkle_root`: computed from inserting operator's initial shares entry (key = operator_account.account)
    - Balance transferred via TransferIntent (operator Account → Vault Account)
    - DexOrderBook reference input required (for `hydra_user_intent_script_hash`)
-   - **Signed by `operator_key` AND `operation_key` (from app_oracle)**
+   - **Signed by `operator_account.account.master_key` AND `operation_key` (from app_oracle)**
 
 3. ProcessL1Deposit
    - `L1DepositIntent` token is burnt with `BurnIntent` redeemer

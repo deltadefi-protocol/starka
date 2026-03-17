@@ -2,6 +2,7 @@ use cardano/address.{from_script}
 use cardano/assets.{AssetName, PolicyId, from_asset_list, from_lovelace}
 use cardano/transaction.{InlineDatum, Input, NoDatum}
 use deposit_utils.{cal_shares_amount, combine_m_value}
+use hydra_dex/types.{Account, UserTradeAccount} as dd_types
 use mocktail.{mock_output, mock_pub_key_address, mock_utxo_ref}
 use price_oracle_utils.{convert_m_value_to_usd}
 use tests/utils.{
@@ -9,6 +10,47 @@ use tests/utils.{
   mock_total_shares, mock_vault_equity,
 }
 use types.{DepositIntentDatum, MValue}
+
+// Mock user accounts for different depositors (inner Account)
+const mock_user_inner_account_0: Account =
+  Account {
+    account_id: "user_0",
+    master_key: mock_pub_key_address(0, None).payment_credential,
+    operation_key: mock_pub_key_address(0, None).payment_credential,
+  }
+
+const mock_user_inner_account_1: Account =
+  Account {
+    account_id: "user_1",
+    master_key: mock_pub_key_address(1, None).payment_credential,
+    operation_key: mock_pub_key_address(1, None).payment_credential,
+  }
+
+const mock_user_inner_account_2: Account =
+  Account {
+    account_id: "user_2",
+    master_key: mock_pub_key_address(2, None).payment_credential,
+    operation_key: mock_pub_key_address(2, None).payment_credential,
+  }
+
+// Wrap in UserTradeAccount for intent datums
+const mock_user_account_0: dd_types.UserAccount =
+  UserTradeAccount {
+    account: mock_user_inner_account_0,
+    trading_logic: mock_l1_deposit_intent_script_hash,
+  }
+
+const mock_user_account_1: dd_types.UserAccount =
+  UserTradeAccount {
+    account: mock_user_inner_account_1,
+    trading_logic: mock_l1_deposit_intent_script_hash,
+  }
+
+const mock_user_account_2: dd_types.UserAccount =
+  UserTradeAccount {
+    account: mock_user_inner_account_2,
+    trading_logic: mock_l1_deposit_intent_script_hash,
+  }
 
 // ========== Prices ==========
 
@@ -54,19 +96,19 @@ pub const m_value_c =
 
 const deposit_intent_datum_a: Data =
   DepositIntentDatum {
-    depositor: mock_pub_key_address(0, None),
+    depositor: mock_user_account_0,
     deposit_amount: m_value_a,
   }
 
 const deposit_intent_datum_b: Data =
   DepositIntentDatum {
-    depositor: mock_pub_key_address(1, None),
+    depositor: mock_user_account_1,
     deposit_amount: m_value_b,
   }
 
 const deposit_intent_datum_c: Data =
   DepositIntentDatum {
-    depositor: mock_pub_key_address(2, None),
+    depositor: mock_user_account_2,
     deposit_amount: m_value_c,
   }
 
@@ -230,19 +272,19 @@ const expected_total_shares =
 
 const l2_deposit_intent_datum_a: Data =
   DepositIntentDatum {
-    depositor: mock_pub_key_address(0, None),
+    depositor: mock_user_account_0,
     deposit_amount: m_value_a,
   }
 
 const l2_deposit_intent_datum_b: Data =
   DepositIntentDatum {
-    depositor: mock_pub_key_address(1, None),
+    depositor: mock_user_account_1,
     deposit_amount: m_value_b,
   }
 
 const l2_deposit_intent_datum_c: Data =
   DepositIntentDatum {
-    depositor: mock_pub_key_address(2, None),
+    depositor: mock_user_account_2,
     deposit_amount: m_value_c,
   }
 

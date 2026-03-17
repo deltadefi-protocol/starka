@@ -8,7 +8,8 @@ L2 deposit intents are created and processed inside the Hydra head. User transfe
 
 ## Datum
 
-- `depositor`: Address - receiver of LP shares
+- `vault_oracle_nft`: PolicyId - must match validator parameter
+- `depositor`: UserAccount - user account receiving LP shares (contains Account with account_id, master_key, operation_key)
 - `deposit_amount`: `MValue` - value being deposited (hydra token representation)
 
 ## User Action - Spend
@@ -19,7 +20,8 @@ L2 deposit intents are created and processed inside the Hydra head. User transfe
 ## User Action - Mint
 
 1. MintIntent - Redeemer `MintIntent`
-   - **Signed by depositor PKH** (from datum `depositor` address)
+   - **Signed by depositor master_key** (from datum `depositor.master_key`)
+   - `vault_oracle_nft` in datum matches validator parameter
    - Deposit amount > 0 (non-empty `deposit_amount`)
    - Intent UTxO only contains the intent token (no deposit value)
    - Tokens are stored in user's Account UTxO
@@ -75,7 +77,7 @@ User's Account UTxO → (ProcessVaultDeposit) → Vault's Account UTxO
 
 | Action | Signed By |
 |--------|-----------|
-| MintIntent | **User** (depositor PKH) |
+| MintIntent | **User** (depositor.master_key) |
 | BurnIntent | `operation_key` (via ProcessVaultDeposit) |
 | CancelIntent | `operation_key` |
 

@@ -8,7 +8,8 @@ L2 withdrawal intents are created and processed inside the Hydra head. User rede
 
 ## Datum
 
-- `withdrawer`: Address - receiver of funds
+- `vault_oracle_nft`: PolicyId - must match validator parameter
+- `withdrawer`: UserAccount - user account receiving funds (contains Account with account_id, master_key, operation_key)
 - `shares_to_redeem`: `Int` - LP shares to withdraw
 
 ## User Action - Spend
@@ -19,7 +20,8 @@ L2 withdrawal intents are created and processed inside the Hydra head. User rede
 ## User Action - Mint
 
 1. MintIntent - Redeemer `MintIntent`
-   - **Signed by withdrawer PKH** (from datum `withdrawer` address)
+   - **Signed by withdrawer master_key** (from datum `withdrawer.master_key`)
+   - `vault_oracle_nft` in datum matches validator parameter
    - Amount > 0 (`shares_to_redeem > 0`)
    - Intent UTxO only contains the intent token (no value)
 
@@ -49,7 +51,7 @@ The main withdrawal logic is handled in the hydra_account withdrawal script:
 - Withdrawer's Account UTxO (balance increased)
 
 **Validation:**
-1. **Signed by `operation_key` from `app_oracle` OR `operator_key` from vault oracle**
+1. **Signed by `operation_key` from `app_oracle` OR `operator_account.account.master_key` from vault oracle**
 2. **NO withdrawer signature required** (user already signed at MintIntent)
 3. Verify `prices` message using `hydra_node_pub_keys` from Oracle datum
 4. Calculate withdrawal amounts:
@@ -83,8 +85,8 @@ Vault's Account UTxO → (ProcessVaultWithdrawal) → User's Account UTxO
 
 | Action | Signed By |
 |--------|-----------|
-| MintIntent | **User** (withdrawer PKH) |
-| BurnIntent | `operation_key` OR `operator_key` (via ProcessVaultWithdrawal) |
+| MintIntent | **User** (withdrawer.master_key) |
+| BurnIntent | `operation_key` OR `operator_account.account.master_key` (via ProcessVaultWithdrawal) |
 | CancelIntent | `operation_key` |
 
 ## Validation Rules (ref: vault-spec 4.6)

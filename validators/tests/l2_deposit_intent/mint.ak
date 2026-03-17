@@ -1,20 +1,18 @@
-use cardano/address.{from_script}
+use cardano/address.{VerificationKey, from_script}
 use cardano/assets.{add, from_asset, from_lovelace}
 use cardano/transaction.{Transaction}
-use cocktail.{address_payment_key}
 use l2_deposit_intent/spend_and_mint as l2_deposit_intent
 use mocktail.{
-  complete, mint, mock_policy_id, mock_pub_key_address, mock_tx_hash,
-  mocktail_tx, ref_tx_in, ref_tx_in_inline_datum, required_signer_hash,
-  script_withdrawal, tx_in, tx_in_inline_datum, tx_out, tx_out_inline_datum,
-  withdrawal_redeemer_value,
+  complete, mint, mock_policy_id, mock_tx_hash, mocktail_tx, ref_tx_in,
+  ref_tx_in_inline_datum, required_signer_hash, script_withdrawal, tx_in,
+  tx_in_inline_datum, tx_out, tx_out_inline_datum, withdrawal_redeemer_value,
 }
 use tests/utils.{
   mock_app_oracle, mock_app_oracle_address, mock_app_oracle_datum,
   mock_dex_order_book_address, mock_dex_order_book_datum,
   mock_dex_order_book_token, mock_hydra_account_script_hash,
-  mock_l2_deposit_intent_script_hash, mock_operation_key, mock_vault_nft,
-  mock_vault_oracle_datum,
+  mock_l2_deposit_intent_script_hash, mock_operation_key, mock_user_account,
+  mock_user_trade_account, mock_vault_nft, mock_vault_oracle_datum,
 }
 use types.{
   BurnIntentL2, CancelIntentL2, L2DepositIntentDatum, MValue, MintIntentL2,
@@ -44,7 +42,8 @@ const mock_l2_deposit_m_value: MValue =
 
 const mock_l2_deposit_intent_datum: L2DepositIntentDatum =
   L2DepositIntentDatum {
-    depositor: mock_pub_key_address(0, None),
+    vault_oracle_nft: mock_vault_nft,
+    depositor: mock_user_trade_account,
     deposit_amount: mock_l2_deposit_m_value,
   }
 
@@ -89,13 +88,14 @@ fn mock_mint_intent_tx(test_case: MintIntentTestCase) -> Transaction {
       mock_l2_deposit_intent_datum
     } else {
       L2DepositIntentDatum {
-        depositor: mock_pub_key_address(0, None),
+        vault_oracle_nft: mock_vault_nft,
+        depositor: mock_user_trade_account,
         deposit_amount: [],
       }
     }
 
-  // Depositor PKH from mock_pub_key_address(0, None)
-  let depositor_pkh = address_payment_key(mock_pub_key_address(0, None))
+  // Extract PKH from depositor account's master_key
+  expect VerificationKey(depositor_pkh) = mock_user_account.master_key
 
   mocktail_tx()
     |> mint(True, mint_amount, policy_id, "")

@@ -8,7 +8,7 @@ L1 withdrawal intents allow users to withdraw funds from the Trust Me Bro vault 
 
 ## Datum
 
-- `withdrawer`: Address - receiver of funds
+- `withdrawer`: UserAccount - receiver of funds (contains Account with account_id, master_key, operation_key)
 - `shares_to_redeem`: `Int` - LP shares to withdraw
 
 ## User Action - Spend
@@ -23,7 +23,7 @@ L1 withdrawal intents allow users to withdraw funds from the Trust Me Bro vault 
    - No vault reference needed (user creates intent independently)
 
 2. BurnIntent - Redeemer `BurnIntent (List<Int>, ByteArray, List<ByteArray>, List<SharesMPFAction>)`
-   - **Signed by `operation_key` from `app_oracle` OR `operator_key` from vault oracle**
+   - **Signed by `operation_key` from `app_oracle` OR `operator_account.account.master_key` from vault oracle**
    - `L1WithdrawalIntent` is burnt with total batched amount
    - Vault Oracle input with datum (identified by `vault_oracle_nft`)
    - Vault Oracle output with updated datum:

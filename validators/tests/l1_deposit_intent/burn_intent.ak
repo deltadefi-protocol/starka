@@ -14,8 +14,9 @@ use tests/utils.{
   mock_app_oracle, mock_app_oracle_address, mock_app_oracle_datum,
   mock_deposit_intent_datum, mock_deposit_m_value,
   mock_l1_deposit_intent_script_hash, mock_message, mock_operation_key,
-  mock_signatures, mock_total_deposited, mock_total_shares, mock_vault_equity,
-  mock_vault_nft, mock_vault_oracle_datum, mock_vault_script_hash,
+  mock_signatures, mock_total_deposited, mock_total_shares, mock_user_account,
+  mock_vault_equity, mock_vault_nft, mock_vault_oracle_datum,
+  mock_vault_script_hash,
 }
 use types.{
   BurnIntent, IntentRedeemerL1, SharesInsert, SharesRecordEntry,
@@ -67,17 +68,18 @@ fn build_vault_oracle_output_datum(
   }
 }
 
-fn build_mpf_insert_action(_depositor_address, _cal_shares: Int, _usd_value: Int) {
+fn build_mpf_insert_action(_depositor_account, _cal_shares: Int, _usd_value: Int) {
   // new_value is computed in deposit_utils, not passed in redeemer
   SharesInsert { proof: [] }
 }
 
 fn compute_new_merkle_root(
-  depositor_address,
+  depositor_account,
   cal_shares: Int,
   usd_value: Int,
 ) -> ByteArray {
-  let mpf_key = cbor.serialise(depositor_address)
+  // Use Account directly as MPF key
+  let mpf_key = cbor.serialise(depositor_account)
   let entry =
     SharesRecordEntry { shares: cal_shares, total_deposited: usd_value }
   let mpf_value = cbor.serialise(entry)
@@ -104,10 +106,10 @@ fn mock_burn_intent_tx(test_case: BurnIntentTestCase) -> Transaction {
   } = test_case
 
   let policy_id = mock_l1_deposit_intent_script_hash
-  let depositor = mock_pub_key_address(0, None)
+  let depositor_account = mock_user_account
   let cal_shares = computed_shares()
   let new_merkle_root =
-    compute_new_merkle_root(depositor, cal_shares, deposit_usd_value)
+    compute_new_merkle_root(depositor_account, cal_shares, deposit_usd_value)
 
   // Vault Oracle values
   let vault_oracle_address = from_script(mock_vault_nft)
@@ -205,10 +207,10 @@ fn mock_burn_intent_tx(test_case: BurnIntentTestCase) -> Transaction {
 }
 
 fn build_redeemer() -> IntentRedeemerL1 {
-  let depositor = mock_pub_key_address(0, None)
+  let depositor_account = mock_user_account
   let cal_shares = computed_shares()
   let mpf_action =
-    build_mpf_insert_action(depositor, cal_shares, deposit_usd_value)
+    build_mpf_insert_action(depositor_account, cal_shares, deposit_usd_value)
   // Index 2 because: [0]=utxo_ref_input, [1]=vault_oracle_input, [2]=intent_input
   BurnIntent([2], mock_message, mock_signatures, [mpf_action])
 }

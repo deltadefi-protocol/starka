@@ -1,8 +1,8 @@
-use aiken/crypto.{VerificationKey, VerificationKeyHash}
+use aiken/crypto.{VerificationKey}
 use aiken/merkle_patricia_forestry.{Proof}
-use cardano/address.{Address}
 use cardano/assets.{AssetName, PolicyId}
 use cardano/transaction.{OutputReference}
+use hydra_dex/types.{UserAccount} as dd_types
 
 // Shared multi-asset value type
 pub type MValue =
@@ -25,7 +25,7 @@ pub type VaultOracleDatum {
   l2_withdrawal_intent_script_hash: ByteArray,
   pluggable_logic: ByteArray,
   vault_stake_rotation_script_hash: ByteArray,
-  operator_key: VerificationKeyHash,
+  operator_account: UserAccount,
   operator_charge_percentage: Int,
   operator_min_deposit_percentage: Int,
   hydra_node_pub_keys: List<VerificationKey>,
@@ -113,25 +113,27 @@ pub type Message {
 
 // Deposit intent datum
 pub type DepositIntentDatum {
-  depositor: Address,
+  depositor: UserAccount,
   deposit_amount: MValue,
 }
 
 // L2 Deposit intent datum — no value stored, only intent token
 pub type L2DepositIntentDatum {
-  depositor: Address,
+  vault_oracle_nft: PolicyId,
+  depositor: UserAccount,
   deposit_amount: MValue,
 }
 
 // Withdrawal intent datum
 pub type WithdrawalIntentDatum {
-  withdrawer: Address,
+  withdrawer: UserAccount,
   shares_to_redeem: Int,
 }
 
 // L2 Withdrawal intent datum — no value stored, only intent token
 pub type L2WithdrawalIntentDatum {
-  withdrawer: Address,
+  vault_oracle_nft: PolicyId,
+  withdrawer: UserAccount,
   shares_to_redeem: Int,
 }
 

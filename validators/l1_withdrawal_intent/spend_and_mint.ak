@@ -1,5 +1,5 @@
 use aiken/collection/list
-use cardano/address.{Script, from_script, from_verification_key}
+use cardano/address.{Script, VerificationKey, from_script}
 use cardano/assets.{PolicyId}
 use cardano/transaction.{Mint, OutputReference, Transaction, find_input}
 use cocktail.{
@@ -7,7 +7,7 @@ use cocktail.{
   inputs_with_policy, key_signed, output_inline_datum, outputs_at_with_policy,
   policy_only_minted_token,
 }
-use hydra_dex/types.{AppOracleDatum, HydraInfo} as dd_types
+use hydra_dex/types.{AppOracleDatum, HydraInfo, UserTradeAccount} as dd_types
 use price_oracle_utils.{convert_value_to_usd, verify_prices_oracle_messages}
 use types.{
   BurnIntent, CancelIntent, IntentRedeemerL1, MintIntent, VaultOracleDatum,
@@ -93,12 +93,16 @@ validator l1_withdrawal_intent(vault_oracle_nft: PolicyId) {
           total_deposited,
           operator_shares,
           operator_charge_percentage,
-          operator_key,
+          operator_account,
           shares_merkle_root,
           vault_script_hash,
           total_fee_collected,
           ..
         } = vault_oracle_input_datum
+
+        // Extract operator account from UserTradeAccount
+        expect UserTradeAccount { account: operator_acc, .. } = operator_account
+        expect VerificationKey(operator_pkh) = operator_acc.master_key
 
         // Split mpf_actions: user actions + last action for operator fee share
         let user_action_count = list.length(indices)
@@ -126,13 +130,14 @@ validator l1_withdrawal_intent(vault_oracle_nft: PolicyId) {
           )
 
         // 4. Apply operator fee share MPF action
+        // Use operator Account directly as MPF key
         let final_merkle_root =
           when operator_mpf_actions is {
             [operator_action] ->
               apply_operator_fee_share(
                 user_final_root,
                 total_fee_shares,
-                from_verification_key(operator_key),
+                operator_acc,
                 operator_action,
               )
             [] ->
@@ -185,7 +190,7 @@ validator l1_withdrawal_intent(vault_oracle_nft: PolicyId) {
         // 9. Signed by operation_key from app_oracle OR operator_key from vault oracle
         let is_operation_signed =
           key_signed(extra_signatories, app_oracle_datum.operation_key)
-        let is_operator_signed = key_signed(extra_signatories, operator_key)
+        let is_operator_signed = key_signed(extra_signatories, operator_pkh)
         let is_authorized = is_operation_signed || is_operator_signed
 
         is_prices_verified? && vault_unlock_check? && vault_oracle_datum_check? && intent_burn_check? && is_authorized?
@@ -198,8 +203,10 @@ validator l1_withdrawal_intent(vault_oracle_nft: PolicyId) {
         expect intent_datum: WithdrawalIntentDatum =
           input_inline_datum(intent_input)
 
-        expect Some(withdrawer_pkh) =
-          cocktail.address_pub_key(intent_datum.withdrawer)
+        expect UserTradeAccount { account: withdrawer_acc, .. } =
+          intent_datum.withdrawer
+        expect VerificationKey(withdrawer_pkh) = withdrawer_acc.master_key
+
         let is_signed = key_signed(extra_signatories, withdrawer_pkh)
 
         is_burn_correct? && is_signed?

@@ -11,9 +11,10 @@ use cocktail.{
   inputs_with_policy, only_minted_token, output_inline_datum,
   outputs_at_with_policy, value_geq,
 }
+use cardano/address.{VerificationKey} as addr
 use hydra_dex/types.{
   AppOracleDatum, DexOrderBookDatum, HydraInfo, HydraUserIntentDatum,
-  MasterIntent, TransferIntent,
+  MasterIntent, TransferIntent, UserTradeAccount,
 } as dd_types
 use price_oracle_utils.{convert_m_value_to_usd, verify_prices_oracle_messages}
 use types.{
@@ -43,7 +44,7 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
       l2_withdrawal_intent_script_hash,
       hydra_node_pub_keys,
       pluggable_logic,
-      operator_key,
+      operator_account,
       vault_script_hash,
       total_shares,
       operator_shares,
@@ -100,8 +101,12 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
         // Genesis rule: initial_shares = total_deposited (share price = 1.0)
         let initial_shares = computed_total_deposited
 
+        // Extract operator account from UserTradeAccount
+        expect UserTradeAccount { account: operator_acc, .. } = operator_account
+        expect addr.VerificationKey(operator_pkh) = operator_acc.master_key
+
         // Compute initial merkle root via MPF insert
-        let operator_address = from_verification_key(operator_key)
+        let operator_address = from_verification_key(operator_pkh)
         let mpf_key = cbor.serialise(operator_address)
         let initial_entry =
           SharesRecordEntry {
@@ -139,7 +144,7 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
           )
 
         // Signed by operator_key AND operation_key
-        let is_operator_signed = list.has(extra_signatories, operator_key)
+        let is_operator_signed = list.has(extra_signatories, operator_pkh)
         let is_operation_signed = list.has(extra_signatories, operation_key)
 
         and {
@@ -195,8 +200,13 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
         // Genesis rule: initial_shares = total_deposited (share price = 1.0)
         let initial_shares = computed_total_deposited
 
+        // Extract operator account from UserTradeAccount
+        expect UserTradeAccount { account: operator_acc_l2, .. } =
+          operator_account
+        expect addr.VerificationKey(operator_pkh_l2) = operator_acc_l2.master_key
+
         // Compute initial merkle root via MPF insert
-        let operator_address = from_verification_key(operator_key)
+        let operator_address = from_verification_key(operator_pkh_l2)
         let mpf_key = cbor.serialise(operator_address)
         let initial_entry =
           SharesRecordEntry {
@@ -253,7 +263,7 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
           transfer_usd_value == computed_total_deposited
 
         // Signed by operator_key AND operation_key
-        let is_operator_signed = list.has(extra_signatories, operator_key)
+        let is_operator_signed = list.has(extra_signatories, operator_pkh_l2)
         let is_operation_signed = list.has(extra_signatories, operation_key)
 
         and {
@@ -391,11 +401,18 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
         expect vault_oracle_datum: VaultOracleDatum =
           input_inline_datum(vault_oracle_input)
         let VaultOracleDatum {
-          operator_key,
+          operator_account: close_operator_account,
           total_shares,
           shares_merkle_root,
           ..
         } = vault_oracle_datum
+
+        // Extract operator account from UserTradeAccount
+        expect UserTradeAccount { account: close_operator_acc, .. } =
+          close_operator_account
+        expect addr.VerificationKey(close_operator_pkh) =
+          close_operator_acc.master_key
+
         // Get app_oracle reference input
         expect [app_oracle_ref] =
           inputs_with_policy(reference_inputs, app_oracle)
@@ -410,7 +427,7 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
         let is_total_shares_zero = total_shares == 0
         let is_merkle_empty = mpf.is_empty(mpf.from_root(shares_merkle_root))
         // Signed by operator_key from oracle_datum AND operation_key from app_oracle
-        let is_operator_signed = list.has(extra_signatories, operator_key)
+        let is_operator_signed = list.has(extra_signatories, close_operator_pkh)
         let is_operation_signed = list.has(extra_signatories, operation_key)
 
         is_burn_correct? && is_total_shares_zero? && is_merkle_empty? && is_operator_signed? && is_operation_signed?

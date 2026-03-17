@@ -1,14 +1,14 @@
 use aiken/collection/list
-use cardano/address.{Script, from_script}
+use cardano/address.{Script, VerificationKey, from_script}
 use cardano/assets.{PolicyId, from_asset_list}
 use cardano/transaction.{Mint, OutputReference, Transaction, find_input}
 use cocktail.{
-  address_pub_key, get_all_value_to_script, input_inline_datum,
-  inputs_at_with_policy, inputs_with_policy, key_signed, output_inline_datum,
-  outputs_at_with_policy, policy_only_minted_token, value_geq,
+  get_all_value_to_script, input_inline_datum, inputs_at_with_policy,
+  inputs_with_policy, key_signed, output_inline_datum, outputs_at_with_policy,
+  policy_only_minted_token, value_geq,
 }
 use deposit_utils.{process_batched_deposit_intent_validation}
-use hydra_dex/types.{AppOracleDatum, HydraInfo} as dd_types
+use hydra_dex/types.{AppOracleDatum, HydraInfo, UserTradeAccount} as dd_types
 use price_oracle_utils.{verify_prices_oracle_messages}
 use types.{
   BurnIntent, CancelIntent, DepositIntentDatum, IntentRedeemerL1, MintIntent,
@@ -139,16 +139,18 @@ validator l1_deposit_intent(vault_oracle_nft: PolicyId) {
         is_prices_verified? && is_deposit_sent? && oracle_datum_check? && intent_burn_check? && is_operation_signed?
       }
       CancelIntent -> {
-        // Burn intent token, signed by depositor
+        // Burn intent token, signed by depositor master_key
         let is_burn_correct = policy_only_minted_token(mint, policy_id, "", -1)
 
-        // Find the intent input to get depositor address
+        // Find the intent input to get depositor account
         expect [intent_input] =
           inputs_at_with_policy(inputs, from_script(policy_id), policy_id)
         expect intent_datum: DepositIntentDatum =
           input_inline_datum(intent_input)
 
-        expect Some(depositor_pkh) = address_pub_key(intent_datum.depositor)
+        expect UserTradeAccount { account: depositor_acc, .. } =
+          intent_datum.depositor
+        expect VerificationKey(depositor_pkh) = depositor_acc.master_key
         let is_signed = key_signed(extra_signatories, depositor_pkh)
 
         is_burn_correct? && is_signed?
