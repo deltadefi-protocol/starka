@@ -1,5 +1,5 @@
 use cardano/address.{from_script}
-use cardano/assets.{add, from_asset, from_lovelace}
+use cardano/assets.{add, from_lovelace}
 use cardano/transaction.{Transaction}
 use l1_withdrawal_intent/spend_and_mint as l1_withdrawal_intent
 use mocktail.{

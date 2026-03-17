@@ -9,7 +9,7 @@ use cardano/assets.{Lovelace, PolicyId, Value, quantity_of}
 use cardano/transaction.{InlineDatum, Input, Redeemer, ScriptPurpose}
 use cocktail.{input_inline_datum}
 use hydra_dex/types.{AppOracleDatum} as dd_types
-use types.{BurnIntent, IntentRedeemer, VaultOracleDatum}
+use types.{BurnIntent, IntentRedeemerL1, VaultOracleDatum}
 
 pub fn get_vault_oracle_datum(
   inputs: List<Input>,
@@ -62,7 +62,7 @@ pub fn check_mint_redeemer_is_burn_intent(
   redeemers: Pairs<ScriptPurpose, Redeemer>,
 ) -> Bool {
   expect Some(mint_redeemer_data) = redeemers |> pairs.get_first(mint_purpose)
-  expect mint_redeemer: IntentRedeemer = mint_redeemer_data
+  expect mint_redeemer: IntentRedeemerL1 = mint_redeemer_data
 
   when mint_redeemer is {
     BurnIntent(_, _, _, _) -> True

@@ -3,15 +3,15 @@ use cardano/address.{Script, from_script, from_verification_key}
 use cardano/assets.{PolicyId}
 use cardano/transaction.{Mint, OutputReference, Transaction, find_input}
 use cocktail.{
-  get_all_value_to_script, input_inline_datum, key_signed, output_inline_datum,
-  outputs_at_with_policy,
+  get_all_value_to_script, input_inline_datum, inputs_at_with_policy,
+  inputs_with_policy, key_signed, output_inline_datum, outputs_at_with_policy,
+  policy_only_minted_token,
 }
-use cocktail/vodka_inputs
-use cocktail/vodka_mints.{policy_only_minted_token}
 use hydra_dex/types.{AppOracleDatum, HydraInfo} as dd_types
 use price_oracle_utils.{convert_value_to_usd, verify_prices_oracle_messages}
 use types.{
-  BurnIntent, CancelIntent, MintIntent, VaultOracleDatum, WithdrawalIntentDatum,
+  BurnIntent, CancelIntent, IntentRedeemerL1, MintIntent, VaultOracleDatum,
+  WithdrawalIntentDatum,
 }
 use utils.{check_mint_redeemer_is_burn_intent, get_app_oracle_datum}
 use withdraw_utils.{
@@ -34,7 +34,7 @@ validator l1_withdrawal_intent(vault_oracle_nft: PolicyId) {
     check_mint_redeemer_is_burn_intent(mint_purpose, redeemers)?
   }
 
-  mint(redeemer: types.IntentRedeemer, policy_id: PolicyId, self: Transaction) {
+  mint(redeemer: IntentRedeemerL1, policy_id: PolicyId, self: Transaction) {
     let Transaction {
       inputs,
       outputs,
@@ -59,7 +59,7 @@ validator l1_withdrawal_intent(vault_oracle_nft: PolicyId) {
       BurnIntent(indices, message, signatures, mpf_actions) -> {
         // 1. Get Vault Oracle input and output
         expect [vault_oracle_input] =
-          vodka_inputs.inputs_with_policy(inputs, vault_oracle_nft)
+          inputs_with_policy(inputs, vault_oracle_nft)
         expect vault_oracle_input_datum: VaultOracleDatum =
           input_inline_datum(vault_oracle_input)
 
@@ -147,12 +147,13 @@ validator l1_withdrawal_intent(vault_oracle_nft: PolicyId) {
         // 5. Verify vault value unlocked equals total_user_receives
         // Get vault inputs/outputs by script hash
         expect [vault_input] =
-          vodka_inputs.inputs_at_with_policy(
+          inputs_at_with_policy(
             inputs,
             from_script(vault_script_hash),
             vault_oracle_nft,
           )
-        let value_from_vault = convert_value_to_usd(vault_input.output.value, prices)
+        let value_from_vault =
+          convert_value_to_usd(vault_input.output.value, prices)
         let value_to_vault =
           convert_value_to_usd(
             get_all_value_to_script(outputs, vault_script_hash),
@@ -179,32 +180,21 @@ validator l1_withdrawal_intent(vault_oracle_nft: PolicyId) {
 
         // 8. Verify intent burn count
         let intent_burn_check =
-          policy_only_minted_token(
-            mint,
-            policy_id,
-            "",
-            -list.length(indices),
-          )
+          policy_only_minted_token(mint, policy_id, "", -list.length(indices))
 
         // 9. Signed by operation_key from app_oracle OR operator_key from vault oracle
         let is_operation_signed =
           key_signed(extra_signatories, app_oracle_datum.operation_key)
-        let is_operator_signed =
-          key_signed(extra_signatories, operator_key)
+        let is_operator_signed = key_signed(extra_signatories, operator_key)
         let is_authorized = is_operation_signed || is_operator_signed
 
         is_prices_verified? && vault_unlock_check? && vault_oracle_datum_check? && intent_burn_check? && is_authorized?
       }
       CancelIntent -> {
-        let is_burn_correct =
-          policy_only_minted_token(mint, policy_id, "", -1)
+        let is_burn_correct = policy_only_minted_token(mint, policy_id, "", -1)
 
         expect [intent_input] =
-          vodka_inputs.inputs_at_with_policy(
-            inputs,
-            from_script(policy_id),
-            policy_id,
-          )
+          inputs_at_with_policy(inputs, from_script(policy_id), policy_id)
         expect intent_datum: WithdrawalIntentDatum =
           input_inline_datum(intent_input)
 

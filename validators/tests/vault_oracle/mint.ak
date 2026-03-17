@@ -1,5 +1,6 @@
+use aiken/merkle_patricia_forestry as mpf
 use cardano/address.{from_script, from_verification_key}
-use cardano/assets.{add, from_asset, from_asset_list}
+use cardano/assets.{add, from_asset}
 use cardano/transaction.{Transaction}
 use mocktail.{
   complete, mint, mock_pub_key_address, mock_tx_hash, mocktail_tx, ref_tx_in,
@@ -8,130 +9,92 @@ use mocktail.{
 }
 use tests/utils.{
   compute_mpf_root_single_insert, mock_app_oracle, mock_app_oracle_address,
-  mock_app_oracle_datum, mock_create_vault_deposit_m_value,
-  mock_create_vault_initial_shares, mock_create_vault_message,
-  mock_create_vault_signatures, mock_create_vault_total_deposited,
-  mock_initial_utxo, mock_l1_deposit_intent_script_hash,
-  mock_l1_withdrawal_intent_script_hash, mock_l2_deposit_intent_script_hash,
-  mock_l2_withdrawal_intent_script_hash, mock_node_pub_keys, mock_operation_key,
-  mock_operator_key, mock_pluggable_logic, mock_vault_nft,
-  mock_vault_oracle_datum, mock_vault_script_hash,
+  mock_app_oracle_datum, mock_initial_utxo,
+  mock_l1_deposit_intent_script_hash, mock_l1_withdrawal_intent_script_hash,
+  mock_l2_deposit_intent_script_hash, mock_l2_withdrawal_intent_script_hash,
+  mock_node_pub_keys, mock_operation_key, mock_operator_key, mock_pluggable_logic,
+  mock_vault_nft, mock_vault_oracle_datum, mock_vault_script_hash,
   mock_vault_stake_rotation_script_hash, null_hash,
 }
-use types.{CloseVault, CreateVault, VaultOracleDatum}
+use types.{CloseVault, MintVault, VaultOracleDatum}
 use vault_oracle/spend_mint as vault_oracle
 
-// ========== CreateVault Test Case ==========
+// ========== MintVault Test Case ==========
+// MintVault is a simple one-shot minting policy:
+// - Consume initial_utxo (one-shot guarantee)
+// - Mint exactly 1 NFT
+// - Output datum has initial state = 0 (total_shares=0, shares_merkle_root=null_hash, etc.)
+// - No signatures required (anyone can create a vault)
 
-type CreateVaultTestCase {
+type MintVaultTestCase {
   is_initial_utxo_consumed: Bool,
   is_oracle_nft_minted: Bool,
-  is_app_oracle_referenced: Bool,
-  is_hydra_keys_valid: Bool,
-  is_total_shares_correct: Bool,
-  is_operator_shares_correct: Bool,
-  is_total_deposited_correct: Bool,
-  is_shares_equal_deposited: Bool,
-  is_merkle_root_correct: Bool,
-  is_charge_percentage_valid: Bool,
-  is_active_true: Bool,
+  is_total_shares_zero: Bool,
+  is_operator_shares_zero: Bool,
+  is_total_deposited_zero: Bool,
+  is_merkle_root_empty: Bool,
   is_fee_collected_zero: Bool,
-  is_deposit_in_vault: Bool,
-  is_operator_signed: Bool,
-  is_operation_signed: Bool,
+  is_charge_percentage_valid: Bool,
+  is_app_oracle_correct: Bool,
 }
 
-fn default_create_vault_test_case() -> CreateVaultTestCase {
-  CreateVaultTestCase {
+fn default_mint_vault_test_case() -> MintVaultTestCase {
+  MintVaultTestCase {
     is_initial_utxo_consumed: True,
     is_oracle_nft_minted: True,
-    is_app_oracle_referenced: True,
-    is_hydra_keys_valid: True,
-    is_total_shares_correct: True,
-    is_operator_shares_correct: True,
-    is_total_deposited_correct: True,
-    is_shares_equal_deposited: True,
-    is_merkle_root_correct: True,
-    is_charge_percentage_valid: True,
-    is_active_true: True,
+    is_total_shares_zero: True,
+    is_operator_shares_zero: True,
+    is_total_deposited_zero: True,
+    is_merkle_root_empty: True,
     is_fee_collected_zero: True,
-    is_deposit_in_vault: True,
-    is_operator_signed: True,
-    is_operation_signed: True,
+    is_charge_percentage_valid: True,
+    is_app_oracle_correct: True,
   }
 }
 
-fn mock_create_vault_datum(test_case: CreateVaultTestCase) -> VaultOracleDatum {
-  let CreateVaultTestCase {
-    is_hydra_keys_valid,
-    is_total_shares_correct,
-    is_operator_shares_correct,
-    is_total_deposited_correct,
-    is_shares_equal_deposited,
-    is_merkle_root_correct,
-    is_charge_percentage_valid,
-    is_active_true,
+fn mock_mint_vault_datum(test_case: MintVaultTestCase) -> VaultOracleDatum {
+  let MintVaultTestCase {
+    is_total_shares_zero,
+    is_operator_shares_zero,
+    is_total_deposited_zero,
+    is_merkle_root_empty,
     is_fee_collected_zero,
+    is_charge_percentage_valid,
+    is_app_oracle_correct,
     ..
   } = test_case
 
-  // Compute correct merkle root
-  let operator_address = from_verification_key(mock_operator_key)
-  let correct_root =
-    compute_mpf_root_single_insert(
-      operator_address,
-      mock_create_vault_initial_shares,
-      mock_create_vault_total_deposited,
-    )
-
   let total_shares =
-    if is_total_shares_correct {
-      mock_create_vault_initial_shares
+    if is_total_shares_zero {
+      0
     } else {
-      mock_create_vault_initial_shares + 1
+      1000
     }
 
   let operator_shares =
-    if is_operator_shares_correct {
-      mock_create_vault_initial_shares
+    if is_operator_shares_zero {
+      0
     } else {
-      mock_create_vault_initial_shares - 1
+      1000
     }
 
   let total_deposited =
-    if is_total_deposited_correct {
-      mock_create_vault_total_deposited
+    if is_total_deposited_zero {
+      0
     } else {
-      mock_create_vault_total_deposited + 100
-    }
-
-  // For genesis, initial_shares must equal total_deposited
-  let adjusted_total_shares =
-    if !is_shares_equal_deposited {
-      total_deposited + 1
-    } else {
-      total_shares
+      1000
     }
 
   let shares_merkle_root =
-    if is_merkle_root_correct {
-      correct_root
+    if is_merkle_root_empty {
+      mpf.root(mpf.empty)
     } else {
-      null_hash
-    }
-
-  let operator_charge_percentage =
-    if is_charge_percentage_valid {
-      10
-    } else {
-      101
-    }
-
-  let is_active =
-    if is_active_true {
-      True
-    } else {
-      False
+      // Non-empty root
+      compute_mpf_root_single_insert(
+        from_verification_key(mock_operator_key),
+        1000,
+        1000,
+      )
     }
 
   let total_fee_collected =
@@ -141,20 +104,23 @@ fn mock_create_vault_datum(test_case: CreateVaultTestCase) -> VaultOracleDatum {
       100
     }
 
-  let hydra_node_pub_keys =
-    if is_hydra_keys_valid {
-      mock_node_pub_keys
+  let operator_charge_percentage =
+    if is_charge_percentage_valid {
+      10
     } else {
-      // Use different keys that don't match app_oracle signers
-      [
-        #"0000000000000000000000000000000000000000000000000000000000000001",
-        #"0000000000000000000000000000000000000000000000000000000000000002",
-        #"0000000000000000000000000000000000000000000000000000000000000003",
-      ]
+      101
+    }
+
+  let app_oracle =
+    if is_app_oracle_correct {
+      mock_app_oracle
+    } else {
+      // Wrong app_oracle
+      #"0000000000000000000000000000000000000000000000000000000000000000"
     }
 
   VaultOracleDatum {
-    app_oracle: mock_app_oracle,
+    app_oracle: app_oracle,
     vault_script_hash: mock_vault_script_hash,
     l1_deposit_intent_script_hash: mock_l1_deposit_intent_script_hash,
     l1_withdrawal_intent_script_hash: mock_l1_withdrawal_intent_script_hash,
@@ -165,9 +131,9 @@ fn mock_create_vault_datum(test_case: CreateVaultTestCase) -> VaultOracleDatum {
     operator_key: mock_operator_key,
     operator_charge_percentage,
     operator_min_deposit_percentage: 10,
-    hydra_node_pub_keys,
-    is_active,
-    total_shares: adjusted_total_shares,
+    hydra_node_pub_keys: mock_node_pub_keys,
+    is_active: True,
+    total_shares,
     operator_shares,
     total_deposited,
     shares_merkle_root,
@@ -175,31 +141,18 @@ fn mock_create_vault_datum(test_case: CreateVaultTestCase) -> VaultOracleDatum {
   }
 }
 
-fn mock_create_vault_tx(test_case: CreateVaultTestCase) -> Transaction {
-  let CreateVaultTestCase {
+fn mock_mint_vault_tx(test_case: MintVaultTestCase) -> Transaction {
+  let MintVaultTestCase {
     is_initial_utxo_consumed,
     is_oracle_nft_minted,
-    is_app_oracle_referenced,
-    is_deposit_in_vault,
-    is_operator_signed,
-    is_operation_signed,
     ..
   } = test_case
 
-  let vault_datum = mock_create_vault_datum(test_case)
+  let vault_datum = mock_mint_vault_datum(test_case)
   let vault_nft_policy = mock_vault_nft
 
-  let app_oracle_value =
-    from_asset(mock_app_oracle, "", 1) |> add("", "", 2_000_000)
   let vault_oracle_output_value =
     from_asset(vault_nft_policy, "", 1) |> add("", "", 2_000_000)
-
-  let vault_output_value =
-    if is_deposit_in_vault {
-      from_asset_list(mock_create_vault_deposit_m_value)
-    } else {
-      from_asset("", "", 1)
-    }
 
   // Initial utxo index - use 99,0 to match mock_initial_utxo, or different if not consumed
   let initial_utxo_index =
@@ -209,16 +162,14 @@ fn mock_create_vault_tx(test_case: CreateVaultTestCase) -> Transaction {
       999
     }
 
+  let mint_quantity =
+    if is_oracle_nft_minted {
+      1
+    } else {
+      0
+    }
+
   mocktail_tx()
-    // App oracle reference input
-    |> ref_tx_in(
-        is_app_oracle_referenced,
-        mock_tx_hash(2),
-        0,
-        app_oracle_value,
-        mock_app_oracle_address,
-      )
-    |> ref_tx_in_inline_datum(is_app_oracle_referenced, mock_app_oracle_datum)
     // Initial UTxO input (one-shot) - must match mock_initial_utxo = mock_utxo_ref(99, 0)
     |> tx_in(
         True,
@@ -228,177 +179,110 @@ fn mock_create_vault_tx(test_case: CreateVaultTestCase) -> Transaction {
         mock_pub_key_address(0, None),
       )
     // Mint vault oracle NFT
-    |> mint(is_oracle_nft_minted, 1, vault_nft_policy, "")
+    |> mint(True, mint_quantity, vault_nft_policy, "")
     // Vault oracle output
     |> tx_out(True, from_script(vault_nft_policy), vault_oracle_output_value)
     |> tx_out_inline_datum(True, vault_datum)
-    // Initial deposit to vault script
-    |> tx_out(True, from_script(mock_vault_script_hash), vault_output_value)
-    // Signatures
-    |> required_signer_hash(is_operator_signed, mock_operator_key)
-    |> required_signer_hash(is_operation_signed, mock_operation_key)
     |> complete()
 }
 
-fn run_create_vault(test_case: CreateVaultTestCase) -> Bool {
-  let redeemer =
-    CreateVault {
-      initial_deposit: mock_create_vault_deposit_m_value,
-      initial_shares: mock_create_vault_initial_shares,
-      prices_message: mock_create_vault_message,
-      signatures: mock_create_vault_signatures,
-      initial_shares_proof: [],
-    }
-  let tx = mock_create_vault_tx(test_case)
+fn run_mint_vault(test_case: MintVaultTestCase) -> Bool {
+  let tx = mock_mint_vault_tx(test_case)
   vault_oracle.vault_oracle.mint(
     mock_initial_utxo,
     mock_app_oracle,
-    redeemer,
+    MintVault,
     mock_vault_nft,
     tx,
   )
 }
 
-// ========== CreateVault Tests ==========
+// ========== MintVault Tests ==========
 
-test s0_mint_success_create_vault() {
-  let test_case = default_create_vault_test_case()
-  run_create_vault(test_case)
+test s0_mint_success_mint_vault() {
+  let test_case = default_mint_vault_test_case()
+  run_mint_vault(test_case)
 }
 
-test s0_mint_fail_create_vault_without_initial_utxo_consumed() {
+test s0_mint_fail_mint_vault_without_initial_utxo_consumed() {
   let test_case =
-    CreateVaultTestCase {
-      ..default_create_vault_test_case(),
+    MintVaultTestCase {
+      ..default_mint_vault_test_case(),
       is_initial_utxo_consumed: False,
     }
-  !run_create_vault(test_case)
+  !run_mint_vault(test_case)
 }
 
-test s0_mint_fail_create_vault_without_oracle_nft_minted() {
+test s0_mint_fail_mint_vault_without_oracle_nft_minted() {
   let test_case =
-    CreateVaultTestCase {
-      ..default_create_vault_test_case(),
+    MintVaultTestCase {
+      ..default_mint_vault_test_case(),
       is_oracle_nft_minted: False,
     }
-  !run_create_vault(test_case)
+  !run_mint_vault(test_case)
 }
 
-test s0_mint_fail_create_vault_without_app_oracle_referenced() fail {
+test s0_mint_fail_mint_vault_with_non_zero_total_shares() {
   let test_case =
-    CreateVaultTestCase {
-      ..default_create_vault_test_case(),
-      is_app_oracle_referenced: False,
+    MintVaultTestCase {
+      ..default_mint_vault_test_case(),
+      is_total_shares_zero: False,
     }
-  run_create_vault(test_case)
+  !run_mint_vault(test_case)
 }
 
-test s0_mint_fail_create_vault_with_invalid_hydra_keys() {
+test s0_mint_fail_mint_vault_with_non_zero_operator_shares() {
   let test_case =
-    CreateVaultTestCase {
-      ..default_create_vault_test_case(),
-      is_hydra_keys_valid: False,
+    MintVaultTestCase {
+      ..default_mint_vault_test_case(),
+      is_operator_shares_zero: False,
     }
-  !run_create_vault(test_case)
+  !run_mint_vault(test_case)
 }
 
-test s0_mint_fail_create_vault_with_incorrect_total_shares() {
+test s0_mint_fail_mint_vault_with_non_zero_total_deposited() {
   let test_case =
-    CreateVaultTestCase {
-      ..default_create_vault_test_case(),
-      is_total_shares_correct: False,
+    MintVaultTestCase {
+      ..default_mint_vault_test_case(),
+      is_total_deposited_zero: False,
     }
-  !run_create_vault(test_case)
+  !run_mint_vault(test_case)
 }
 
-test s0_mint_fail_create_vault_with_incorrect_operator_shares() {
+test s0_mint_fail_mint_vault_with_non_empty_merkle_root() {
   let test_case =
-    CreateVaultTestCase {
-      ..default_create_vault_test_case(),
-      is_operator_shares_correct: False,
+    MintVaultTestCase {
+      ..default_mint_vault_test_case(),
+      is_merkle_root_empty: False,
     }
-  !run_create_vault(test_case)
+  !run_mint_vault(test_case)
 }
 
-test s0_mint_fail_create_vault_with_incorrect_total_deposited() {
+test s0_mint_fail_mint_vault_with_non_zero_fee_collected() {
   let test_case =
-    CreateVaultTestCase {
-      ..default_create_vault_test_case(),
-      is_total_deposited_correct: False,
-    }
-  !run_create_vault(test_case)
-}
-
-test s0_mint_fail_create_vault_when_shares_not_equal_deposited() {
-  let test_case =
-    CreateVaultTestCase {
-      ..default_create_vault_test_case(),
-      is_shares_equal_deposited: False,
-    }
-  !run_create_vault(test_case)
-}
-
-test s0_mint_fail_create_vault_with_incorrect_merkle_root() {
-  let test_case =
-    CreateVaultTestCase {
-      ..default_create_vault_test_case(),
-      is_merkle_root_correct: False,
-    }
-  !run_create_vault(test_case)
-}
-
-test s0_mint_fail_create_vault_with_invalid_charge_percentage() {
-  let test_case =
-    CreateVaultTestCase {
-      ..default_create_vault_test_case(),
-      is_charge_percentage_valid: False,
-    }
-  !run_create_vault(test_case)
-}
-
-test s0_mint_fail_create_vault_when_not_active() {
-  let test_case =
-    CreateVaultTestCase {
-      ..default_create_vault_test_case(),
-      is_active_true: False,
-    }
-  !run_create_vault(test_case)
-}
-
-test s0_mint_fail_create_vault_when_fee_collected_not_zero() {
-  let test_case =
-    CreateVaultTestCase {
-      ..default_create_vault_test_case(),
+    MintVaultTestCase {
+      ..default_mint_vault_test_case(),
       is_fee_collected_zero: False,
     }
-  !run_create_vault(test_case)
+  !run_mint_vault(test_case)
 }
 
-test s0_mint_fail_create_vault_without_deposit_in_vault() {
+test s0_mint_fail_mint_vault_with_invalid_charge_percentage() {
   let test_case =
-    CreateVaultTestCase {
-      ..default_create_vault_test_case(),
-      is_deposit_in_vault: False,
+    MintVaultTestCase {
+      ..default_mint_vault_test_case(),
+      is_charge_percentage_valid: False,
     }
-  !run_create_vault(test_case)
+  !run_mint_vault(test_case)
 }
 
-test s0_mint_fail_create_vault_without_operator_signed() {
+test s0_mint_fail_mint_vault_with_wrong_app_oracle() {
   let test_case =
-    CreateVaultTestCase {
-      ..default_create_vault_test_case(),
-      is_operator_signed: False,
+    MintVaultTestCase {
+      ..default_mint_vault_test_case(),
+      is_app_oracle_correct: False,
     }
-  !run_create_vault(test_case)
-}
-
-test s0_mint_fail_create_vault_without_operation_signed() {
-  let test_case =
-    CreateVaultTestCase {
-      ..default_create_vault_test_case(),
-      is_operation_signed: False,
-    }
-  !run_create_vault(test_case)
+  !run_mint_vault(test_case)
 }
 
 // ========== CloseVault Test Case ==========

@@ -148,31 +148,29 @@ pub fn process_batched_deposit_intent_validation(
 
                   let new_root =
                     when action is {
-                      SharesInsert { proof, new_value } -> {
-                        // New depositor
-                        let expected_entry =
+                      SharesInsert { proof } -> {
+                        // New depositor - compute new_value
+                        let new_entry =
                           SharesRecordEntry {
                             shares: cal_shares,
                             total_deposited: intent_datum_usd_value,
                           }
-                        let expected_value = cbor.serialise(expected_entry)
-                        expect new_value == expected_value
+                        let new_value = cbor.serialise(new_entry)
                         let trie = mpf.from_root(current_root)
                         let new_trie =
                           mpf.insert(trie, mpf_key, new_value, proof)
                         mpf.root(new_trie)
                       }
-                      SharesUpdate { from, to, to_proof } -> {
-                        // Existing depositor
+                      SharesUpdate { from, to_proof } -> {
+                        // Existing depositor - compute to value
                         expect Some(from_data) = cbor.deserialise(from)
                         expect old_entry: SharesRecordEntry = from_data
-                        let expected_entry =
+                        let new_entry =
                           SharesRecordEntry {
                             shares: old_entry.shares + cal_shares,
                             total_deposited: old_entry.total_deposited + intent_datum_usd_value,
                           }
-                        let expected_value = cbor.serialise(expected_entry)
-                        expect to == expected_value
+                        let to = cbor.serialise(new_entry)
                         let trie = mpf.from_root(current_root)
                         let new_trie =
                           mpf.update(trie, mpf_key, to_proof, from, to)
@@ -307,31 +305,29 @@ pub fn process_batched_l2_deposit_intent_validation(
 
                   let new_root =
                     when action is {
-                      SharesInsert { proof, new_value } -> {
-                        // New depositor
-                        let expected_entry =
+                      SharesInsert { proof } -> {
+                        // New depositor - compute new_value
+                        let new_entry =
                           SharesRecordEntry {
                             shares: cal_shares,
                             total_deposited: intent_datum_usd_value,
                           }
-                        let expected_value = cbor.serialise(expected_entry)
-                        expect new_value == expected_value
+                        let new_value = cbor.serialise(new_entry)
                         let trie = mpf.from_root(current_root)
                         let new_trie =
                           mpf.insert(trie, mpf_key, new_value, proof)
                         mpf.root(new_trie)
                       }
-                      SharesUpdate { from, to, to_proof } -> {
-                        // Existing depositor
+                      SharesUpdate { from, to_proof } -> {
+                        // Existing depositor - compute to value
                         expect Some(from_data) = cbor.deserialise(from)
                         expect old_entry: SharesRecordEntry = from_data
-                        let expected_entry =
+                        let new_entry =
                           SharesRecordEntry {
                             shares: old_entry.shares + cal_shares,
                             total_deposited: old_entry.total_deposited + intent_datum_usd_value,
                           }
-                        let expected_value = cbor.serialise(expected_entry)
-                        expect to == expected_value
+                        let to = cbor.serialise(new_entry)
                         let trie = mpf.from_root(current_root)
                         let new_trie =
                           mpf.update(trie, mpf_key, to_proof, from, to)

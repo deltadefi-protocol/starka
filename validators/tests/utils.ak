@@ -2,8 +2,10 @@ use aiken/cbor
 use aiken/crypto.{blake2b_224}
 use aiken/merkle_patricia_forestry as mpf
 use cardano/address.{Address, from_script}
-use hydra_dex/types.{Account, AppOracleDatum, DexOrderBookDatum,
-  HydraInfo, UserTradeAccount, WithdrawalScriptHashes} as dd_types
+use hydra_dex/types.{
+  Account, AppOracleDatum, DexOrderBookDatum, HydraInfo, UserTradeAccount,
+  WithdrawalScriptHashes,
+} as dd_types
 use mocktail.{
   mock_policy_id, mock_pub_key_address, mock_pub_key_hash, mock_script_hash,
   mock_utxo_ref,
@@ -162,6 +164,12 @@ pub const mock_vault_script_hash = mock_script_hash(17)
 
 pub const mock_hydra_user_intent_script_hash = mock_script_hash(50)
 
+pub const mock_hydra_account_script_hash = mock_script_hash(51)
+
+pub const mock_hydra_order_book_script_hash = mock_script_hash(52)
+
+pub const mock_hydra_token_policy_id = mock_policy_id(53)
+
 // ========== Vault state values ==========
 
 pub const mock_total_shares = 3000000000000000
@@ -230,7 +238,7 @@ pub const mock_vault_oracle_datum: VaultOracleDatum =
 
 // ========== DexOrderBook datum ==========
 
-pub fn build_dex_order_book_datum() -> DexOrderBookDatum {
+pub const mock_dex_order_book_datum: DexOrderBookDatum =
   DexOrderBookDatum {
     operation_key: mock_operation_key,
     stop_key: mock_operation_key,
@@ -248,11 +256,10 @@ pub fn build_dex_order_book_datum() -> DexOrderBookDatum {
     dex_order_book_token: mock_dex_order_book_token,
     dex_order_book_address: mock_dex_order_book_address,
     hydra_user_intent_script_hash: mock_hydra_user_intent_script_hash,
-    hydra_account_script_hash: mock_hydra_user_intent_script_hash,
-    hydra_order_book_script_hash: mock_hydra_user_intent_script_hash,
-    hydra_token_policy_id: mock_dex_order_book_token,
+    hydra_account_script_hash: mock_hydra_account_script_hash,
+    hydra_order_book_script_hash: mock_hydra_order_book_script_hash,
+    hydra_token_policy_id: mock_hydra_token_policy_id,
   }
-}
 
 // ========== Deposit / Withdrawal intent data ==========
 

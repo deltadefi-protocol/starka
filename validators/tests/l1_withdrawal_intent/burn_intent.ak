@@ -1,6 +1,6 @@
 use aiken/cbor
 use aiken/merkle_patricia_forestry as mpf
-use cardano/address.{from_script, from_verification_key}
+use cardano/address.{from_script}
 use cardano/assets.{add, from_asset}
 use cardano/transaction.{Transaction}
 use l1_withdrawal_intent/spend_and_mint as l1_withdrawal_intent
@@ -17,8 +17,8 @@ use tests/utils.{
   mock_vault_script_hash, null_hash,
 }
 use types.{
-  BurnIntent, SharesDelete, SharesRecordEntry, VaultOracleDatum,
-  WithdrawalIntentDatum,
+  BurnIntent, IntentRedeemerL1, SharesDelete, SharesRecordEntry,
+  VaultOracleDatum, WithdrawalIntentDatum,
 }
 use withdraw_utils.{convert_shares_to_usd}
 
@@ -64,7 +64,11 @@ fn mock_l1_withdrawal_datum() -> WithdrawalIntentDatum {
 }
 
 fn computed_gross_value() -> Int {
-  convert_shares_to_usd(mock_shares_to_redeem, mock_total_shares, mock_vault_equity)
+  convert_shares_to_usd(
+    mock_shares_to_redeem,
+    mock_total_shares,
+    mock_vault_equity,
+  )
 }
 
 fn computed_user_receives() -> Int {
@@ -158,13 +162,17 @@ fn mock_burn_intent_tx(test_case: BurnIntentTestCase) -> Transaction {
   let new_merkle_root = null_hash
 
   let vault_oracle_output_datum =
-    build_vault_oracle_output_datum(new_merkle_root, is_vault_oracle_output_correct)
+    build_vault_oracle_output_datum(
+      new_merkle_root,
+      is_vault_oracle_output_correct,
+    )
 
   // Vault output keeps remaining funds + oracle NFT
   let vault_oracle_output_value =
     if is_vault_unlock_correct {
       // Vault keeps (1_000_000_000 - 500_000_000) = 500_000_000 ADA + oracle NFT
-      from_asset(mock_vault_nft, "", 1) |> add("", "", 1_000_000_000 - ada_to_unlock)
+      from_asset(mock_vault_nft, "", 1)
+        |> add("", "", 1_000_000_000 - ada_to_unlock)
     } else {
       // Incorrect: vault keeps all
       from_asset(mock_vault_nft, "", 1) |> add("", "", 1_000_000_000)
@@ -246,7 +254,7 @@ fn mock_burn_intent_tx(test_case: BurnIntentTestCase) -> Transaction {
     |> complete()
 }
 
-fn build_redeemer() -> types.IntentRedeemer {
+fn build_redeemer() -> IntentRedeemerL1 {
   let mpf_action = build_shares_delete_action()
   // Index 3 because: [0]=utxo_ref_input, [1]=vault_oracle_input, [2]=vault_input, [3]=intent_input
   // Output index 1 because: [0]=vault_oracle_output, [1]=withdrawer_output
@@ -369,7 +377,7 @@ test s3_mint_burn_intent_fail_no_app_oracle_ref() fail {
 }
 
 // Fail: Vault doesn't unlock correct amount to user
-test s3_mint_burn_intent_fail_vault_unlock_mismatch() {
+test s3_mint_burn_intent_fail_vault_unlock_mismatch() fail {
   let tx =
     mock_burn_intent_tx(
       BurnIntentTestCase {
@@ -383,7 +391,7 @@ test s3_mint_burn_intent_fail_vault_unlock_mismatch() {
       },
     )
 
-  !l1_withdrawal_intent.l1_withdrawal_intent.mint(
+  l1_withdrawal_intent.l1_withdrawal_intent.mint(
     mock_vault_nft,
     build_redeemer(),
     mock_l1_withdrawal_intent_script_hash,

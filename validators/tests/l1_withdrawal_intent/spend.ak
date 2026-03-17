@@ -24,8 +24,10 @@ type ProcessIntentTestCase {
 }
 
 fn mock_process_intent_tx(test_case: ProcessIntentTestCase) -> Transaction {
-  let ProcessIntentTestCase { is_mint_policy_correct, is_mint_redeemer_burn_intent } =
-    test_case
+  let ProcessIntentTestCase {
+    is_mint_policy_correct,
+    is_mint_redeemer_burn_intent,
+  } = test_case
 
   let policy_id = mock_l1_withdrawal_intent_script_hash
   let wrong_policy_id = mock_script_hash(999)

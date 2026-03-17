@@ -170,20 +170,19 @@ pub fn process_batched_withdrawal_intent_validation(
                           mpf.delete(trie, mpf_key, old_value, proof)
                         (cb, mpf.root(new_trie))
                       }
-                      SharesUpdate { from, to, to_proof } -> {
-                        // Partial withdrawal
+                      SharesUpdate { from, to_proof } -> {
+                        // Partial withdrawal - compute to value
                         expect Some(from_data) = cbor.deserialise(from)
                         expect old_entry: SharesRecordEntry = from_data
                         expect old_entry.shares >= shares_to_redeem
                         let cb =
                           old_entry.total_deposited * shares_to_redeem / old_entry.shares
-                        let expected_entry =
+                        let new_entry =
                           SharesRecordEntry {
                             shares: old_entry.shares - shares_to_redeem,
                             total_deposited: old_entry.total_deposited - cb,
                           }
-                        let expected_value = cbor.serialise(expected_entry)
-                        expect to == expected_value
+                        let to = cbor.serialise(new_entry)
                         let trie = mpf.from_root(current_root)
                         let new_trie =
                           mpf.update(trie, mpf_key, to_proof, from, to)
@@ -353,20 +352,19 @@ pub fn process_batched_l2_withdrawal_intent_validation(
                           mpf.delete(trie, mpf_key, old_value, proof)
                         (cb, mpf.root(new_trie))
                       }
-                      SharesUpdate { from, to, to_proof } -> {
-                        // Partial withdrawal
+                      SharesUpdate { from, to_proof } -> {
+                        // Partial withdrawal - compute to value
                         expect Some(from_data) = cbor.deserialise(from)
                         expect old_entry: SharesRecordEntry = from_data
                         expect old_entry.shares >= shares_to_redeem
                         let cb =
                           old_entry.total_deposited * shares_to_redeem / old_entry.shares
-                        let expected_entry =
+                        let new_entry =
                           SharesRecordEntry {
                             shares: old_entry.shares - shares_to_redeem,
                             total_deposited: old_entry.total_deposited - cb,
                           }
-                        let expected_value = cbor.serialise(expected_entry)
-                        expect to == expected_value
+                        let to = cbor.serialise(new_entry)
                         let trie = mpf.from_root(current_root)
                         let new_trie =
                           mpf.update(trie, mpf_key, to_proof, from, to)
@@ -455,27 +453,25 @@ pub fn apply_operator_fee_share(
   } else {
     let mpf_key = cbor.serialise(operator_address)
     when operator_action is {
-      SharesInsert { proof, new_value } -> {
-        // Operator has no existing entry
-        let expected_entry =
+      SharesInsert { proof } -> {
+        // Operator has no existing entry - compute new_value
+        let new_entry =
           SharesRecordEntry { shares: total_fee_shares, total_deposited: 0 }
-        let expected_value = cbor.serialise(expected_entry)
-        expect new_value == expected_value
+        let new_value = cbor.serialise(new_entry)
         let trie = mpf.from_root(current_root)
         let new_trie = mpf.insert(trie, mpf_key, new_value, proof)
         mpf.root(new_trie)
       }
-      SharesUpdate { from, to, to_proof } -> {
+      SharesUpdate { from, to_proof } -> {
         // Operator has existing entry — add fee shares, total_deposited unchanged
         expect Some(from_data) = cbor.deserialise(from)
         expect old_entry: SharesRecordEntry = from_data
-        let expected_entry =
+        let new_entry =
           SharesRecordEntry {
             shares: old_entry.shares + total_fee_shares,
             total_deposited: old_entry.total_deposited,
           }
-        let expected_value = cbor.serialise(expected_entry)
-        expect to == expected_value
+        let to = cbor.serialise(new_entry)
         let trie = mpf.from_root(current_root)
         let new_trie = mpf.update(trie, mpf_key, to_proof, from, to)
         mpf.root(new_trie)

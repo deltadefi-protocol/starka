@@ -38,8 +38,9 @@ L1 deposit intents allow users to deposit funds to the Trust Me Bro vault on L1.
    - Shares Merkle root transition:
      - For each deposit intent (chained sequentially):
        - Calculate `cal_shares = intent_usd_value * total_shares / vault_equity` (round DOWN)
-       - **New depositor** (`SharesInsert`): Insert `SharesRecordEntry { shares: cal_shares, total_deposited: intent_usd_value }`
-       - **Existing depositor** (`SharesUpdate`): Verify `new_entry.shares == old_entry.shares + cal_shares` and `new_entry.total_deposited == old_entry.total_deposited + intent_usd_value`
+       - **New depositor** (`SharesInsert { proof }`): Compute and insert `SharesRecordEntry { shares: cal_shares, total_deposited: intent_usd_value }`
+       - **Existing depositor** (`SharesUpdate { from, to_proof }`): Compute `new_entry.shares = old_entry.shares + cal_shares` and `new_entry.total_deposited = old_entry.total_deposited + intent_usd_value`
+     - Note: `new_value`/`to` are computed from shares + total_deposited, not passed in redeemer
      - Verify `computed_final_root == expected_final_root`
 
 3. CancelIntent - Redeemer `CancelIntent`

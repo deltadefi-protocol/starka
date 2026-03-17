@@ -38,8 +38,9 @@ L1 withdrawal intents allow users to withdraw funds from the Trust Me Bro vault 
    - Shares Merkle root transition:
      - For each withdrawal intent (chained sequentially):
        - Calculate `gross_value = shares_to_redeem * vault_equity / total_shares`
-       - **Total withdrawal** (`SharesDelete`): Verify `shares_to_redeem == shares_record.shares`. `cost_basis = shares_record.total_deposited`. Delete leaf.
-       - **Partial withdrawal** (`SharesUpdate`): `cost_basis = old_entry.total_deposited * shares_to_redeem / old_entry.shares`. Verify `new_entry.shares == old_entry.shares - shares_to_redeem`
+       - **Total withdrawal** (`SharesDelete { proof, old_value }`): Verify `shares_to_redeem == old_entry.shares`. `cost_basis = old_entry.total_deposited`. Delete leaf.
+       - **Partial withdrawal** (`SharesUpdate { from, to_proof }`): `cost_basis = old_entry.total_deposited * shares_to_redeem / old_entry.shares`. Compute `new_entry.shares = old_entry.shares - shares_to_redeem`
+       - Note: `to` value is computed from updated shares + total_deposited, not passed in redeemer
        - Fee calculation: `fee = max(0, (gross_value - cost_basis) * operator_charge_percentage / 100)` (round UP)
        - Fee shares: `fee_shares = fee * total_shares / vault_equity` (round UP)
        - Net payout: `net_payout = gross_value - fee` (round DOWN)

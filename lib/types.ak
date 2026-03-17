@@ -40,18 +40,24 @@ pub type VaultOracleDatum {
 
 // Vault Oracle mint redeemer
 pub type VaultOracleMintRedeemer {
-  CreateVault {
-    initial_deposit: MValue,
-    initial_shares: Int,
-    prices_message: ByteArray,
-    signatures: List<ByteArray>,
-    initial_shares_proof: Proof,
-  }
+  MintVault
   CloseVault
 }
 
 // Vault Oracle spend redeemer
 pub type VaultOracleSpendRedeemer {
+  L1InitialDeposit {
+    initial_deposit: MValue,
+    prices_message: ByteArray,
+    signatures: List<ByteArray>,
+    initial_shares_proof: Proof,
+  }
+  L2InitialDeposit {
+    initial_deposit: MValue,
+    prices_message: ByteArray,
+    signatures: List<ByteArray>,
+    initial_shares_proof: Proof,
+  }
   ProcessL1Deposit
   ProcessL1Withdrawal
   ProcessL2Deposit
@@ -70,17 +76,25 @@ pub type VaultSpendRedeemer {
   VaultPluggableLogic
 }
 
-// Intent redeemer (shared by all 4 intent validators)
-pub type IntentRedeemer {
+// L1 Intent redeemer (with batch processing params)
+pub type IntentRedeemerL1 {
   MintIntent
   BurnIntent(List<Int>, ByteArray, List<ByteArray>, List<SharesMPFAction>)
   CancelIntent
 }
 
+// L2 Intent redeemer (simplified - main logic in hydra_account/core.ak)
+pub type IntentRedeemerL2 {
+  MintIntentL2
+  BurnIntentL2
+  CancelIntentL2
+}
+
 // Shares Merkle Patricia Forestry action type
+// Note: new_value/to are computed from shares + total_deposited, not passed in redeemer
 pub type SharesMPFAction {
-  SharesInsert { proof: Proof, new_value: ByteArray }
-  SharesUpdate { from: ByteArray, to: ByteArray, to_proof: Proof }
+  SharesInsert { proof: Proof }
+  SharesUpdate { from: ByteArray, to_proof: Proof }
   SharesDelete { proof: Proof, old_value: ByteArray }
 }
 
@@ -119,4 +133,15 @@ pub type WithdrawalIntentDatum {
 pub type L2WithdrawalIntentDatum {
   withdrawer: Address,
   shares_to_redeem: Int,
+}
+
+pub type HydraAccountOperation {
+  ProcessWithdrawalHydraAccount
+  ProcessCancelWithdrawal
+  ProcessSameAccountTransferal
+  ProcessTransferal
+  ProcessCombineUtxosAtClose
+  ProcessSplitUtxosAtOpen
+  ProcessVaultDeposit(ByteArray, List<ByteArray>, SharesMPFAction)
+  ProcessVaultWithdrawal(ByteArray, List<ByteArray>, SharesMPFAction)
 }

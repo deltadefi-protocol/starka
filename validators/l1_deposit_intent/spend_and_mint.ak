@@ -11,7 +11,8 @@ use deposit_utils.{process_batched_deposit_intent_validation}
 use hydra_dex/types.{AppOracleDatum, HydraInfo} as dd_types
 use price_oracle_utils.{verify_prices_oracle_messages}
 use types.{
-  BurnIntent, CancelIntent, DepositIntentDatum, MintIntent, VaultOracleDatum,
+  BurnIntent, CancelIntent, DepositIntentDatum, IntentRedeemerL1, MintIntent,
+  VaultOracleDatum,
 }
 use utils.{check_mint_redeemer_is_burn_intent, get_app_oracle_datum}
 
@@ -31,7 +32,7 @@ validator l1_deposit_intent(vault_oracle_nft: PolicyId) {
     check_mint_redeemer_is_burn_intent(mint_purpose, redeemers)?
   }
 
-  mint(redeemer: types.IntentRedeemer, policy_id: PolicyId, self: Transaction) {
+  mint(redeemer: IntentRedeemerL1, policy_id: PolicyId, self: Transaction) {
     let Transaction {
       inputs,
       outputs,

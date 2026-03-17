@@ -17,7 +17,10 @@ use tests/utils.{
   mock_signatures, mock_total_deposited, mock_total_shares, mock_vault_equity,
   mock_vault_nft, mock_vault_oracle_datum, mock_vault_script_hash,
 }
-use types.{BurnIntent, SharesInsert, SharesRecordEntry, VaultOracleDatum}
+use types.{
+  BurnIntent, IntentRedeemerL1, SharesInsert, SharesRecordEntry,
+  VaultOracleDatum,
+}
 
 // ========== BurnIntent Tests ==========
 // Spec:
@@ -64,11 +67,9 @@ fn build_vault_oracle_output_datum(
   }
 }
 
-fn build_mpf_insert_action(_depositor_address, cal_shares: Int, usd_value: Int) {
-  let entry =
-    SharesRecordEntry { shares: cal_shares, total_deposited: usd_value }
-  let mpf_value = cbor.serialise(entry)
-  SharesInsert { proof: [], new_value: mpf_value }
+fn build_mpf_insert_action(_depositor_address, _cal_shares: Int, _usd_value: Int) {
+  // new_value is computed in deposit_utils, not passed in redeemer
+  SharesInsert { proof: [] }
 }
 
 fn compute_new_merkle_root(
@@ -203,7 +204,7 @@ fn mock_burn_intent_tx(test_case: BurnIntentTestCase) -> Transaction {
     |> complete()
 }
 
-fn build_redeemer() -> types.IntentRedeemer {
+fn build_redeemer() -> IntentRedeemerL1 {
   let depositor = mock_pub_key_address(0, None)
   let cal_shares = computed_shares()
   let mpf_action =
