@@ -24,7 +24,7 @@
    - Get `VaultOracleDatum` from **reference_inputs**
    - Withdrawal Script `pluggable_logic` is validated
 
-## User Action - Withdrawal (L2 only)
+## User Action - Withdrawal (L1 regular deposit and L2 only)
 
 1. Withdraw
    - Get `VaultOracleDatum` from **reference_inputs**

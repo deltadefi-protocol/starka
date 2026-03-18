@@ -2,7 +2,7 @@ use aiken/crypto.{VerificationKey}
 use aiken/merkle_patricia_forestry.{Proof}
 use cardano/assets.{AssetName, PolicyId}
 use cardano/transaction.{OutputReference}
-use hydra_dex/types.{UserAccount} as dd_types
+use hydra_dex/types.{TokenMap, UserAccount} as dd_types
 
 // Shared multi-asset value type
 pub type MValue =
@@ -144,6 +144,12 @@ pub type HydraAccountOperation {
   ProcessTransferal
   ProcessCombineUtxosAtClose
   ProcessSplitUtxosAtOpen
-  ProcessVaultDeposit(ByteArray, List<ByteArray>, SharesMPFAction)
-  ProcessVaultWithdrawal(ByteArray, List<ByteArray>, SharesMPFAction)
+  ProcessVaultDeposit(ByteArray, List<ByteArray>, TokenMap, SharesMPFAction)
+  ProcessVaultWithdrawal(
+    ByteArray,
+    List<ByteArray>,
+    TokenMap,
+    SharesMPFAction,
+    SharesMPFAction,
+  )
 }

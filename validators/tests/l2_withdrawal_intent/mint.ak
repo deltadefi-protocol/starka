@@ -21,8 +21,15 @@ use types.{
 }
 
 // Fake redeemer for ProcessVaultWithdrawal (actual validation happens in hydra_account)
+// ProcessVaultWithdrawal(prices_message, signatures, token_map, mpf_action, operator_mpf_action)
 fn mock_process_vault_withdrawal_redeemer() {
-  ProcessVaultWithdrawal(#"", [], SharesDelete { proof: [], old_value: #"" })
+  ProcessVaultWithdrawal(
+    #"",
+    [],
+    [],
+    SharesDelete { proof: [], old_value: #"" },
+    SharesDelete { proof: [], old_value: #"" },
+  )
 }
 
 // ========== MintIntentL2 Tests ==========

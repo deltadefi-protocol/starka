@@ -20,8 +20,9 @@ use types.{
 }
 
 // Fake redeemer for ProcessVaultDeposit (actual validation happens in hydra_account)
+// ProcessVaultDeposit(prices_message, signatures, token_map, mpf_action)
 fn mock_process_vault_deposit_redeemer() {
-  ProcessVaultDeposit(#"", [], SharesInsert { proof: [] })
+  ProcessVaultDeposit(#"", [], [], SharesInsert { proof: [] })
 }
 
 // ========== L2 MintIntent Tests ==========
