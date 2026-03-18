@@ -45,14 +45,10 @@ pub type VaultOracleMintRedeemer {
 }
 
 // Vault Oracle spend redeemer
+// Note: L2InitialDeposit is handled by HydraAccount validator (ProcessVaultDeposit with total_shares == 0)
 pub type VaultOracleSpendRedeemer {
   L1InitialDeposit {
-    initial_deposit: MValue,
-    prices_message: ByteArray,
-    signatures: List<ByteArray>,
-    initial_shares_proof: Proof,
-  }
-  L2InitialDeposit {
+    depositor: UserAccount,
     initial_deposit: MValue,
     prices_message: ByteArray,
     signatures: List<ByteArray>,

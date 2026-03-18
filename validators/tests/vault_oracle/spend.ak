@@ -1,24 +1,305 @@
+use aiken/cbor
+use aiken/merkle_patricia_forestry as mpf
 use cardano/address.{from_script}
-use cardano/assets.{add, from_asset}
+use cardano/assets.{add, from_asset, from_asset_list}
 use cardano/transaction.{Mint, Transaction}
 use mocktail.{
   add_redeemer, complete, mint, mock_tx_hash, mock_utxo_ref, mocktail_tx,
-  required_signer_hash, script_withdrawal, tx_in, tx_in_inline_datum, tx_out,
-  tx_out_inline_datum,
+  ref_tx_in, ref_tx_in_inline_datum, required_signer_hash, script_withdrawal,
+  tx_in, tx_in_inline_datum, tx_out, tx_out_inline_datum,
 }
 use tests/utils.{
-  mock_app_oracle, mock_hydra_signer_1, mock_hydra_signer_2, mock_hydra_signer_3,
-  mock_initial_utxo, mock_l1_deposit_intent_script_hash,
+  mock_app_oracle, mock_app_oracle_address, mock_app_oracle_datum,
+  mock_create_vault_deposit_m_value, mock_create_vault_initial_shares,
+  mock_create_vault_message, mock_create_vault_signatures,
+  mock_create_vault_total_deposited, mock_hydra_signer_1, mock_hydra_signer_2,
+  mock_hydra_signer_3, mock_initial_utxo, mock_l1_deposit_intent_script_hash,
   mock_l1_withdrawal_intent_script_hash, mock_l2_deposit_intent_script_hash,
-  mock_l2_withdrawal_intent_script_hash, mock_pluggable_logic, mock_vault_nft,
-  mock_vault_oracle_datum,
+  mock_l2_withdrawal_intent_script_hash, mock_pluggable_logic,
+  mock_user_trade_account, mock_vault_nft, mock_vault_oracle_datum,
+  mock_vault_script_hash, null_hash,
 }
 use types.{
-  BurnIntent, CancelIntent, HydraCommit, HydraDecommit, PluggableLogic,
-  ProcessL1Deposit, ProcessL1Withdrawal, ProcessL2Deposit, ProcessL2Withdrawal,
-  UpdateConfig, VaultOracleDatum, VaultOracleSpendRedeemer,
+  BurnIntent, CancelIntent, HydraCommit, HydraDecommit, L1InitialDeposit,
+  PluggableLogic, ProcessL1Deposit, ProcessL1Withdrawal, ProcessL2Deposit,
+  ProcessL2Withdrawal, SharesRecordEntry, UpdateConfig, VaultOracleDatum,
+  VaultOracleSpendRedeemer,
 }
 use vault_oracle/spend_mint as vault_oracle
+
+// ========== L1InitialDeposit Test Case ==========
+
+type L1InitialDepositTestCase {
+  is_total_shares_zero: Bool,
+  is_keys_valid: Bool,
+  is_output_total_shares_correct: Bool,
+  is_output_operator_shares_zero: Bool,
+  is_output_total_deposited_correct: Bool,
+  is_output_merkle_root_correct: Bool,
+  is_output_fee_collected_zero: Bool,
+  is_deposit_in_vault: Bool,
+}
+
+fn default_l1_initial_deposit_test_case() -> L1InitialDepositTestCase {
+  L1InitialDepositTestCase {
+    is_total_shares_zero: True,
+    is_keys_valid: True,
+    is_output_total_shares_correct: True,
+    is_output_operator_shares_zero: True,
+    is_output_total_deposited_correct: True,
+    is_output_merkle_root_correct: True,
+    is_output_fee_collected_zero: True,
+    is_deposit_in_vault: True,
+  }
+}
+
+// Input datum for L1InitialDeposit: must have total_shares = 0
+fn mock_l1_initial_deposit_input_datum(
+  test_case: L1InitialDepositTestCase,
+) -> VaultOracleDatum {
+  let L1InitialDepositTestCase { is_total_shares_zero, is_keys_valid, .. } =
+    test_case
+
+  let total_shares =
+    if is_total_shares_zero {
+      0
+    } else {
+      100
+    }
+
+  // For invalid keys, use different keys
+  let hydra_node_pub_keys =
+    if is_keys_valid {
+      mock_vault_oracle_datum.hydra_node_pub_keys
+    } else {
+      [#"0000000000000000000000000000000000000000000000000000000000000000"]
+    }
+
+  VaultOracleDatum {
+    ..mock_vault_oracle_datum,
+    total_shares: total_shares,
+    operator_shares: 0,
+    total_deposited: 0,
+    shares_merkle_root: null_hash,
+    total_fee_collected: 0,
+    hydra_node_pub_keys: hydra_node_pub_keys,
+  }
+}
+
+// Compute expected merkle root for depositor's initial shares
+fn compute_expected_merkle_root() -> ByteArray {
+  let mpf_key = cbor.serialise(mock_user_trade_account)
+  let entry =
+    SharesRecordEntry {
+      shares: mock_create_vault_initial_shares,
+      total_deposited: mock_create_vault_total_deposited,
+    }
+  let mpf_value = cbor.serialise(entry)
+  mpf.root(mpf.insert(mpf.empty, mpf_key, mpf_value, []))
+}
+
+// Output datum for L1InitialDeposit
+fn mock_l1_initial_deposit_output_datum(
+  test_case: L1InitialDepositTestCase,
+) -> VaultOracleDatum {
+  let L1InitialDepositTestCase {
+    is_output_total_shares_correct,
+    is_output_operator_shares_zero,
+    is_output_total_deposited_correct,
+    is_output_merkle_root_correct,
+    is_output_fee_collected_zero,
+    ..
+  } = test_case
+
+  let total_shares =
+    if is_output_total_shares_correct {
+      mock_create_vault_initial_shares
+    } else {
+      mock_create_vault_initial_shares + 1
+    }
+
+  let operator_shares =
+    if is_output_operator_shares_zero {
+      0
+    } else {
+      100
+    }
+
+  let total_deposited =
+    if is_output_total_deposited_correct {
+      mock_create_vault_total_deposited
+    } else {
+      mock_create_vault_total_deposited + 1
+    }
+
+  let shares_merkle_root =
+    if is_output_merkle_root_correct {
+      compute_expected_merkle_root()
+    } else {
+      #"1111111111111111111111111111111111111111111111111111111111111111"
+    }
+
+  let total_fee_collected =
+    if is_output_fee_collected_zero {
+      0
+    } else {
+      100
+    }
+
+  VaultOracleDatum {
+    ..mock_vault_oracle_datum,
+    total_shares: total_shares,
+    operator_shares: operator_shares,
+    total_deposited: total_deposited,
+    shares_merkle_root: shares_merkle_root,
+    total_fee_collected: total_fee_collected,
+  }
+}
+
+fn mock_l1_initial_deposit_tx(
+  test_case: L1InitialDepositTestCase,
+) -> Transaction {
+  let L1InitialDepositTestCase { is_deposit_in_vault, .. } = test_case
+
+  let vault_oracle_address = from_script(mock_vault_nft)
+  let vault_address = from_script(mock_vault_script_hash)
+  let app_oracle_value = from_asset(mock_app_oracle, "", 1)
+  let vault_oracle_value =
+    from_asset(mock_vault_nft, "", 1) |> add("", "", 2_000_000)
+
+  let input_datum = mock_l1_initial_deposit_input_datum(test_case)
+  let output_datum = mock_l1_initial_deposit_output_datum(test_case)
+
+  // Deposit value to vault
+  let deposit_value = from_asset_list(mock_create_vault_deposit_m_value)
+  let vault_output_value =
+    if is_deposit_in_vault {
+      deposit_value
+    } else {
+      from_asset("", "", 1_000_000)
+    }
+
+  mocktail_tx()
+    // App oracle reference input
+    |> ref_tx_in(
+        True,
+        mock_tx_hash(1),
+        0,
+        app_oracle_value,
+        mock_app_oracle_address,
+      )
+    |> ref_tx_in_inline_datum(True, mock_app_oracle_datum)
+    // Vault oracle input
+    |> tx_in(True, mock_tx_hash(0), 0, vault_oracle_value, vault_oracle_address)
+    |> tx_in_inline_datum(True, input_datum)
+    // Vault oracle output
+    |> tx_out(True, vault_oracle_address, vault_oracle_value)
+    |> tx_out_inline_datum(True, output_datum)
+    // Vault output (deposit)
+    |> tx_out(True, vault_address, vault_output_value)
+    |> complete()
+}
+
+fn run_l1_initial_deposit(test_case: L1InitialDepositTestCase) -> Bool {
+  let tx = mock_l1_initial_deposit_tx(test_case)
+  let input_datum = mock_l1_initial_deposit_input_datum(test_case)
+
+  let redeemer =
+    L1InitialDeposit {
+      depositor: mock_user_trade_account,
+      initial_deposit: mock_create_vault_deposit_m_value,
+      prices_message: mock_create_vault_message,
+      signatures: mock_create_vault_signatures,
+      initial_shares_proof: [],
+    }
+
+  vault_oracle.vault_oracle.spend(
+    mock_initial_utxo,
+    mock_app_oracle,
+    Some(input_datum),
+    redeemer,
+    mock_utxo_ref(0, 0),
+    tx,
+  )
+}
+
+// ========== L1InitialDeposit Tests ==========
+
+test s0_spend_success_l1_initial_deposit() {
+  run_l1_initial_deposit(default_l1_initial_deposit_test_case())
+}
+
+test s0_spend_fail_l1_initial_deposit_when_total_shares_not_zero() {
+  let test_case =
+    L1InitialDepositTestCase {
+      ..default_l1_initial_deposit_test_case(),
+      is_total_shares_zero: False,
+    }
+  !run_l1_initial_deposit(test_case)
+}
+
+test s0_spend_fail_l1_initial_deposit_with_invalid_keys() {
+  let test_case =
+    L1InitialDepositTestCase {
+      ..default_l1_initial_deposit_test_case(),
+      is_keys_valid: False,
+    }
+  !run_l1_initial_deposit(test_case)
+}
+
+test s0_spend_fail_l1_initial_deposit_when_output_total_shares_wrong() {
+  let test_case =
+    L1InitialDepositTestCase {
+      ..default_l1_initial_deposit_test_case(),
+      is_output_total_shares_correct: False,
+    }
+  !run_l1_initial_deposit(test_case)
+}
+
+test s0_spend_fail_l1_initial_deposit_when_operator_shares_not_zero() {
+  let test_case =
+    L1InitialDepositTestCase {
+      ..default_l1_initial_deposit_test_case(),
+      is_output_operator_shares_zero: False,
+    }
+  !run_l1_initial_deposit(test_case)
+}
+
+test s0_spend_fail_l1_initial_deposit_when_output_total_deposited_wrong() {
+  let test_case =
+    L1InitialDepositTestCase {
+      ..default_l1_initial_deposit_test_case(),
+      is_output_total_deposited_correct: False,
+    }
+  !run_l1_initial_deposit(test_case)
+}
+
+test s0_spend_fail_l1_initial_deposit_when_merkle_root_wrong() {
+  let test_case =
+    L1InitialDepositTestCase {
+      ..default_l1_initial_deposit_test_case(),
+      is_output_merkle_root_correct: False,
+    }
+  !run_l1_initial_deposit(test_case)
+}
+
+test s0_spend_fail_l1_initial_deposit_when_fee_collected_not_zero() {
+  let test_case =
+    L1InitialDepositTestCase {
+      ..default_l1_initial_deposit_test_case(),
+      is_output_fee_collected_zero: False,
+    }
+  !run_l1_initial_deposit(test_case)
+}
+
+test s0_spend_fail_l1_initial_deposit_when_deposit_not_in_vault() {
+  let test_case =
+    L1InitialDepositTestCase {
+      ..default_l1_initial_deposit_test_case(),
+      is_deposit_in_vault: False,
+    }
+  !run_l1_initial_deposit(test_case)
+}
 
 // ========== ProcessIntent Test Case ==========
 

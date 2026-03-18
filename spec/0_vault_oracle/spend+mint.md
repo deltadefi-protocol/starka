@@ -60,66 +60,55 @@ The mint policy is a simple one-time minting policy (similar to `app_oracle/orac
 
 ## User Action - Spend
 
-1. L1InitialDeposit - `L1InitialDeposit { initial_deposit, prices_message, signatures, initial_shares_proof }`
+1. L1InitialDeposit - `L1InitialDeposit { depositor, initial_deposit, prices_message, signatures, initial_shares_proof }`
    - **Precondition**: `total_shares == 0` (vault is empty/new)
    - `app_oracle` is referenced to obtain `hydra_signers`
    - Verify `hydra_node_pub_keys` in output datum match `app_oracle`
    - Verify `prices` message signatures using `hydra_signers`
-   - Calculate `initial_shares` from `initial_deposit` USD value
-   - Initial state: `total_shares = initial_shares`, `operator_shares = initial_shares`, `total_deposited = initial_shares` (genesis share price = 1.0)
-   - `shares_merkle_root`: computed from inserting operator's initial shares entry (key = operator_account.account)
+   - Calculate `initial_shares` from `initial_deposit` USD value (share price = 1.0)
+   - Initial state: `total_shares = initial_shares`, `operator_shares = 0`, `total_deposited = initial_shares`
+   - `shares_merkle_root`: computed from inserting depositor's initial shares entry (key = `cbor.serialise(depositor)`)
    - `initial_deposit` value goes to Vault UTxO (separate from Oracle)
-   - **Signed by `operator_account.account.master_key` AND `operation_key` (from app_oracle)**
+   - **Anyone can perform initial deposit (no signature required)**
 
-2. L2InitialDeposit - `L2InitialDeposit { initial_deposit, prices_message, signatures, initial_shares_proof }`
-   - **Precondition**: `total_shares == 0` (vault is empty/new)
-   - `app_oracle` is referenced to obtain `hydra_signers`
-   - Verify `hydra_node_pub_keys` in output datum match `app_oracle`
-   - Verify `prices` message signatures using `hydra_signers`
-   - Calculate `initial_shares` from `initial_deposit` USD value
-   - Initial state: `total_shares = initial_shares`, `operator_shares = initial_shares`, `total_deposited = initial_shares` (genesis share price = 1.0)
-   - `shares_merkle_root`: computed from inserting operator's initial shares entry (key = operator_account.account)
-   - Balance transferred via TransferIntent (operator Account → Vault Account)
-   - DexOrderBook reference input required (for `hydra_user_intent_script_hash`)
-   - **Signed by `operator_account.account.master_key` AND `operation_key` (from app_oracle)**
-
-3. ProcessL1Deposit
+2. ProcessL1Deposit
    - `L1DepositIntent` token is burnt with `BurnIntent` redeemer
    - All validation delegated to L1 deposit intent mint validator
    - Vault UTxO spent in same transaction (funds flow: User → Vault → AppVault)
 
-4. ProcessL1Withdrawal
+3. ProcessL1Withdrawal
    - `L1WithdrawalIntent` token is burnt with `BurnIntent` redeemer
    - All validation delegated to L1 withdrawal intent mint validator
    - Vault UTxO spent in same transaction (funds flow: Vault account → Vault → User)
 
-5. ProcessL2Deposit
+4. ProcessL2Deposit
    - `L2DepositIntent` token is burnt with `BurnIntent` redeemer
    - All validation delegated to L2 deposit intent mint validator
    - Transfers balance from user's Account UTxO to vault's Account UTxO
 
-6. ProcessL2Withdrawal
+5. ProcessL2Withdrawal
    - `L2WithdrawalIntent` token is burnt with `BurnIntent` redeemer
    - All validation delegated to L2 withdrawal intent mint validator
    - Transfers balance from vault's Account UTxO to user's Account UTxO
 
-7. HydraCommit
+6. HydraCommit
    - All `hydra_node_pub_keys` sign the transaction
 
-8. HydraDecommit
+7. HydraDecommit
    - All `hydra_node_pub_keys` sign the transaction
    - Input and output equal
 
-9. PluggableLogic (arbitrage vault)
+8. PluggableLogic (arbitrage vault)
    - Withdrawal Script `pluggable_logic` is validated
 
-10. UpdateConfig
-   - **Signed by all `hydra_node_pub_keys`**
-   - All config fields can be modified
-   - Constraints:
-     - `operator_charge_percentage` must be >= 0 and <= 100
-     - `hydra_node_pub_keys` must match `app_oracle` signers (if `app_oracle` changed)
-   - State fields unchanged
+9. UpdateConfig
+
+- **Signed by all `hydra_node_pub_keys`**
+- All config fields can be modified
+- Constraints:
+  - `operator_charge_percentage` must be >= 0 and <= 100
+  - `hydra_node_pub_keys` must match `app_oracle` signers (if `app_oracle` changed)
+- State fields unchanged
 
 ## Script Upgrades
 
@@ -140,11 +129,13 @@ To upgrade any script (vault, intents, etc.):
 ## Lifecycle
 
 **Path A: L1 Initial Deposit**
+
 ```
 MintOracle -> L1InitialDeposit -> L1 deposits -> HydraCommit -> L2 ops -> HydraDecommit -> L1 withdrawals -> CloseVault
 ```
 
 **Path B: L2 Initial Deposit**
+
 ```
 MintOracle -> HydraCommit -> L2InitialDeposit -> L2 ops -> HydraDecommit -> L1 withdrawals -> CloseVault
 ```
