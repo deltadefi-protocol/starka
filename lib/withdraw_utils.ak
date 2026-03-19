@@ -13,21 +13,22 @@ use types.{
   WithdrawalIntentDatum,
 }
 
-pub type Scott5<a, b, c, d, e, result> =
-  fn(a, b, c, d, e) -> result
+pub type Scott6<a, b, c, d, e, f, result> =
+  fn(a, b, c, d, e, f) -> result
 
-pub fn list_foldl5(
+pub fn list_foldl6(
   self: List<x>,
   zero_a: a,
   zero_b: b,
   zero_c: c,
   zero_d: d,
   zero_e: e,
-  with: fn(x, a, b, c, d, e, Scott5<a, b, c, d, e, result>) -> result,
-  return: Scott5<a, b, c, d, e, result>,
+  zero_f: f,
+  with: fn(x, a, b, c, d, e, f, Scott6<a, b, c, d, e, f, result>) -> result,
+  return: Scott6<a, b, c, d, e, f, result>,
 ) -> result {
   when self is {
-    [] -> return(zero_a, zero_b, zero_c, zero_d, zero_e)
+    [] -> return(zero_a, zero_b, zero_c, zero_d, zero_e, zero_f)
     [x, ..xs] -> {
       let
         acc_a,
@@ -35,8 +36,9 @@ pub fn list_foldl5(
         acc_c,
         acc_d,
         acc_e,
-      <- with(x, zero_a, zero_b, zero_c, zero_d, zero_e)
-      list_foldl5(xs, acc_a, acc_b, acc_c, acc_d, acc_e, with, return)
+        acc_f,
+      <- with(x, zero_a, zero_b, zero_c, zero_d, zero_e, zero_f)
+      list_foldl6(xs, acc_a, acc_b, acc_c, acc_d, acc_e, acc_f, with, return)
     }
   }
 }
@@ -90,7 +92,7 @@ pub fn check_output_value_equal_to_shares_usd_value(
 }
 
 // Process batched withdrawal intents with MPF merkle root transitions.
-// Returns (total_shares_amount, total_user_receives, total_fee_shares, total_cost_removed, final_merkle_root)
+// Returns (total_shares_amount, total_user_receives, total_fee_shares, total_cost_removed, operator_shares_withdrawn, final_merkle_root)
 pub fn process_batched_withdrawal_intent_validation(
   inputs: List<Input>,
   outputs: List<Output>,
@@ -102,18 +104,21 @@ pub fn process_batched_withdrawal_intent_validation(
   prices: Pairs<(PolicyId, AssetName), Int>,
   withdrawal_intent_script_hash: ScriptHash,
   initial_merkle_root: ByteArray,
-) -> (Int, Int, Int, Int, ByteArray) {
-  // Accumulate: (state_triple, total_shares, total_user_receives, total_fee_shares, total_cost_removed)
+  operator_account: Account,
+) -> (Int, Int, Int, Int, Int, ByteArray) {
+  // Accumulate: (state_triple, total_shares, total_user_receives, total_fee_shares, total_cost_removed, operator_shares_withdrawn)
   let
     processed_state,
     total_intent_datum_shares_amount,
     total_user_receives,
     total_fee_shares,
     total_cost_removed,
+    operator_shares_withdrawn,
   <-
-    list_foldl5(
+    list_foldl6(
       inputs,
       (indices, mpf_actions, initial_merkle_root),
+      0,
       0,
       0,
       0,
@@ -125,6 +130,7 @@ pub fn process_batched_withdrawal_intent_validation(
         cal_user_receives,
         cal_fee_shares,
         cal_cost_removed,
+        cal_operator_shares_withdrawn,
         return,
       ) {
         let (remaining_indices, remaining_actions, current_root) =
@@ -155,8 +161,18 @@ pub fn process_batched_withdrawal_intent_validation(
 
                   // Apply MPF action and compute cost_basis
                   expect [action, ..rest_actions] = remaining_actions
-                  // Use Account directly as MPF key
-                  let mpf_key = cbor.serialise(withdrawer)
+                  // Extract Account from UserAccount and use as MPF key
+                  expect UserTradeAccount { account: withdrawer_acc, .. } =
+                    withdrawer
+                  let mpf_key = cbor.serialise(withdrawer_acc)
+
+                  // Track if withdrawer is operator
+                  let new_cal_operator_shares_withdrawn =
+                    if withdrawer_acc == operator_account {
+                      cal_operator_shares_withdrawn + shares_to_redeem
+                    } else {
+                      cal_operator_shares_withdrawn
+                    }
 
                   let (cost_basis, new_root) =
                     when action is {
@@ -206,10 +222,6 @@ pub fn process_batched_withdrawal_intent_validation(
                   let new_cal_user_receives = cal_user_receives + user_receives
                   let new_cal_fee_shares = cal_fee_shares + fee_shares
 
-                  // Check output value and payment credential
-                  expect UserTradeAccount { account: withdrawer_acc, .. } =
-                    withdrawer
-
                   let output_check =
                     check_output_value_equal_to_shares_usd_value(
                       out_utxo.value,
@@ -224,6 +236,7 @@ pub fn process_batched_withdrawal_intent_validation(
                       new_cal_user_receives,
                       new_cal_fee_shares,
                       cal_cost_removed + cost_basis,
+                      new_cal_operator_shares_withdrawn,
                     )
                   } else {
                     fail @"Withdrawal intent output incorrect"
@@ -237,6 +250,7 @@ pub fn process_batched_withdrawal_intent_validation(
                 cal_user_receives,
                 cal_fee_shares,
                 cal_cost_removed,
+                cal_operator_shares_withdrawn,
               )
             }
           _ ->
@@ -246,6 +260,7 @@ pub fn process_batched_withdrawal_intent_validation(
               cal_user_receives,
               cal_fee_shares,
               cal_cost_removed,
+              cal_operator_shares_withdrawn,
             )
         }
       },
@@ -258,6 +273,7 @@ pub fn process_batched_withdrawal_intent_validation(
         total_user_receives,
         total_fee_shares,
         total_cost_removed,
+        operator_shares_withdrawn,
         final_root,
       )
     _ -> fail @"Batch withdrawal intent UTxOs not fully processed"

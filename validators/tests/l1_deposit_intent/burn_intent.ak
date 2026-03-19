@@ -14,8 +14,8 @@ use tests/utils.{
   mock_app_oracle, mock_app_oracle_address, mock_app_oracle_datum,
   mock_deposit_intent_datum, mock_deposit_m_value,
   mock_l1_deposit_intent_script_hash, mock_message, mock_operation_key,
-  mock_signatures, mock_total_deposited, mock_total_shares, mock_user_account,
-  mock_vault_equity, mock_vault_nft, mock_vault_oracle_datum,
+  mock_operator_shares, mock_signatures, mock_total_deposited, mock_total_shares,
+  mock_user_account, mock_vault_equity, mock_vault_nft, mock_vault_oracle_datum,
   mock_vault_script_hash,
 }
 use types.{
@@ -60,9 +60,13 @@ fn build_vault_oracle_output_datum(
   usd_value: Int,
   new_merkle_root: ByteArray,
 ) -> VaultOracleDatum {
+  // Depositor is non-operator, so operator_shares_added = 0
+  // operator_shares = operator_shares + operator_shares_added
+  //                = 0 + 0 = 0
   VaultOracleDatum {
     ..mock_vault_oracle_datum,
     total_shares: mock_total_shares + cal_shares,
+    operator_shares: mock_operator_shares,
     total_deposited: mock_total_deposited + usd_value,
     shares_merkle_root: new_merkle_root,
   }

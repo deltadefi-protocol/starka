@@ -6,30 +6,31 @@ use cardano/address.{Script}
 use cardano/assets.{AssetName, PolicyId, Value}
 use cardano/transaction.{Input}
 use cocktail.{input_inline_datum}
-use hydra_dex/types.{UserTradeAccount} as dd_types
+use hydra_dex/types.{Account, UserTradeAccount} as dd_types
 use price_oracle_utils.{convert_m_value_to_usd}
 use types.{
   DepositIntentDatum, MValue, SharesInsert, SharesMPFAction, SharesRecordEntry,
   SharesUpdate,
 }
 
-pub type Scott4<a, b, c, d, result> =
-  fn(a, b, c, d) -> result
+pub type Scott5<a, b, c, d, e, result> =
+  fn(a, b, c, d, e) -> result
 
-pub fn list_foldl4(
+pub fn list_foldl5(
   self: List<x>,
   zero_a: a,
   zero_b: b,
   zero_c: c,
   zero_d: d,
-  with: fn(x, a, b, c, d, Scott4<a, b, c, d, result>) -> result,
-  return: Scott4<a, b, c, d, result>,
+  zero_e: e,
+  with: fn(x, a, b, c, d, e, Scott5<a, b, c, d, e, result>) -> result,
+  return: Scott5<a, b, c, d, e, result>,
 ) -> result {
   when self is {
-    [] -> return(zero_a, zero_b, zero_c, zero_d)
+    [] -> return(zero_a, zero_b, zero_c, zero_d, zero_e)
     [x, ..xs] -> {
-      let acc_a, acc_b, acc_c, acc_d <- with(x, zero_a, zero_b, zero_c, zero_d)
-      list_foldl4(xs, acc_a, acc_b, acc_c, acc_d, with, return)
+      let acc_a, acc_b, acc_c, acc_d, acc_e <- with(x, zero_a, zero_b, zero_c, zero_d, zero_e)
+      list_foldl5(xs, acc_a, acc_b, acc_c, acc_d, acc_e, with, return)
     }
   }
 }
@@ -76,7 +77,7 @@ pub fn cal_shares_amount(
 }
 
 // Process batched deposit intents with MPF merkle root transitions.
-// Returns (total_m_value, total_usd_value, total_shares_added, final_merkle_root)
+// Returns (total_m_value, total_usd_value, total_shares_added, operator_shares_added, final_merkle_root)
 pub fn process_batched_deposit_intent_validation(
   inputs: List<Input>,
   indices: List<Int>,
@@ -86,21 +87,24 @@ pub fn process_batched_deposit_intent_validation(
   prices: Pairs<(PolicyId, AssetName), Int>,
   deposit_intent_script_hash: ScriptHash,
   initial_merkle_root: ByteArray,
-) -> (MValue, Int, Int, ByteArray) {
+  operator_account: Account,
+) -> (MValue, Int, Int, Int, ByteArray) {
   let empty_m_value: MValue = []
 
-  // Accumulate: (remaining_indices_and_actions, total_m_value, total_usd_value, total_shares_added)
+  // Accumulate: (remaining_indices_and_actions, total_m_value, total_usd_value, total_shares_added, operator_shares_added)
   // We pack indices, mpf_actions, and merkle_root into the first accumulator
   let
     processed_state,
     total_intent_datum_m_value,
     total_intent_datum_usd_value,
     total_shares_added,
+    operator_shares_added,
   <-
-    list_foldl4(
+    list_foldl5(
       inputs,
       (indices, mpf_actions, initial_merkle_root),
       empty_m_value,
+      0,
       0,
       0,
       fn(
@@ -109,6 +113,7 @@ pub fn process_batched_deposit_intent_validation(
         cal_intent_datum_m_value,
         cal_intent_datum_usd_value,
         cal_shares_added,
+        cal_operator_shares_added,
         return,
       ) {
         let (remaining_indices, remaining_actions, current_root) =
@@ -150,6 +155,14 @@ pub fn process_batched_deposit_intent_validation(
                     depositor
                   let mpf_key = cbor.serialise(depositor_account)
 
+                  // Track if depositor is operator
+                  let new_cal_operator_shares_added =
+                    if depositor_account == operator_account {
+                      cal_operator_shares_added + cal_shares
+                    } else {
+                      cal_operator_shares_added
+                    }
+
                   let new_root =
                     when action is {
                       SharesInsert { proof } -> {
@@ -188,6 +201,7 @@ pub fn process_batched_deposit_intent_validation(
                     new_cal_intent_datum_m_value,
                     new_cal_intent_datum_usd_value,
                     new_cal_shares_added,
+                    new_cal_operator_shares_added,
                   )
                 }
               }
@@ -197,6 +211,7 @@ pub fn process_batched_deposit_intent_validation(
                 cal_intent_datum_m_value,
                 cal_intent_datum_usd_value,
                 cal_shares_added,
+                cal_operator_shares_added,
               )
             }
           _ ->
@@ -205,6 +220,7 @@ pub fn process_batched_deposit_intent_validation(
               cal_intent_datum_m_value,
               cal_intent_datum_usd_value,
               cal_shares_added,
+              cal_operator_shares_added,
             )
         }
       },
@@ -216,6 +232,7 @@ pub fn process_batched_deposit_intent_validation(
         total_intent_datum_m_value,
         total_intent_datum_usd_value,
         total_shares_added,
+        operator_shares_added,
         final_root,
       )
     _ -> fail @"Batch deposit intent UTxOs not fully processed"

@@ -74,11 +74,16 @@ validator l1_deposit_intent(vault_oracle_nft: PolicyId) {
           hydra_node_pub_keys,
           total_shares,
           total_deposited,
+          operator_shares,
+          operator_account,
           vault_script_hash,
           shares_merkle_root,
           app_oracle,
           ..
         } = vault_oracle_input_datum
+
+        // Extract operator Account from UserAccount
+        expect UserTradeAccount { account: operator_acc, .. } = operator_account
         // 2. Verify prices message via app_oracle reference input
         let app_oracle_datum: AppOracleDatum =
           reference_inputs
@@ -99,6 +104,7 @@ validator l1_deposit_intent(vault_oracle_nft: PolicyId) {
           total_intent_datum_m_value,
           total_intent_datum_usd_value,
           total_shares_added,
+          operator_shares_added,
           final_merkle_root,
         ) =
           process_batched_deposit_intent_validation(
@@ -110,6 +116,7 @@ validator l1_deposit_intent(vault_oracle_nft: PolicyId) {
             prices,
             policy_id,
             shares_merkle_root,
+            operator_acc,
           )
 
         // 4. Verify deposit value sent to vault script
@@ -124,6 +131,7 @@ validator l1_deposit_intent(vault_oracle_nft: PolicyId) {
           vault_oracle_output_datum == VaultOracleDatum {
             ..vault_oracle_input_datum,
             total_shares: total_shares + total_shares_added,
+            operator_shares: operator_shares + operator_shares_added,
             total_deposited: total_deposited + total_intent_datum_usd_value,
             shares_merkle_root: final_merkle_root,
           }

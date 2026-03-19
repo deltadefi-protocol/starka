@@ -93,6 +93,7 @@ validator l1_withdrawal_intent(vault_oracle_nft: PolicyId) {
           total_deposited,
           operator_shares,
           operator_charge_percentage,
+          operator_min_deposit_percentage,
           operator_account,
           shares_merkle_root,
           vault_script_hash,
@@ -114,6 +115,7 @@ validator l1_withdrawal_intent(vault_oracle_nft: PolicyId) {
           total_user_receives,
           total_fee_shares,
           total_cost_removed,
+          operator_shares_withdrawn,
           user_final_root,
         ) =
           process_batched_withdrawal_intent_validation(
@@ -127,6 +129,7 @@ validator l1_withdrawal_intent(vault_oracle_nft: PolicyId) {
             prices,
             policy_id,
             shares_merkle_root,
+            operator_acc,
           )
 
         // 4. Apply operator fee share MPF action
@@ -173,27 +176,43 @@ validator l1_withdrawal_intent(vault_oracle_nft: PolicyId) {
         let total_fee = total_gross_value - total_user_receives
 
         // 7. Verify oracle output datum updated correctly
+        // operator_shares: decreases by withdrawn shares, increases by fee shares
+        let new_total_shares =
+          total_shares - total_intent_datum_shares_amount + total_fee_shares
+        let new_operator_shares =
+          operator_shares - operator_shares_withdrawn + total_fee_shares
+
         let vault_oracle_datum_check =
           vault_oracle_output_datum == VaultOracleDatum {
             ..vault_oracle_input_datum,
-            total_shares: total_shares - total_intent_datum_shares_amount + total_fee_shares,
-            operator_shares: operator_shares + total_fee_shares,
+            total_shares: new_total_shares,
+            operator_shares: new_operator_shares,
             total_deposited: total_deposited - total_cost_removed,
             shares_merkle_root: final_merkle_root,
             total_fee_collected: total_fee_collected + total_fee,
           }
 
-        // 8. Verify intent burn count
+        // 8. Verify operator maintains minimum deposit percentage when withdrawing
+        // Check: new_operator_shares * 100 >= new_total_shares * operator_min_deposit_percentage
+        // Only enforced when operator is withdrawing (operator_shares_withdrawn > 0)
+        let operator_min_deposit_check =
+          if operator_shares_withdrawn > 0 {
+            new_operator_shares * 100 >= new_total_shares * operator_min_deposit_percentage
+          } else {
+            True
+          }
+
+        // 9. Verify intent burn count
         let intent_burn_check =
           policy_only_minted_token(mint, policy_id, "", -list.length(indices))
 
-        // 9. Signed by operation_key from app_oracle OR operator_key from vault oracle
+        // 10. Signed by operation_key from app_oracle OR operator_key from vault oracle
         let is_operation_signed =
           key_signed(extra_signatories, app_oracle_datum.operation_key)
         let is_operator_signed = key_signed(extra_signatories, operator_pkh)
         let is_authorized = is_operation_signed || is_operator_signed
 
-        is_prices_verified? && vault_unlock_check? && vault_oracle_datum_check? && intent_burn_check? && is_authorized?
+        is_prices_verified? && vault_unlock_check? && vault_oracle_datum_check? && operator_min_deposit_check? && intent_burn_check? && is_authorized?
       }
       CancelIntent -> {
         let is_burn_correct = policy_only_minted_token(mint, policy_id, "", -1)

@@ -12,9 +12,9 @@ use mocktail.{
 use tests/utils.{
   mock_app_oracle, mock_app_oracle_address, mock_app_oracle_datum,
   mock_l1_withdrawal_intent_script_hash, mock_message, mock_operation_key,
-  mock_operator_key, mock_signatures, mock_total_deposited, mock_total_shares,
-  mock_user_account, mock_user_trade_account, mock_vault_equity, mock_vault_nft,
-  mock_vault_oracle_datum, mock_vault_script_hash, null_hash,
+  mock_operator_key, mock_operator_shares, mock_signatures, mock_total_deposited,
+  mock_total_shares, mock_user_account, mock_user_trade_account, mock_vault_equity,
+  mock_vault_nft, mock_vault_oracle_datum, mock_vault_script_hash, null_hash,
 }
 use types.{
   BurnIntent, IntentRedeemerL1, SharesDelete, SharesRecordEntry,
@@ -101,11 +101,17 @@ fn build_vault_oracle_output_datum(
   is_correct: Bool,
 ) -> VaultOracleDatum {
   if is_correct {
+    // With operator_charge_percentage = 0, fee = 0 and fee_shares = 0
+    // Withdrawer is non-operator, so operator_shares_withdrawn = 0
+    // operator_shares = operator_shares - operator_shares_withdrawn + fee_shares
+    //                = 0 - 0 + 0 = 0
     VaultOracleDatum {
       ..mock_vault_oracle_datum,
       total_shares: mock_total_shares - mock_shares_to_redeem,
+      operator_shares: mock_operator_shares,
       total_deposited: mock_total_deposited - mock_cost_basis,
       shares_merkle_root: new_merkle_root,
+      total_fee_collected: 0,
     }
   } else {
     // Incorrect: don't update total_shares
