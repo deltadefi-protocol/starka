@@ -12,9 +12,10 @@ use mocktail.{
 use tests/utils.{
   mock_app_oracle, mock_app_oracle_address, mock_app_oracle_datum,
   mock_l1_withdrawal_intent_script_hash, mock_message, mock_operation_key,
-  mock_operator_key, mock_operator_shares, mock_signatures, mock_total_deposited,
-  mock_total_shares, mock_user_account, mock_user_trade_account, mock_vault_equity,
-  mock_vault_nft, mock_vault_oracle_datum, mock_vault_script_hash, null_hash,
+  mock_operator_account, mock_operator_inner_account, mock_operator_key,
+  mock_operator_shares, mock_signatures, mock_total_deposited, mock_total_shares,
+  mock_user_account, mock_user_trade_account, mock_vault_equity, mock_vault_nft,
+  mock_vault_oracle_datum, mock_vault_script_hash, null_hash,
 }
 use types.{
   BurnIntent, IntentRedeemerL1, SharesDelete, SharesRecordEntry,
@@ -446,6 +447,211 @@ test s3_mint_burn_intent_fail_not_authorized() {
   !l1_withdrawal_intent.l1_withdrawal_intent.mint(
     mock_vault_nft,
     build_redeemer(),
+    mock_l1_withdrawal_intent_script_hash,
+    tx,
+  )
+}
+
+// ========== Operator Min Deposit Percentage Tests ==========
+// These tests verify that when the operator withdraws, they must maintain
+// at least operator_min_deposit_percentage of total_shares.
+//
+// Test scenario:
+// - operator_min_deposit_percentage = 10 (from mock_vault_oracle_datum)
+// - Operator is the withdrawer (uses mock_operator_account)
+// - Test values chosen to produce integer results with mock_vault_equity/prices
+//
+// For the tests below:
+// - We use the same shares_to_redeem calculation as regular tests
+// - total_shares = 1_000_000_000_000_000 (1 quadrillion)
+// - operator_shares varies to test pass/fail scenarios
+
+// Operator shares for passing test: 20% of total, withdraw some but stay above 10%
+const operator_test_total_shares = 1_000_000_000_000_000
+
+// Shares to redeem (same calculation as regular tests to maintain vault unlock consistency)
+// shares_to_redeem = 100_000_000_000_000 (10% of total)
+const operator_shares_to_redeem = 100_000_000_000_000
+
+// Cost basis matching the shares withdrawn (scaled proportionally)
+const operator_cost_basis = 80_000_000
+
+// Passing case: operator has 250T shares (25%), withdraws 100T, ends with 150T (16.6% of 900T)
+// new_operator_shares = 150T, new_total_shares = 900T
+// 150T * 100 >= 900T * 10 → TRUE
+const operator_shares_pass = 250_000_000_000_000
+
+// Failing case: operator has 150T shares (15%), withdraws 100T, ends with 50T (5.5% of 900T)
+// new_operator_shares = 50T, new_total_shares = 900T
+// 50T * 100 >= 900T * 10 → 5000T >= 9000T → FALSE
+const operator_shares_fail = 150_000_000_000_000
+
+fn mock_operator_withdrawal_datum() -> WithdrawalIntentDatum {
+  WithdrawalIntentDatum {
+    withdrawer: mock_operator_account,
+    shares_to_redeem: operator_shares_to_redeem,
+  }
+}
+
+fn build_operator_initial_merkle_root() -> ByteArray {
+  // Use operator Account directly as MPF key (same as validator)
+  let mpf_key = cbor.serialise(mock_operator_inner_account)
+  let entry =
+    SharesRecordEntry {
+      shares: operator_shares_to_redeem,
+      total_deposited: operator_cost_basis,
+    }
+  let mpf_value = cbor.serialise(entry)
+  mpf.root(mpf.insert(mpf.empty, mpf_key, mpf_value, []))
+}
+
+fn build_operator_vault_oracle_input_datum(
+  operator_shares: Int,
+) -> VaultOracleDatum {
+  VaultOracleDatum {
+    ..mock_vault_oracle_datum,
+    total_shares: operator_test_total_shares,
+    operator_shares: operator_shares,
+    total_deposited: mock_total_deposited,
+    shares_merkle_root: build_operator_initial_merkle_root(),
+  }
+}
+
+fn build_operator_vault_oracle_output_datum(
+  operator_shares: Int,
+) -> VaultOracleDatum {
+  // After withdrawal:
+  // - total_shares decreases by shares_to_redeem
+  // - operator_shares decreases by shares_to_redeem (operator is withdrawing)
+  // - No fee since operator_charge_percentage = 0
+  let new_total_shares = operator_test_total_shares - operator_shares_to_redeem
+  let new_operator_shares = operator_shares - operator_shares_to_redeem
+
+  VaultOracleDatum {
+    ..mock_vault_oracle_datum,
+    total_shares: new_total_shares,
+    operator_shares: new_operator_shares,
+    total_deposited: mock_total_deposited - operator_cost_basis,
+    shares_merkle_root: null_hash,
+    total_fee_collected: 0,
+  }
+}
+
+fn build_operator_shares_delete_action() -> types.SharesMPFAction {
+  let entry =
+    SharesRecordEntry {
+      shares: operator_shares_to_redeem,
+      total_deposited: operator_cost_basis,
+    }
+  let mpf_value = cbor.serialise(entry)
+  SharesDelete { proof: [], old_value: mpf_value }
+}
+
+fn mock_operator_burn_intent_tx(operator_shares: Int) -> Transaction {
+  let policy_id = mock_l1_withdrawal_intent_script_hash
+  let operator_address = mock_pub_key_address(10, None)
+
+  // Calculate user receives (gross value with no fee)
+  // gross_value = shares_to_redeem * vault_equity / total_shares
+  let gross_value =
+    operator_shares_to_redeem * mock_vault_equity / operator_test_total_shares
+  let user_receives = gross_value
+  let ada_to_unlock = user_receives / 2
+
+  let vault_address = from_script(mock_vault_script_hash)
+  let vault_oracle_input_value =
+    from_asset(mock_vault_nft, "", 1) |> add("", "", 1_000_000_000)
+
+  let vault_oracle_output_value =
+    from_asset(mock_vault_nft, "", 1)
+      |> add("", "", 1_000_000_000 - ada_to_unlock)
+
+  let app_oracle_ref_value =
+    from_asset(mock_app_oracle, "", 1) |> add("", "", 2_000_000)
+
+  let intent_input_value =
+    from_asset("", "", 2_000_000) |> add(policy_id, "", 1)
+
+  let operator_output_value = from_asset("", "", ada_to_unlock)
+
+  mocktail_tx()
+    // Input matching utxo_ref in mock_message
+    |> tx_in(
+        True,
+        mock_tx_hash(0),
+        0,
+        from_asset("", "", 2_000_000),
+        mock_pub_key_address(99, None),
+      )
+    // Vault Oracle input
+    |> tx_in(
+        True,
+        mock_tx_hash(10),
+        0,
+        vault_oracle_input_value,
+        vault_address,
+      )
+    |> tx_in_inline_datum(
+        True,
+        build_operator_vault_oracle_input_datum(operator_shares),
+      )
+    // Intent input
+    |> tx_in(
+        True,
+        mock_tx_hash(20),
+        0,
+        intent_input_value,
+        from_script(policy_id),
+      )
+    |> tx_in_inline_datum(True, mock_operator_withdrawal_datum())
+    // App Oracle reference input
+    |> ref_tx_in(
+        True,
+        mock_tx_hash(30),
+        0,
+        app_oracle_ref_value,
+        mock_app_oracle_address,
+      )
+    |> ref_tx_in_inline_datum(True, mock_app_oracle_datum)
+    // Vault Oracle output
+    |> tx_out(True, vault_address, vault_oracle_output_value)
+    |> tx_out_inline_datum(
+        True,
+        build_operator_vault_oracle_output_datum(operator_shares),
+      )
+    // Operator receives unlocked funds
+    |> tx_out(True, operator_address, operator_output_value)
+    // Burn intent token
+    |> mint(True, -1, policy_id, "")
+    // Signed by operation_key
+    |> required_signer_hash(True, mock_operation_key)
+    |> complete()
+}
+
+fn build_operator_redeemer() -> IntentRedeemerL1 {
+  let mpf_action = build_operator_shares_delete_action()
+  BurnIntent([1], mock_message, mock_signatures, [mpf_action])
+}
+
+// Success: Operator withdraws but stays above min deposit percentage (16.6% >= 10%)
+test s3_mint_burn_intent_success_operator_above_min_deposit() {
+  let tx = mock_operator_burn_intent_tx(operator_shares_pass)
+
+  l1_withdrawal_intent.l1_withdrawal_intent.mint(
+    mock_vault_nft,
+    build_operator_redeemer(),
+    mock_l1_withdrawal_intent_script_hash,
+    tx,
+  )
+}
+
+// Fail: Operator withdraws and drops below min deposit percentage (5.5% < 10%)
+test s3_mint_burn_intent_fail_operator_below_min_deposit() {
+  let tx = mock_operator_burn_intent_tx(operator_shares_fail)
+
+  !l1_withdrawal_intent.l1_withdrawal_intent.mint(
+    mock_vault_nft,
+    build_operator_redeemer(),
     mock_l1_withdrawal_intent_script_hash,
     tx,
   )
