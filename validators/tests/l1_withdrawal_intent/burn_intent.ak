@@ -33,7 +33,7 @@ use withdraw_utils.{convert_shares_to_usd}
 //   - operator_shares += sum(fee_shares)
 //   - total_deposited -= sum(cost_basis)
 //   - shares_merkle_root updated
-//   - total_fee_collected += sum(fee)
+//   - total_fee_share_collected += sum(fee_shares)
 // - Vault unlocks net_payout to user
 //
 // TODO: These tests require a mock_message that includes vault_oracle_nft with price 0.
@@ -112,7 +112,7 @@ fn build_vault_oracle_output_datum(
       operator_shares: mock_operator_shares,
       total_deposited: mock_total_deposited - mock_cost_basis,
       shares_merkle_root: new_merkle_root,
-      total_fee_collected: 0,
+      total_fee_share_collected: 0,
     }
   } else {
     // Incorrect: don't update total_shares
@@ -533,7 +533,7 @@ fn build_operator_vault_oracle_output_datum(
     operator_shares: new_operator_shares,
     total_deposited: mock_total_deposited - operator_cost_basis,
     shares_merkle_root: null_hash,
-    total_fee_collected: 0,
+    total_fee_share_collected: 0,
   }
 }
 

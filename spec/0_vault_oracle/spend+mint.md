@@ -30,7 +30,7 @@ The Vault Oracle UTxO holds config and shares state. This is the only UTxO commi
 - `operator_shares`: Int - operator's shares (includes accumulated fee shares)
 - `total_deposited`: Int - total cost basis of all depositors in USD
 - `shares_merkle_root`: ByteArray (32-byte MPF root hash)
-- `total_fee_collected`: Int - cumulative performance fees collected (in USD)
+- `total_fee_share_collected`: Int - cumulative fee shares collected
 
 ## Shares Merkle Entry
 

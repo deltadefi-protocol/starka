@@ -247,7 +247,7 @@ pub const mock_vault_oracle_datum: VaultOracleDatum =
     operator_shares: mock_operator_shares,
     total_deposited: mock_total_deposited,
     shares_merkle_root: null_hash,
-    total_fee_collected: 0,
+    total_fee_share_collected: 0,
   }
 
 // ========== DexOrderBook datum ==========

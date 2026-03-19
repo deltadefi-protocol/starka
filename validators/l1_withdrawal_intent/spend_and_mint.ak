@@ -97,7 +97,7 @@ validator l1_withdrawal_intent(vault_oracle_nft: PolicyId) {
           operator_account,
           shares_merkle_root,
           vault_script_hash,
-          total_fee_collected,
+          total_fee_share_collected,
           ..
         } = vault_oracle_input_datum
 
@@ -170,12 +170,7 @@ validator l1_withdrawal_intent(vault_oracle_nft: PolicyId) {
         let vault_unlock_check =
           value_from_vault - value_to_vault == total_user_receives
 
-        // 6. Calculate total fee collected (gross_value - user_receives)
-        let total_gross_value =
-          total_intent_datum_shares_amount * vault_equity / total_shares
-        let total_fee = total_gross_value - total_user_receives
-
-        // 7. Verify oracle output datum updated correctly
+        // 6. Verify oracle output datum updated correctly
         // operator_shares: decreases by withdrawn shares, increases by fee shares
         let new_total_shares =
           total_shares - total_intent_datum_shares_amount + total_fee_shares
@@ -189,7 +184,7 @@ validator l1_withdrawal_intent(vault_oracle_nft: PolicyId) {
             operator_shares: new_operator_shares,
             total_deposited: total_deposited - total_cost_removed,
             shares_merkle_root: final_merkle_root,
-            total_fee_collected: total_fee_collected + total_fee,
+            total_fee_share_collected: total_fee_share_collected + total_fee_shares,
           }
 
         // 8. Verify operator maintains minimum deposit percentage when withdrawing

@@ -93,7 +93,7 @@ fn mock_mint_vault_datum(test_case: MintVaultTestCase) -> VaultOracleDatum {
       compute_mpf_root_single_insert(mock_operator_inner_account, 1000, 1000)
     }
 
-  let total_fee_collected =
+  let total_fee_share_collected =
     if is_fee_collected_zero {
       0
     } else {
@@ -133,7 +133,7 @@ fn mock_mint_vault_datum(test_case: MintVaultTestCase) -> VaultOracleDatum {
     operator_shares,
     total_deposited,
     shares_merkle_root,
-    total_fee_collected,
+    total_fee_share_collected,
   }
 }
 
@@ -327,7 +327,7 @@ fn mock_close_vault_datum(test_case: CloseVaultTestCase) -> VaultOracleDatum {
     operator_shares: 0,
     total_deposited: 0,
     shares_merkle_root: shares_merkle_root,
-    total_fee_collected: 0,
+    total_fee_share_collected: 0,
   }
 }
 

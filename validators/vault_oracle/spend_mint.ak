@@ -45,7 +45,7 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
       operator_shares,
       total_deposited,
       shares_merkle_root,
-      total_fee_collected,
+      total_fee_share_collected,
       ..
     } = vault_oracle_datum
     let Transaction {
@@ -124,7 +124,7 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
             oracle_output_datum.operator_shares == 0,
             oracle_output_datum.total_deposited == computed_total_deposited,
             oracle_output_datum.shares_merkle_root == computed_root,
-            oracle_output_datum.total_fee_collected == 0,
+            oracle_output_datum.total_fee_share_collected == 0,
           }
 
         // Initial deposit sent to vault_script_hash
@@ -206,7 +206,7 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
             oracle_output_datum.operator_shares == operator_shares,
             oracle_output_datum.total_deposited == total_deposited,
             oracle_output_datum.shares_merkle_root == shares_merkle_root,
-            oracle_output_datum.total_fee_collected == total_fee_collected,
+            oracle_output_datum.total_fee_share_collected == total_fee_share_collected,
           }
 
         // Validate operator_charge_percentage
@@ -254,7 +254,7 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
             vault_oracle_datum.operator_shares == 0,
             vault_oracle_datum.total_deposited == 0,
             vault_oracle_datum.shares_merkle_root == mpf.root(mpf.empty),
-            vault_oracle_datum.total_fee_collected == 0,
+            vault_oracle_datum.total_fee_share_collected == 0,
             vault_oracle_datum.operator_charge_percentage >= 0,
             vault_oracle_datum.operator_charge_percentage <= 100,
           }

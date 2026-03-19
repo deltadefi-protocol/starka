@@ -81,7 +81,7 @@ fn mock_l1_initial_deposit_input_datum(
     operator_shares: 0,
     total_deposited: 0,
     shares_merkle_root: null_hash,
-    total_fee_collected: 0,
+    total_fee_share_collected: 0,
     hydra_node_pub_keys: hydra_node_pub_keys,
   }
 }
@@ -139,7 +139,7 @@ fn mock_l1_initial_deposit_output_datum(
       #"1111111111111111111111111111111111111111111111111111111111111111"
     }
 
-  let total_fee_collected =
+  let total_fee_share_collected =
     if is_output_fee_collected_zero {
       0
     } else {
@@ -152,7 +152,7 @@ fn mock_l1_initial_deposit_output_datum(
     operator_shares: operator_shares,
     total_deposited: total_deposited,
     shares_merkle_root: shares_merkle_root,
-    total_fee_collected: total_fee_collected,
+    total_fee_share_collected: total_fee_share_collected,
   }
 }
 
@@ -701,11 +701,11 @@ fn mock_update_config_output_datum(
       #"1111111111111111111111111111111111111111111111111111111111111111"
     }
 
-  let total_fee_collected =
+  let total_fee_share_collected =
     if is_fee_collected_unchanged {
-      mock_vault_oracle_datum.total_fee_collected
+      mock_vault_oracle_datum.total_fee_share_collected
     } else {
-      mock_vault_oracle_datum.total_fee_collected + 1
+      mock_vault_oracle_datum.total_fee_share_collected + 1
     }
 
   let operator_charge_percentage =
@@ -721,7 +721,7 @@ fn mock_update_config_output_datum(
     operator_shares: operator_shares,
     total_deposited: total_deposited,
     shares_merkle_root: shares_merkle_root,
-    total_fee_collected: total_fee_collected,
+    total_fee_share_collected: total_fee_share_collected,
     operator_charge_percentage: operator_charge_percentage,
   }
 }

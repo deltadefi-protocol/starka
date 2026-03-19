@@ -64,7 +64,7 @@ The main withdrawal logic is handled in the hydra_account withdrawal script:
    - `total_shares = total_shares - shares_to_redeem + fee_shares`
    - `operator_shares += fee_shares`
    - `total_deposited -= cost_basis`
-   - `total_fee_collected += fee`
+   - `total_fee_share_collected += fee_shares`
    - `shares_merkle_root` updated via MPF actions
 6. Update Account balances:
    - Vault Account: `balance -= net_payout`
