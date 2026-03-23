@@ -84,7 +84,7 @@ pub fn process_batched_deposit_intent_validation(
   mpf_actions: List<SharesMPFAction>,
   vault_equity: Int,
   total_shares: Int,
-  prices: Pairs<(PolicyId, AssetName), Int>,
+  prices: Pairs<(PolicyId, AssetName), (Int, Int)>,
   deposit_intent_script_hash: ScriptHash,
   initial_merkle_root: ByteArray,
   operator_account: Account,

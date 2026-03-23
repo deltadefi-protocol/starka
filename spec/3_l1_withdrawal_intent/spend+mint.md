@@ -35,6 +35,8 @@ L1 withdrawal intents allow users to withdraw funds from the Trust Me Bro vault 
    - Vault performs HydraAccount withdrawal (decreases vault's account balance)
    - `net_payout = gross_value - fee` sent to user
    - Verify `prices` message using `hydra_node_pub_keys` from Oracle datum
+     - **Price format**: `Pairs<(PolicyId, AssetName), (Int, Int)>` where tuple is `(price, scale)`
+     - **USD calculation**: `usd_value = Σ(amount * price / 10^scale)` for each asset
    - Shares Merkle root transition:
      - For each withdrawal intent (chained sequentially):
        - Calculate `gross_value = shares_to_redeem * vault_equity / total_shares`

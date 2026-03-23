@@ -35,6 +35,8 @@ L1 deposit intents allow users to deposit funds to the Trust Me Bro vault on L1.
    - Vault UTxO spent (funds added to vault)
    - Vault performs AppDeposit to AppVault (increases vault's account balance)
    - Verify `prices` message using `hydra_node_pub_keys` from Oracle datum
+     - **Price format**: `Pairs<(PolicyId, AssetName), (Int, Int)>` where tuple is `(price, scale)`
+     - **USD calculation**: `usd_value = Σ(amount * price / 10^scale)` for each asset
    - Shares Merkle root transition:
      - For each deposit intent (chained sequentially):
        - Calculate `cal_shares = intent_usd_value * total_shares / vault_equity` (round DOWN)

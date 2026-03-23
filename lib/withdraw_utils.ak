@@ -2,6 +2,7 @@ use aiken/cbor
 use aiken/collection/list
 use aiken/collection/pairs
 use aiken/crypto.{ScriptHash}
+use aiken/math
 use aiken/merkle_patricia_forestry as mpf
 use cardano/address.{Script}
 use cardano/assets.{AssetName, PolicyId, Value}
@@ -11,6 +12,11 @@ use hydra_dex/types.{Account, UserTradeAccount} as dd_types
 use types.{
   SharesDelete, SharesInsert, SharesMPFAction, SharesRecordEntry, SharesUpdate,
   WithdrawalIntentDatum,
+}
+
+// Power of 10: returns 10^n
+fn pow10(n: Int) -> Int {
+  math.pow(10, n)
 }
 
 pub type Scott6<a, b, c, d, e, f, result> =
@@ -75,18 +81,20 @@ pub fn compute_fee_shares(fee: Int, total_shares: Int, vault_equity: Int) -> Int
   ceil_div(fee * total_shares, vault_equity)
 }
 
+// USD calculation: usd_value = Σ(amount * price / 10^scale) for each asset
 pub fn check_output_value_equal_to_shares_usd_value(
   output_value: Value,
   shares_usd_value: Int,
-  prices: Pairs<(PolicyId, AssetName), Int>,
+  prices: Pairs<(PolicyId, AssetName), (Int, Int)>,
 ) -> Bool {
   assets.reduce(
     output_value,
     0,
     fn(policy_id, asset_name, amount, acc) {
-      expect Some(price) = prices |> pairs.get_first((policy_id, asset_name))
+      expect Some((price, scale)) =
+        prices |> pairs.get_first((policy_id, asset_name))
 
-      acc + amount * price
+      acc + amount * price / pow10(scale)
     },
   ) == shares_usd_value
 }
@@ -101,7 +109,7 @@ pub fn process_batched_withdrawal_intent_validation(
   vault_equity: Int,
   total_shares: Int,
   operator_charge_percentage: Int,
-  prices: Pairs<(PolicyId, AssetName), Int>,
+  prices: Pairs<(PolicyId, AssetName), (Int, Int)>,
   withdrawal_intent_script_hash: ScriptHash,
   initial_merkle_root: ByteArray,
   operator_account: Account,

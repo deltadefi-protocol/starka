@@ -65,6 +65,8 @@ The mint policy is a simple one-time minting policy (similar to `app_oracle/orac
    - `app_oracle` is referenced to obtain `hydra_signers`
    - Verify `hydra_node_pub_keys` in output datum match `app_oracle`
    - Verify `prices` message signatures using `hydra_signers`
+   - **Price format**: `Pairs<(PolicyId, AssetName), (Int, Int)>` where tuple is `(price, scale)`
+   - **USD calculation**: `usd_value = Σ(amount * price / 10^scale)` for each asset
    - Calculate `initial_shares` from `initial_deposit` USD value (share price = 1.0)
    - Initial state: `total_shares = initial_shares`, `operator_shares = 0`, `total_deposited = initial_shares`
    - `shares_merkle_root`: computed from inserting depositor's initial shares entry (key = `cbor.serialise(depositor)`)

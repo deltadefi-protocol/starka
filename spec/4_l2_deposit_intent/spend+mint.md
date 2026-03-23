@@ -33,6 +33,7 @@ L2 deposit intents are created and processed inside the Hydra head. User transfe
 
 3. CancelIntent - Redeemer `CancelIntent`
    - **Signed by `operation_key` from `app_oracle`**
+   - Vault Oracle referenced (not spent) to get `app_oracle`
    - No intent tokens in outputs (batch burn supported)
    - No value refund needed (tokens are in Account UTxO, not intent)
 
@@ -54,6 +55,8 @@ The main deposit logic is handled in the hydra_account withdrawal script:
 **Validation:**
 1. **Signed by `operation_key` from `app_oracle`**
 2. Verify `prices` message using `hydra_node_pub_keys` from Oracle datum
+   - **Price format**: `Pairs<(PolicyId, AssetName), (Int, Int)>` where tuple is `(price, scale)`
+   - **USD calculation**: `usd_value = Σ(amount * price / 10^scale)` for each asset
 3. Calculate `cal_shares = intent_usd_value * total_shares / vault_equity` (round DOWN)
 4. Update Vault Oracle datum:
    - `total_shares += cal_shares`

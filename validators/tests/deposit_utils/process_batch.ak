@@ -53,13 +53,14 @@ const mock_user_account_2: dd_types.UserAccount =
   }
 
 // ========== Prices ==========
+// prices: (price, scale) tuple - USD = amount * price / 10^scale
 
-pub const prices: Pairs<(PolicyId, AssetName), Int> =
+pub const prices: Pairs<(PolicyId, AssetName), (Int, Int)> =
   [
-    Pair((#"", #""), 2),
+    Pair((#"", #""), (2, 0)),
     Pair(
       (#"c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c913", #"5553444d"),
-      1,
+      (1, 0),
     ),
   ]
 
@@ -202,9 +203,9 @@ const excessive_indices = [0, 1, 2, 3]
 
 // ========== Expected values ==========
 
-// m_value_a USD = 1000000 * 2 + 1000000 * 1 = 3000000
-// m_value_b USD = 2000000 * 2 + 2000000 * 1 = 6000000
-// m_value_c USD = 2000000 * 2 + 1000000 * 1 = 5000000
+// m_value_a USD = 1000000 * 2 / 10^0 + 1000000 * 1 / 10^0 = 3000000
+// m_value_b USD = 2000000 * 2 / 10^0 + 2000000 * 1 / 10^0 = 6000000
+// m_value_c USD = 2000000 * 2 / 10^0 + 1000000 * 1 / 10^0 = 5000000
 // Total USD = 14000000
 
 const expected_total_m_value =

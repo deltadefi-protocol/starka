@@ -32,6 +32,7 @@ L2 withdrawal intents are created and processed inside the Hydra head. User rede
 
 3. CancelIntent - Redeemer `CancelIntent`
    - **Signed by `operation_key` from `app_oracle`**
+   - Vault Oracle referenced (not spent) to get `app_oracle`
    - No intent tokens in outputs (batch burn supported)
    - No value refund needed (intent only contains intent token)
 
@@ -54,6 +55,8 @@ The main withdrawal logic is handled in the hydra_account withdrawal script:
 1. **Signed by `operation_key` from `app_oracle` OR `operator_account.account.master_key` from vault oracle**
 2. **NO withdrawer signature required** (user already signed at MintIntent)
 3. Verify `prices` message using `hydra_node_pub_keys` from Oracle datum
+   - **Price format**: `Pairs<(PolicyId, AssetName), (Int, Int)>` where tuple is `(price, scale)`
+   - **USD calculation**: `usd_value = Σ(amount * price / 10^scale)` for each asset
 4. Calculate withdrawal amounts:
    - `gross_value = shares_to_redeem * vault_equity / total_shares`
    - `cost_basis` from merkle proof

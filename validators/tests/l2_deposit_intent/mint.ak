@@ -210,7 +210,7 @@ test s4_mint_mint_intent_fail_not_signed() {
 // Spec:
 // - L2DepositIntent token is burnt
 // - Signed by operation_key from app_oracle (NOT depositor like L1)
-// - Vault Oracle input required (to get app_oracle reference)
+// - Vault Oracle reference input required (to get app_oracle reference)
 // - No value refund needed (tokens are in Account UTxO, not intent)
 
 type CancelIntentTestCase {
@@ -250,18 +250,18 @@ fn mock_cancel_intent_tx(test_case: CancelIntentTestCase) -> Transaction {
     from_asset(mock_app_oracle, "", 1) |> add("", "", 2_000_000)
 
   mocktail_tx()
-    // Vault Oracle input (required to get app_oracle reference)
-    |> tx_in(
+    // L2 Intent input
+    |> tx_in(True, mock_tx_hash(0), 0, input_value, from_script(policy_id))
+    |> tx_in_inline_datum(True, mock_l2_deposit_intent_datum)
+    // Vault Oracle reference input (required to get app_oracle reference)
+    |> ref_tx_in(
         is_vault_oracle_present,
         mock_tx_hash(10),
         0,
         vault_oracle_value,
         vault_oracle_address,
       )
-    |> tx_in_inline_datum(is_vault_oracle_present, mock_vault_oracle_datum)
-    // L2 Intent input
-    |> tx_in(True, mock_tx_hash(0), 0, input_value, from_script(policy_id))
-    |> tx_in_inline_datum(True, mock_l2_deposit_intent_datum)
+    |> ref_tx_in_inline_datum(is_vault_oracle_present, mock_vault_oracle_datum)
     // App Oracle reference input
     |> ref_tx_in(
         is_app_oracle_ref_present,
@@ -298,8 +298,8 @@ test s4_mint_cancel_intent_success() {
   )
 }
 
-// Fail: Missing vault oracle input
-test s4_mint_cancel_intent_fail_no_vault_oracle() fail {
+// Fail: Missing vault oracle reference input
+test s4_mint_cancel_intent_fail_no_vault_oracle_ref() fail {
   let tx =
     mock_cancel_intent_tx(
       CancelIntentTestCase {

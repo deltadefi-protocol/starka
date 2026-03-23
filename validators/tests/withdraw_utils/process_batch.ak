@@ -83,8 +83,9 @@ const usdm_policy = #"c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c913"
 
 const usdm_name = #"5553444d"
 
-pub const prices: Pairs<(PolicyId, AssetName), Int> =
-  [Pair((#"", #""), 2), Pair((usdm_policy, usdm_name), 1)]
+// prices: (price, scale) tuple - USD = amount * price / 10^scale
+pub const prices: Pairs<(PolicyId, AssetName), (Int, Int)> =
+  [Pair((#"", #""), (2, 0)), Pair((usdm_policy, usdm_name), (1, 0))]
 
 // ========== Shares amounts ==========
 // Using values that produce meaningful withdrawal amounts
@@ -229,7 +230,7 @@ fn user_receives_c() -> Int {
   gross - fee
 }
 
-// ========== User outputs (in USDM, price=1) ==========
+// ========== User outputs (in USDM, price=1, scale=1) ==========
 
 pub fn intent_output_a() {
   mock_output(
@@ -330,7 +331,7 @@ const l2_inputs =
 // We have 3 intents, so 3 indices (values don't matter for L2)
 const l2_indices = [0, 0, 0]
 
-// L2 transfer amounts as MValue (in USDM, price=1 means USD value = amount)
+// L2 transfer amounts as MValue (in USDM, price=1/scale=1 means USD value = amount)
 // These must match user_receives_a, user_receives_b, user_receives_c in order
 fn l2_transfer_amount_a() -> MValue {
   [Pair(usdm_policy, [Pair(usdm_name, user_receives_a())])]

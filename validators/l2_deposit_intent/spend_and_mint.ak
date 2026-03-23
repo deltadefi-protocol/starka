@@ -14,7 +14,7 @@ use types.{
   BurnIntentL2, CancelIntentL2, HydraAccountOperation, IntentRedeemerL2,
   L2DepositIntentDatum, MintIntentL2, ProcessVaultDeposit, VaultOracleDatum,
 }
-use utils.{get_app_oracle_datum}
+use utils.{get_app_oracle_datum, get_vault_oracle_datum}
 
 validator l2_deposit_intent(vault_oracle_nft: PolicyId) {
   spend(
@@ -128,11 +128,9 @@ validator l2_deposit_intent(vault_oracle_nft: PolicyId) {
             _ -> False
           }
 
-        // 2. Get vault oracle to find app_oracle
-        expect [vault_oracle_input] =
-          inputs_with_policy(inputs, vault_oracle_nft)
-        expect vault_oracle_datum: VaultOracleDatum =
-          input_inline_datum(vault_oracle_input)
+        // 2. Get vault oracle from reference inputs to find app_oracle
+        let vault_oracle_datum: VaultOracleDatum =
+          get_vault_oracle_datum(inputs, vault_oracle_nft)
 
         // 3. Get app_oracle and check operation_key signature
         let app_oracle_datum: AppOracleDatum =
