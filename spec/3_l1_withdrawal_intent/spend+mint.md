@@ -41,9 +41,11 @@ L1 withdrawal intents allow users to withdraw funds from the Trust Me Bro vault 
        - **Total withdrawal** (`SharesDelete { proof, old_value }`): Verify `shares_to_redeem == old_entry.shares`. `cost_basis = old_entry.total_deposited`. Delete leaf.
        - **Partial withdrawal** (`SharesUpdate { from, to_proof }`): `cost_basis = old_entry.total_deposited * shares_to_redeem / old_entry.shares`. Compute `new_entry.shares = old_entry.shares - shares_to_redeem`
        - Note: `to` value is computed from updated shares + total_deposited, not passed in redeemer
-       - Fee calculation: `fee = max(0, (gross_value - cost_basis) * operator_charge_percentage / 100)` (round UP)
-       - Fee shares: `fee_shares = fee * total_shares / vault_equity` (round UP)
-       - Net payout: `net_payout = gross_value - fee` (round DOWN)
+       - Fee calculation (skipped if withdrawer is operator):
+         - If `withdrawer == operator_account`: `fee = 0`, `fee_shares = 0` (economically neutral)
+         - Otherwise: `fee = max(0, (gross_value - cost_basis) * operator_charge_percentage / 100)` (round UP)
+       - Fee shares: `fee_shares = fee * total_shares / vault_equity` (round UP, or 0 if operator)
+       - Net payout: `net_payout = gross_value - fee` (full gross_value if operator)
      - After all withdrawals, apply operator fee share action if `total_fee_shares > 0`
      - Verify `computed_final_root == expected_final_root`
 
@@ -79,3 +81,4 @@ Vault's account balance (HydraWithdrawal) → Vault → User
 - User redeems shares for actual funds
 - Vault acts as a normal user doing HydraAccount withdrawal from main system
 - Performance fee calculated on profit (gross_value - cost_basis)
+- **Operator fee skip**: When operator withdraws, fee is skipped entirely (economically neutral - operator paying fee to themselves)

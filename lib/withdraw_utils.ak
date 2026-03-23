@@ -208,16 +208,20 @@ pub fn process_batched_withdrawal_intent_validation(
                       _ -> fail @"Invalid MPF action for withdrawal"
                     }
 
-                  // Fee calculation (round UP)
-                  let fee =
-                    cal_per_user_operator_fee(
-                      gross_value,
-                      cost_basis,
-                      operator_charge_percentage,
-                    )
-                  let fee_shares =
-                    compute_fee_shares(fee, total_shares, vault_equity)
-                  let user_receives = gross_value - fee
+                  // Skip fee when operator withdraws (economically neutral - operator paying fee to themselves)
+                  let (fee_shares, user_receives) =
+                    if withdrawer_acc == operator_account {
+                      (0, gross_value)
+                    } else {
+                      let fee =
+                        cal_per_user_operator_fee(
+                          gross_value,
+                          cost_basis,
+                          operator_charge_percentage,
+                        )
+                      let fs = compute_fee_shares(fee, total_shares, vault_equity)
+                      (fs, gross_value - fee)
+                    }
 
                   let new_cal_user_receives = cal_user_receives + user_receives
                   let new_cal_fee_shares = cal_fee_shares + fee_shares

@@ -57,9 +57,11 @@ The main withdrawal logic is handled in the hydra_account withdrawal script:
 4. Calculate withdrawal amounts:
    - `gross_value = shares_to_redeem * vault_equity / total_shares`
    - `cost_basis` from merkle proof
-   - `fee = max(0, (gross_value - cost_basis) * operator_charge_percentage / 100)` (round UP)
-   - `fee_shares = fee * total_shares / vault_equity` (round UP)
-   - `net_payout = gross_value - fee`
+   - Fee calculation (skipped if withdrawer is operator):
+     - If `withdrawer == operator_account`: `fee = 0`, `fee_shares = 0` (economically neutral)
+     - Otherwise: `fee = max(0, (gross_value - cost_basis) * operator_charge_percentage / 100)` (round UP)
+   - `fee_shares = fee * total_shares / vault_equity` (round UP, or 0 if operator)
+   - `net_payout = gross_value - fee` (full gross_value if operator)
 5. Update Vault Oracle datum:
    - `total_shares = total_shares - shares_to_redeem + fee_shares`
    - `operator_shares += fee_shares`
@@ -112,5 +114,6 @@ Vault's Account UTxO → (ProcessVaultWithdrawal) → User's Account UTxO
 - **No batching** - single intent per transaction
 - **No double-signing** - user signs at intent creation, not at processing
 - Performance fee calculated on profit (gross_value - cost_basis)
+- **Operator fee skip**: When operator withdraws, fee is skipped entirely (economically neutral - operator paying fee to themselves)
 - Vault is treated as a normal user with its own Account UTxO
 - User can later do regular withdrawal to get actual funds on L1
