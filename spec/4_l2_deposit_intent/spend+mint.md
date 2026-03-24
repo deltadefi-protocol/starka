@@ -57,7 +57,9 @@ The main deposit logic is handled in the hydra_account withdrawal script:
 2. Verify `prices` message using `hydra_node_pub_keys` from Oracle datum
    - **Price format**: `Pairs<(PolicyId, AssetName), (Int, Int)>` where tuple is `(price, scale)`
    - **USD calculation**: `usd_value = Σ(amount * price / 10^scale)` for each asset
-3. Calculate `cal_shares = intent_usd_value * total_shares / vault_equity` (round DOWN)
+3. Calculate shares:
+   - **Initial deposit** (`total_shares == 0`): `cal_shares = intent_usd_value` (share price = 1.0)
+   - **Regular deposit**: `cal_shares = intent_usd_value * total_shares / vault_equity` (round DOWN)
 4. Update Vault Oracle datum:
    - `total_shares += cal_shares`
    - `total_deposited += intent_usd_value`
@@ -88,7 +90,9 @@ User's Account UTxO → (ProcessVaultDeposit) → Vault's Account UTxO
 
 1. `deposit_amount > 0` (non-empty MValue)
 2. Balance transferred from user's Account to vault's Account (direct update)
-3. `shares_minted` computed correctly: `shares = usd_value * total_shares / vault_equity`
+3. `shares_minted` computed correctly:
+   - Initial deposit (`total_shares == 0`): `shares = usd_value`
+   - Regular deposit: `shares = usd_value * total_shares / vault_equity`
 4. `new_total_shares = old_total_shares + shares_minted`
 5. `new_total_deposited = old_total_deposited + usd_value`
 6. Depositor shares record updated correctly in merkle tree

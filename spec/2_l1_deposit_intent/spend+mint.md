@@ -39,7 +39,9 @@ L1 deposit intents allow users to deposit funds to the Trust Me Bro vault on L1.
      - **USD calculation**: `usd_value = Σ(amount * price / 10^scale)` for each asset
    - Shares Merkle root transition:
      - For each deposit intent (chained sequentially):
-       - Calculate `cal_shares = intent_usd_value * total_shares / vault_equity` (round DOWN)
+       - Calculate shares:
+         - **Initial deposit** (`total_shares == 0`): `cal_shares = intent_usd_value` (share price = 1.0)
+         - **Regular deposit**: `cal_shares = intent_usd_value * total_shares / vault_equity` (round DOWN)
        - **New depositor** (`SharesInsert { proof }`): Compute and insert `SharesRecordEntry { shares: cal_shares, total_deposited: intent_usd_value }`
        - **Existing depositor** (`SharesUpdate { from, to_proof }`): Compute `new_entry.shares = old_entry.shares + cal_shares` and `new_entry.total_deposited = old_entry.total_deposited + intent_usd_value`
      - Note: `new_value`/`to` are computed from shares + total_deposited, not passed in redeemer
@@ -63,7 +65,9 @@ User funds → L1DepositIntent → Vault → AppVault (regular deposit)
 
 1. `deposit_amount > 0` (non-empty MValue)
 2. Deposit value actually transferred to vault
-3. `shares_minted` computed correctly: `shares = usd_value * total_shares / vault_equity`
+3. `shares_minted` computed correctly:
+   - Initial deposit (`total_shares == 0`): `shares = usd_value`
+   - Regular deposit: `shares = usd_value * total_shares / vault_equity`
 4. `new_total_shares = old_total_shares + shares_minted`
 5. `new_total_deposited = old_total_deposited + usd_value`
 6. Depositor shares record updated correctly in merkle tree
