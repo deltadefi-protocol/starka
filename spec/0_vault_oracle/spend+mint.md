@@ -49,6 +49,8 @@ The mint policy is a simple one-time minting policy (similar to `app_oracle/orac
 1. MintOracle - `RMint`
    - **One-shot**: `initial_utxo` (parameter) must be consumed — guarantees unique policy_id
    - Exactly 1 NFT minted
+   - `app_oracle` is referenced to verify `hydra_node_pub_keys`
+   - `hydra_node_pub_keys` in output datum must match `app_oracle` signers
    - Output datum contains initial config (all state fields = 0, `shares_merkle_root = null_hash`)
    - No signatures required (anyone can create a vault)
 

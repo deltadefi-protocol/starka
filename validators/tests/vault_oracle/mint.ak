@@ -36,6 +36,8 @@ type MintVaultTestCase {
   is_fee_collected_zero: Bool,
   is_charge_percentage_valid: Bool,
   is_app_oracle_correct: Bool,
+  is_app_oracle_referenced: Bool,
+  is_hydra_keys_valid: Bool,
 }
 
 fn default_mint_vault_test_case() -> MintVaultTestCase {
@@ -49,6 +51,8 @@ fn default_mint_vault_test_case() -> MintVaultTestCase {
     is_fee_collected_zero: True,
     is_charge_percentage_valid: True,
     is_app_oracle_correct: True,
+    is_app_oracle_referenced: True,
+    is_hydra_keys_valid: True,
   }
 }
 
@@ -61,6 +65,7 @@ fn mock_mint_vault_datum(test_case: MintVaultTestCase) -> VaultOracleDatum {
     is_fee_collected_zero,
     is_charge_percentage_valid,
     is_app_oracle_correct,
+    is_hydra_keys_valid,
     ..
   } = test_case
 
@@ -115,6 +120,14 @@ fn mock_mint_vault_datum(test_case: MintVaultTestCase) -> VaultOracleDatum {
       #"0000000000000000000000000000000000000000000000000000000000000000"
     }
 
+  let hydra_node_pub_keys =
+    if is_hydra_keys_valid {
+      mock_node_pub_keys
+    } else {
+      // Wrong hydra keys - use different keys that won't match app_oracle
+      [#"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+    }
+
   VaultOracleDatum {
     app_oracle,
     vault_script_hash: mock_vault_script_hash,
@@ -127,7 +140,7 @@ fn mock_mint_vault_datum(test_case: MintVaultTestCase) -> VaultOracleDatum {
     operator_account: mock_operator_account,
     operator_charge_percentage,
     operator_min_deposit_percentage: 10,
-    hydra_node_pub_keys: mock_node_pub_keys,
+    hydra_node_pub_keys,
     is_active: True,
     total_shares,
     operator_shares,
@@ -138,12 +151,18 @@ fn mock_mint_vault_datum(test_case: MintVaultTestCase) -> VaultOracleDatum {
 }
 
 fn mock_mint_vault_tx(test_case: MintVaultTestCase) -> Transaction {
-  let MintVaultTestCase { is_initial_utxo_consumed, is_oracle_nft_minted, .. } =
-    test_case
+  let MintVaultTestCase {
+    is_initial_utxo_consumed,
+    is_oracle_nft_minted,
+    is_app_oracle_referenced,
+    ..
+  } = test_case
 
   let vault_datum = mock_mint_vault_datum(test_case)
   let vault_nft_policy = mock_vault_nft
 
+  let app_oracle_value =
+    from_asset(mock_app_oracle, "", 1) |> add("", "", 2_000_000)
   let vault_oracle_output_value =
     from_asset(vault_nft_policy, "", 1) |> add("", "", 2_000_000)
 
@@ -163,6 +182,15 @@ fn mock_mint_vault_tx(test_case: MintVaultTestCase) -> Transaction {
     }
 
   mocktail_tx()
+    // App oracle reference input
+    |> ref_tx_in(
+        is_app_oracle_referenced,
+        mock_tx_hash(2),
+        0,
+        app_oracle_value,
+        mock_app_oracle_address,
+      )
+    |> ref_tx_in_inline_datum(is_app_oracle_referenced, mock_app_oracle_datum)
     // Initial UTxO input (one-shot) - must match mock_initial_utxo = mock_utxo_ref(99, 0)
     |> tx_in(
         True,
@@ -274,6 +302,24 @@ test s0_mint_fail_mint_vault_with_wrong_app_oracle() {
     MintVaultTestCase {
       ..default_mint_vault_test_case(),
       is_app_oracle_correct: False,
+    }
+  !run_mint_vault(test_case)
+}
+
+test s0_mint_fail_mint_vault_without_app_oracle_referenced() fail {
+  let test_case =
+    MintVaultTestCase {
+      ..default_mint_vault_test_case(),
+      is_app_oracle_referenced: False,
+    }
+  run_mint_vault(test_case)
+}
+
+test s0_mint_fail_mint_vault_with_invalid_hydra_keys() {
+  let test_case =
+    MintVaultTestCase {
+      ..default_mint_vault_test_case(),
+      is_hydra_keys_valid: False,
     }
   !run_mint_vault(test_case)
 }

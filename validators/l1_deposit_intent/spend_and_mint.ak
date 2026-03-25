@@ -8,7 +8,7 @@ use cocktail.{
   policy_only_minted_token, value_geq,
 }
 use deposit_utils.{process_batched_deposit_intent_validation}
-use hydra_dex/types.{AppOracleDatum, HydraInfo, UserTradeAccount} as dd_types
+use hydra_dex/types.{UserTradeAccount} as dd_types
 use price_oracle_utils.{verify_prices_oracle_messages}
 use types.{
   BurnIntent, CancelIntent, DepositIntentDatum, IntentRedeemerL1, MintIntent,
@@ -85,16 +85,10 @@ validator l1_deposit_intent(vault_oracle_nft: PolicyId) {
         // Extract operator Account from UserAccount
         expect UserTradeAccount { account: operator_acc, .. } = operator_account
         // 2. Verify prices message via app_oracle reference input
-        let app_oracle_datum: AppOracleDatum =
-          reference_inputs
-            |> get_app_oracle_datum(app_oracle)
-        let AppOracleDatum { hydra_info, .. } = app_oracle_datum
-        let HydraInfo { hydra_signers } = hydra_info
         let (vault_equity, prices, is_prices_verified) =
           verify_prices_oracle_messages(
             message,
             inputs,
-            hydra_signers,
             hydra_node_pub_keys,
             signatures,
           )

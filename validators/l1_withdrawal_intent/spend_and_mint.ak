@@ -7,7 +7,7 @@ use cocktail.{
   inputs_with_policy, key_signed, output_inline_datum, outputs_at_with_policy,
   policy_only_minted_token,
 }
-use hydra_dex/types.{AppOracleDatum, HydraInfo, UserTradeAccount} as dd_types
+use hydra_dex/types.{UserTradeAccount} as dd_types
 use price_oracle_utils.{convert_value_to_usd, verify_prices_oracle_messages}
 use types.{
   BurnIntent, CancelIntent, IntentRedeemerL1, MintIntent, VaultOracleDatum,
@@ -72,17 +72,11 @@ validator l1_withdrawal_intent(vault_oracle_nft: PolicyId) {
         expect vault_oracle_output_datum: VaultOracleDatum =
           output_inline_datum(vault_oracle_output)
 
-        // 2. Verify prices message via app_oracle reference input
-        let app_oracle_datum: AppOracleDatum =
-          reference_inputs
-            |> get_app_oracle_datum(vault_oracle_input_datum.app_oracle)
-        let AppOracleDatum { hydra_info, .. } = app_oracle_datum
-        let HydraInfo { hydra_signers } = hydra_info
+        // 2. Verify prices message
         let (vault_equity, prices, is_prices_verified) =
           verify_prices_oracle_messages(
             message,
             inputs,
-            hydra_signers,
             vault_oracle_input_datum.hydra_node_pub_keys,
             signatures,
           )

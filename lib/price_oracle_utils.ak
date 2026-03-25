@@ -4,7 +4,7 @@ use aiken/collection/pairs
 use aiken/math
 use cardano/assets.{AssetName, PolicyId, Value}
 use cardano/transaction.{Input}
-use cocktail.{verify_pub_keys, verify_signatures}
+use cocktail.{verify_signatures}
 use types.{MValue, Message}
 
 // Power of 10: returns 10^n
@@ -15,7 +15,6 @@ fn pow10(n: Int) -> Int {
 pub fn verify_prices_oracle_messages(
   prices_message: ByteArray,
   inputs: List<Input>,
-  hydra_signers: List<ByteArray>,
   hydra_node_pub_keys: List<ByteArray>,
   signatures: List<ByteArray>,
 ) -> (Int, Pairs<(PolicyId, AssetName), (Int, Int)>, Bool) {
@@ -25,11 +24,10 @@ pub fn verify_prices_oracle_messages(
   let is_utxo_consumed =
     list.any(inputs, fn(input) { input.output_reference == utxo_ref })
 
-  let keys_check = verify_pub_keys(hydra_node_pub_keys, hydra_signers)
   let signatures_check =
     verify_signatures(hydra_node_pub_keys, prices_message, signatures)
 
-  let message_verified = is_utxo_consumed? && keys_check? && signatures_check?
+  let message_verified = is_utxo_consumed? && signatures_check?
 
   (vault_equity, prices, message_verified)
 }

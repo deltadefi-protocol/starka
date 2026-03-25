@@ -69,23 +69,11 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
         // Precondition: vault is empty/new
         expect total_shares == 0
 
-        // Get app_oracle reference input
-        expect [app_oracle_ref] =
-          inputs_with_policy(reference_inputs, app_oracle)
-        expect InlineDatum(app_oracle_data) = app_oracle_ref.output.datum
-        expect app_oracle_datum: AppOracleDatum = app_oracle_data
-        let AppOracleDatum { hydra_info, .. } = app_oracle_datum
-        let HydraInfo { hydra_signers } = hydra_info
-
-        // Verify hydra_node_pub_keys match app_oracle signers
-        let are_keys_valid = verify_pub_keys(hydra_node_pub_keys, hydra_signers)
-
         // Verify prices message
         let (_, prices, is_prices_verified) =
           verify_prices_oracle_messages(
             prices_message,
             inputs,
-            hydra_signers,
             hydra_node_pub_keys,
             signatures,
           )
@@ -137,7 +125,6 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
         // Anyone can do initial deposit (no signature required)
         and {
           (initial_shares > 0)?,
-          are_keys_valid?,
           is_prices_verified?,
           is_datum_correct?,
           is_deposit_in_vault?,
@@ -247,6 +234,18 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
         expect vault_oracle_datum: VaultOracleDatum =
           output_inline_datum(vault_oracle_output)
 
+        // Get app_oracle reference input
+        expect [app_oracle_ref] =
+          inputs_with_policy(reference_inputs, app_oracle)
+        expect InlineDatum(app_oracle_data) = app_oracle_ref.output.datum
+        expect app_oracle_datum: AppOracleDatum = app_oracle_data
+        let AppOracleDatum { hydra_info, .. } = app_oracle_datum
+        let HydraInfo { hydra_signers } = hydra_info
+
+        // Verify hydra_node_pub_keys match app_oracle signers
+        let are_keys_valid =
+          verify_pub_keys(vault_oracle_datum.hydra_node_pub_keys, hydra_signers)
+
         // Validate initial datum: all state fields = 0, shares_merkle_root = null_hash
         let is_initial_state_correct = and {
             vault_oracle_datum.app_oracle == app_oracle,
@@ -260,7 +259,7 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
           }
 
         // No signatures required (anyone can create a vault)
-        is_utxo_consumed? && is_mint_correct? && is_initial_state_correct?
+        is_utxo_consumed? && is_mint_correct? && is_initial_state_correct? && are_keys_valid?
       }
 
       CloseVault -> {
