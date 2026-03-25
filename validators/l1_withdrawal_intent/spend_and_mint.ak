@@ -13,7 +13,7 @@ use types.{
   BurnIntent, CancelIntent, IntentRedeemerL1, MintIntent, VaultOracleDatum,
   WithdrawalIntentDatum,
 }
-use utils.{check_mint_redeemer_is_burn_intent, get_app_oracle_datum}
+use utils.{check_mint_redeemer_is_burn_intent_l1, get_app_oracle_datum}
 use withdraw_utils.{
   apply_operator_fee_share, process_batched_withdrawal_intent_validation,
 }
@@ -31,7 +31,7 @@ validator l1_withdrawal_intent(vault_oracle_nft: PolicyId) {
     expect Script(own_hash) = own_input.output.address.payment_credential
     let mint_purpose = Mint(own_hash)
 
-    check_mint_redeemer_is_burn_intent(mint_purpose, redeemers)?
+    check_mint_redeemer_is_burn_intent_l1(mint_purpose, redeemers)?
   }
 
   mint(redeemer: IntentRedeemerL1, policy_id: PolicyId, self: Transaction) {

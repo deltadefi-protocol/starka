@@ -20,7 +20,7 @@ use types.{
   VaultOracleMintRedeemer, VaultOracleSpendRedeemer,
 }
 use utils.{
-  check_mint_redeemer_is_burn_intent,
+  check_mint_redeemer_is_burn_intent_l1, check_mint_redeemer_is_burn_intent_l2,
   validate_hydra_signatures_with_verification_key, verify_pub_keys,
   withdrawal_script_validated,
 }
@@ -134,19 +134,19 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
       // See deltadefi-scripts/validators/hydra_account/vault_deposit.ak
       ProcessL1Deposit -> {
         let mint_purpose = Mint(l1_deposit_intent_script_hash)
-        check_mint_redeemer_is_burn_intent(mint_purpose, redeemers)?
+        check_mint_redeemer_is_burn_intent_l1(mint_purpose, redeemers)?
       }
       ProcessL1Withdrawal -> {
         let mint_purpose = Mint(l1_withdrawal_intent_script_hash)
-        check_mint_redeemer_is_burn_intent(mint_purpose, redeemers)?
+        check_mint_redeemer_is_burn_intent_l1(mint_purpose, redeemers)?
       }
       ProcessL2Deposit -> {
         let mint_purpose = Mint(l2_deposit_intent_script_hash)
-        check_mint_redeemer_is_burn_intent(mint_purpose, redeemers)?
+        check_mint_redeemer_is_burn_intent_l2(mint_purpose, redeemers)?
       }
       ProcessL2Withdrawal -> {
         let mint_purpose = Mint(l2_withdrawal_intent_script_hash)
-        check_mint_redeemer_is_burn_intent(mint_purpose, redeemers)?
+        check_mint_redeemer_is_burn_intent_l2(mint_purpose, redeemers)?
       }
       HydraCommit -> {
         let all_hydra_signed =

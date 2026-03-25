@@ -8,7 +8,7 @@ use types.{
   VaultPluggableLogic, VaultSpendRedeemer,
 }
 use utils.{
-  check_any_policy_minted, check_mint_redeemer_is_burn_intent,
+  check_any_policy_minted, check_mint_redeemer_is_burn_intent_l1,
   get_app_oracle_datum, get_vault_oracle_datum, withdrawal_script_validated,
 }
 
@@ -38,7 +38,7 @@ validator vault(vault_oracle: PolicyId) {
           vault_oracle_datum
         // WithdrawalIntent is burnt
         let mint_purpose = Mint(l1_withdrawal_intent_script_hash)
-        check_mint_redeemer_is_burn_intent(mint_purpose, redeemers)?
+        check_mint_redeemer_is_burn_intent_l1(mint_purpose, redeemers)?
       }
       DepositIntoDeltaDeFi -> {
         let vault_oracle_datum: VaultOracleDatum =
@@ -84,7 +84,8 @@ validator vault(vault_oracle: PolicyId) {
     let vault_oracle_datum: VaultOracleDatum =
       get_vault_oracle_datum(reference_inputs, vault_oracle)
 
-    let VaultOracleDatum { app_oracle, operator_account, .. } = vault_oracle_datum
+    let VaultOracleDatum { app_oracle, operator_account, .. } =
+      vault_oracle_datum
 
     // Extract operator PKH from UserTradeAccount
     expect UserTradeAccount { account: operator_acc, .. } = operator_account
