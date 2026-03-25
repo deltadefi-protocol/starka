@@ -135,13 +135,38 @@ pub type L2WithdrawalIntentDatum {
   shares_to_redeem: Int,
 }
 
+pub type MPFProof {
+  MPFInsert { proof: Proof }
+  MPFUpdate { from: ByteArray, to: ByteArray, to_proof: Proof }
+  MPFDelete { proof: Proof }
+}
+
+pub type Tree {
+  TreeBranch { nibble: ByteArray, nodes: List<Pair<Int, Tree>> }
+  TreeLeaf { path: ByteArray, key: ByteArray, value: ByteArray }
+}
+
+pub type TreeOrProofs {
+  FullTree { tree: Tree }
+  Proofs { proofs: List<MPFProof> }
+}
+
+pub type TreeOrProofsWithTokenMap {
+  proof: TreeOrProofs,
+  token_map: TokenMap,
+}
+
 pub type HydraAccountOperation {
-  ProcessWithdrawalHydraAccount
-  ProcessCancelWithdrawal
-  ProcessSameAccountTransferal
+  HydraAccountProcessWithdrawal { mpf_action: MPFProof }
+  ProcessCancelWithdrawal { mpf_action: MPFProof }
+  ProcessSameAccountTransferal { account: UserAccount }
   ProcessTransferal
-  ProcessCombineUtxosAtClose
-  ProcessSplitUtxosAtOpen
+  ProcessCombineUtxosAtClose {
+    tree_or_proofs_with_token_map: TreeOrProofsWithTokenMap,
+  }
+  ProcessSplitUtxosAtOpen {
+    tree_or_proofs_with_token_map: TreeOrProofsWithTokenMap,
+  }
   ProcessVaultDeposit(ByteArray, List<ByteArray>, TokenMap, SharesMPFAction)
   ProcessVaultWithdrawal(
     ByteArray,
