@@ -7,7 +7,8 @@ use mocktail.{
   tx_in_inline_datum,
 }
 use tests/utils.{
-  mock_l2_withdrawal_intent_script_hash, mock_user_trade_account, mock_vault_nft,
+  mock_dex_order_book_token, mock_l2_withdrawal_intent_script_hash,
+  mock_user_trade_account, mock_vault_nft,
 }
 use types.{L2WithdrawalIntentDatum}
 
@@ -66,6 +67,7 @@ test s5_spend_process_intent_success() {
 
   l2_withdrawal_intent.l2_withdrawal_intent.spend(
     mock_vault_nft,
+    mock_dex_order_book_token,
     None,
     None,
     mock_utxo_ref(0, 0),
@@ -85,6 +87,7 @@ test s5_spend_process_intent_fail_token_minted() {
 
   !l2_withdrawal_intent.l2_withdrawal_intent.spend(
     mock_vault_nft,
+    mock_dex_order_book_token,
     None,
     None,
     mock_utxo_ref(0, 0),

@@ -8,11 +8,10 @@ use mocktail.{
   tx_in_inline_datum, tx_out, tx_out_inline_datum, withdrawal_redeemer_value,
 }
 use tests/utils.{
-  mock_app_oracle, mock_app_oracle_address, mock_app_oracle_datum,
   mock_dex_order_book_address, mock_dex_order_book_datum,
   mock_dex_order_book_token, mock_hydra_account_script_hash,
   mock_l2_deposit_intent_script_hash, mock_operation_key, mock_user_account,
-  mock_user_trade_account, mock_vault_nft, mock_vault_oracle_datum,
+  mock_user_trade_account, mock_vault_nft,
 }
 use types.{
   BurnIntentL2, CancelIntentL2, L2DepositIntentDatum, MValue, MintIntentL2,
@@ -120,6 +119,7 @@ test s4_mint_mint_intent_success() {
 
   l2_deposit_intent.l2_deposit_intent.mint(
     mock_vault_nft,
+    mock_dex_order_book_token,
     MintIntentL2,
     mock_l2_deposit_intent_script_hash,
     tx,
@@ -140,6 +140,7 @@ test s4_mint_mint_intent_fail_wrong_mint_amount() {
 
   !l2_deposit_intent.l2_deposit_intent.mint(
     mock_vault_nft,
+    mock_dex_order_book_token,
     MintIntentL2,
     mock_l2_deposit_intent_script_hash,
     tx,
@@ -160,6 +161,7 @@ test s4_mint_mint_intent_fail_wrong_output_address() fail {
 
   l2_deposit_intent.l2_deposit_intent.mint(
     mock_vault_nft,
+    mock_dex_order_book_token,
     MintIntentL2,
     mock_l2_deposit_intent_script_hash,
     tx,
@@ -180,6 +182,7 @@ test s4_mint_mint_intent_fail_empty_deposit_amount() {
 
   !l2_deposit_intent.l2_deposit_intent.mint(
     mock_vault_nft,
+    mock_dex_order_book_token,
     MintIntentL2,
     mock_l2_deposit_intent_script_hash,
     tx,
@@ -200,6 +203,7 @@ test s4_mint_mint_intent_fail_not_signed() {
 
   !l2_deposit_intent.l2_deposit_intent.mint(
     mock_vault_nft,
+    mock_dex_order_book_token,
     MintIntentL2,
     mock_l2_deposit_intent_script_hash,
     tx,
@@ -209,22 +213,20 @@ test s4_mint_mint_intent_fail_not_signed() {
 // ========== L2 CancelIntent Tests ==========
 // Spec:
 // - L2DepositIntent token is burnt
-// - Signed by operation_key from app_oracle (NOT depositor like L1)
-// - Vault Oracle reference input required (to get app_oracle reference)
+// - Signed by operation_key from DexOrderBook (NOT depositor like L1)
+// - DexOrderBook reference input required via dex_oracle_nft parameter
 // - No value refund needed (tokens are in Account UTxO, not intent)
 
 type CancelIntentTestCase {
   is_token_burnt_correctly: Bool,
-  is_vault_oracle_present: Bool,
-  is_app_oracle_ref_present: Bool,
+  is_dex_order_book_ref_present: Bool,
   is_signed_by_operation_key: Bool,
 }
 
 fn mock_cancel_intent_tx(test_case: CancelIntentTestCase) -> Transaction {
   let CancelIntentTestCase {
     is_token_burnt_correctly,
-    is_vault_oracle_present,
-    is_app_oracle_ref_present,
+    is_dex_order_book_ref_present,
     is_signed_by_operation_key,
   } = test_case
 
@@ -240,37 +242,26 @@ fn mock_cancel_intent_tx(test_case: CancelIntentTestCase) -> Transaction {
   // L2 intent input only has intent token + min ADA
   let input_value = from_lovelace(2_000_000) |> add(policy_id, "", 1)
 
-  // Vault Oracle values
-  let vault_oracle_address = from_script(mock_vault_nft)
-  let vault_oracle_value =
-    from_asset(mock_vault_nft, "", 1) |> add("", "", 2_000_000)
-
-  // App Oracle reference input
-  let app_oracle_ref_value =
-    from_asset(mock_app_oracle, "", 1) |> add("", "", 2_000_000)
+  // DexOrderBook reference input
+  let dex_order_book_ref_value =
+    from_asset(mock_dex_order_book_token, "", 1) |> add("", "", 2_000_000)
 
   mocktail_tx()
     // L2 Intent input
     |> tx_in(True, mock_tx_hash(0), 0, input_value, from_script(policy_id))
     |> tx_in_inline_datum(True, mock_l2_deposit_intent_datum)
-    // Vault Oracle reference input (required to get app_oracle reference)
+    // DexOrderBook reference input (required to get operation_key)
     |> ref_tx_in(
-        is_vault_oracle_present,
-        mock_tx_hash(10),
+        is_dex_order_book_ref_present,
+        mock_tx_hash(40),
         0,
-        vault_oracle_value,
-        vault_oracle_address,
+        dex_order_book_ref_value,
+        mock_dex_order_book_address,
       )
-    |> ref_tx_in_inline_datum(is_vault_oracle_present, mock_vault_oracle_datum)
-    // App Oracle reference input
-    |> ref_tx_in(
-        is_app_oracle_ref_present,
-        mock_tx_hash(30),
-        0,
-        app_oracle_ref_value,
-        mock_app_oracle_address,
+    |> ref_tx_in_inline_datum(
+        is_dex_order_book_ref_present,
+        mock_dex_order_book_datum,
       )
-    |> ref_tx_in_inline_datum(is_app_oracle_ref_present, mock_app_oracle_datum)
     // Burn intent token
     |> mint(True, burn_amount, policy_id, "")
     // Signed by operation_key (not depositor like L1)
@@ -284,54 +275,34 @@ test s4_mint_cancel_intent_success() {
     mock_cancel_intent_tx(
       CancelIntentTestCase {
         is_token_burnt_correctly: True,
-        is_vault_oracle_present: True,
-        is_app_oracle_ref_present: True,
+        is_dex_order_book_ref_present: True,
         is_signed_by_operation_key: True,
       },
     )
 
   l2_deposit_intent.l2_deposit_intent.mint(
     mock_vault_nft,
+    mock_dex_order_book_token,
     CancelIntentL2,
     mock_l2_deposit_intent_script_hash,
     tx,
   )
 }
 
-// Fail: Missing vault oracle reference input
-test s4_mint_cancel_intent_fail_no_vault_oracle_ref() fail {
+// Fail: Missing dex order book reference input
+test s4_mint_cancel_intent_fail_no_dex_order_book_ref() fail {
   let tx =
     mock_cancel_intent_tx(
       CancelIntentTestCase {
         is_token_burnt_correctly: True,
-        is_vault_oracle_present: False,
-        is_app_oracle_ref_present: True,
+        is_dex_order_book_ref_present: False,
         is_signed_by_operation_key: True,
       },
     )
 
   l2_deposit_intent.l2_deposit_intent.mint(
     mock_vault_nft,
-    CancelIntentL2,
-    mock_l2_deposit_intent_script_hash,
-    tx,
-  )
-}
-
-// Fail: Missing app oracle reference input
-test s4_mint_cancel_intent_fail_no_app_oracle_ref() fail {
-  let tx =
-    mock_cancel_intent_tx(
-      CancelIntentTestCase {
-        is_token_burnt_correctly: True,
-        is_vault_oracle_present: True,
-        is_app_oracle_ref_present: False,
-        is_signed_by_operation_key: True,
-      },
-    )
-
-  l2_deposit_intent.l2_deposit_intent.mint(
-    mock_vault_nft,
+    mock_dex_order_book_token,
     CancelIntentL2,
     mock_l2_deposit_intent_script_hash,
     tx,
@@ -344,14 +315,14 @@ test s4_mint_cancel_intent_fail_not_signed() {
     mock_cancel_intent_tx(
       CancelIntentTestCase {
         is_token_burnt_correctly: True,
-        is_vault_oracle_present: True,
-        is_app_oracle_ref_present: True,
+        is_dex_order_book_ref_present: True,
         is_signed_by_operation_key: False,
       },
     )
 
   !l2_deposit_intent.l2_deposit_intent.mint(
     mock_vault_nft,
+    mock_dex_order_book_token,
     CancelIntentL2,
     mock_l2_deposit_intent_script_hash,
     tx,
@@ -362,12 +333,11 @@ test s4_mint_cancel_intent_fail_not_signed() {
 // Spec:
 // - Intent token is burnt (exactly 1)
 // - Withdrawal script is validated (hydra_account ProcessVaultDeposit)
+// - DexOrderBook reference required via dex_oracle_nft parameter
 // - No batching in L2 (single intent per tx)
 
 type BurnIntentTestCase {
   is_token_burnt_correctly: Bool,
-  is_vault_oracle_present: Bool,
-  is_app_oracle_ref_present: Bool,
   is_dex_order_book_ref_present: Bool,
   is_withdrawal_validated: Bool,
 }
@@ -375,8 +345,6 @@ type BurnIntentTestCase {
 fn mock_burn_intent_tx(test_case: BurnIntentTestCase) -> Transaction {
   let BurnIntentTestCase {
     is_token_burnt_correctly,
-    is_vault_oracle_present,
-    is_app_oracle_ref_present,
     is_dex_order_book_ref_present,
     is_withdrawal_validated,
   } = test_case
@@ -393,42 +361,15 @@ fn mock_burn_intent_tx(test_case: BurnIntentTestCase) -> Transaction {
   // L2 intent input only has intent token + min ADA
   let input_value = from_lovelace(2_000_000) |> add(policy_id, "", 1)
 
-  // Vault Oracle values
-  let vault_oracle_address = from_script(mock_vault_nft)
-  let vault_oracle_value =
-    from_asset(mock_vault_nft, "", 1) |> add("", "", 2_000_000)
-
-  // App Oracle reference input
-  let app_oracle_ref_value =
-    from_asset(mock_app_oracle, "", 1) |> add("", "", 2_000_000)
-
   // DexOrderBook reference input
   let dex_order_book_ref_value =
     from_asset(mock_dex_order_book_token, "", 1) |> add("", "", 2_000_000)
 
   mocktail_tx()
-    // Vault Oracle input (required to get app_oracle reference)
-    |> tx_in(
-        is_vault_oracle_present,
-        mock_tx_hash(10),
-        0,
-        vault_oracle_value,
-        vault_oracle_address,
-      )
-    |> tx_in_inline_datum(is_vault_oracle_present, mock_vault_oracle_datum)
     // L2 Intent input
     |> tx_in(True, mock_tx_hash(0), 0, input_value, from_script(policy_id))
     |> tx_in_inline_datum(True, mock_l2_deposit_intent_datum)
-    // App Oracle reference input
-    |> ref_tx_in(
-        is_app_oracle_ref_present,
-        mock_tx_hash(30),
-        0,
-        app_oracle_ref_value,
-        mock_app_oracle_address,
-      )
-    |> ref_tx_in_inline_datum(is_app_oracle_ref_present, mock_app_oracle_datum)
-    // DexOrderBook reference input
+    // DexOrderBook reference input (required to get hydra_account_script_hash)
     |> ref_tx_in(
         is_dex_order_book_ref_present,
         mock_tx_hash(40),
@@ -461,8 +402,6 @@ test s4_mint_burn_intent_success() {
     mock_burn_intent_tx(
       BurnIntentTestCase {
         is_token_burnt_correctly: True,
-        is_vault_oracle_present: True,
-        is_app_oracle_ref_present: True,
         is_dex_order_book_ref_present: True,
         is_withdrawal_validated: True,
       },
@@ -470,6 +409,7 @@ test s4_mint_burn_intent_success() {
 
   l2_deposit_intent.l2_deposit_intent.mint(
     mock_vault_nft,
+    mock_dex_order_book_token,
     BurnIntentL2,
     mock_l2_deposit_intent_script_hash,
     tx,
@@ -482,8 +422,6 @@ test s4_mint_burn_intent_fail_wrong_burn_amount() {
     mock_burn_intent_tx(
       BurnIntentTestCase {
         is_token_burnt_correctly: False,
-        is_vault_oracle_present: True,
-        is_app_oracle_ref_present: True,
         is_dex_order_book_ref_present: True,
         is_withdrawal_validated: True,
       },
@@ -491,6 +429,7 @@ test s4_mint_burn_intent_fail_wrong_burn_amount() {
 
   !l2_deposit_intent.l2_deposit_intent.mint(
     mock_vault_nft,
+    mock_dex_order_book_token,
     BurnIntentL2,
     mock_l2_deposit_intent_script_hash,
     tx,
@@ -503,8 +442,6 @@ test s4_mint_burn_intent_fail_no_withdrawal_validated() fail {
     mock_burn_intent_tx(
       BurnIntentTestCase {
         is_token_burnt_correctly: True,
-        is_vault_oracle_present: True,
-        is_app_oracle_ref_present: True,
         is_dex_order_book_ref_present: True,
         is_withdrawal_validated: False,
       },
@@ -512,27 +449,7 @@ test s4_mint_burn_intent_fail_no_withdrawal_validated() fail {
 
   l2_deposit_intent.l2_deposit_intent.mint(
     mock_vault_nft,
-    BurnIntentL2,
-    mock_l2_deposit_intent_script_hash,
-    tx,
-  )
-}
-
-// Fail: Missing vault oracle input
-test s4_mint_burn_intent_fail_no_vault_oracle() fail {
-  let tx =
-    mock_burn_intent_tx(
-      BurnIntentTestCase {
-        is_token_burnt_correctly: True,
-        is_vault_oracle_present: False,
-        is_app_oracle_ref_present: True,
-        is_dex_order_book_ref_present: True,
-        is_withdrawal_validated: True,
-      },
-    )
-
-  l2_deposit_intent.l2_deposit_intent.mint(
-    mock_vault_nft,
+    mock_dex_order_book_token,
     BurnIntentL2,
     mock_l2_deposit_intent_script_hash,
     tx,
@@ -545,8 +462,6 @@ test s4_mint_burn_intent_fail_no_dex_order_book() fail {
     mock_burn_intent_tx(
       BurnIntentTestCase {
         is_token_burnt_correctly: True,
-        is_vault_oracle_present: True,
-        is_app_oracle_ref_present: True,
         is_dex_order_book_ref_present: False,
         is_withdrawal_validated: True,
       },
@@ -554,6 +469,7 @@ test s4_mint_burn_intent_fail_no_dex_order_book() fail {
 
   l2_deposit_intent.l2_deposit_intent.mint(
     mock_vault_nft,
+    mock_dex_order_book_token,
     BurnIntentL2,
     mock_l2_deposit_intent_script_hash,
     tx,

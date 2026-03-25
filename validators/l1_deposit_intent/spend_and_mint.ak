@@ -84,7 +84,12 @@ validator l1_deposit_intent(vault_oracle_nft: PolicyId) {
 
         // Extract operator Account from UserAccount
         expect UserTradeAccount { account: operator_acc, .. } = operator_account
-        // 2. Verify prices message via app_oracle reference input
+
+        // 2. Get app_oracle datum from reference inputs
+        let app_oracle_datum =
+          get_app_oracle_datum(reference_inputs, app_oracle)
+
+        // 3. Verify prices message
         let (vault_equity, prices, is_prices_verified) =
           verify_prices_oracle_messages(
             message,
@@ -93,7 +98,7 @@ validator l1_deposit_intent(vault_oracle_nft: PolicyId) {
             signatures,
           )
 
-        // 3. Process batched deposit intents with MPF
+        // 4. Process batched deposit intents with MPF
         let (
           total_intent_datum_m_value,
           total_intent_datum_usd_value,
@@ -113,14 +118,14 @@ validator l1_deposit_intent(vault_oracle_nft: PolicyId) {
             operator_acc,
           )
 
-        // 4. Verify deposit value sent to vault script
+        // 5. Verify deposit value sent to vault script
         let is_deposit_sent =
           value_geq(
             get_all_value_to_script(outputs, vault_script_hash),
             from_asset_list(total_intent_datum_m_value),
           )
 
-        // 5. Verify oracle output datum updated correctly
+        // 6. Verify oracle output datum updated correctly
         let oracle_datum_check =
           vault_oracle_output_datum == VaultOracleDatum {
             ..vault_oracle_input_datum,
@@ -130,11 +135,11 @@ validator l1_deposit_intent(vault_oracle_nft: PolicyId) {
             shares_merkle_root: final_merkle_root,
           }
 
-        // 6. Verify intent burn count
+        // 7. Verify intent burn count
         let intent_burn_check =
           policy_only_minted_token(mint, policy_id, "", -list.length(indices))
 
-        // 7. Signed by operation_key from app_oracle
+        // 8. Signed by operation_key from app_oracle
         let is_operation_signed =
           key_signed(extra_signatories, app_oracle_datum.operation_key)
 

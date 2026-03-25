@@ -3,21 +3,20 @@ use cardano/address.{Script, VerificationKey, from_script}
 use cardano/assets.{PolicyId, flatten}
 use cardano/transaction.{OutputReference, Transaction, find_input}
 use cocktail.{
-  input_inline_datum, inputs_with_policy, key_signed, output_inline_datum,
-  outputs_at_with_policy, outputs_with_policy, policy_only_minted_token,
-  withdrawal_redeemer,
+  key_signed, output_inline_datum, outputs_at_with_policy, outputs_with_policy,
+  policy_only_minted_token, withdrawal_redeemer,
 }
-use hydra_dex/types.{AppOracleDatum,
-  DexOrderBookDatum, UserTradeAccount} as dd_types
+use hydra_dex/types.{DexOrderBookDatum, UserTradeAccount} as dd_types
 use hydra_dex/utils as dd_utils
 use types.{
   BurnIntentL2, CancelIntentL2, HydraAccountOperation, IntentRedeemerL2,
   L2WithdrawalIntentDatum, MintIntentL2, ProcessVaultWithdrawal,
-  VaultOracleDatum,
 }
-use utils.{get_app_oracle_datum, get_vault_oracle_datum}
 
-validator l2_withdrawal_intent(vault_oracle_nft: PolicyId) {
+validator l2_withdrawal_intent(
+  vault_oracle_nft: PolicyId,
+  dex_oracle_nft: PolicyId,
+) {
   spend(
     _datum: Option<L2WithdrawalIntentDatum>,
     _r,
@@ -44,7 +43,6 @@ validator l2_withdrawal_intent(vault_oracle_nft: PolicyId) {
 
   mint(redeemer: IntentRedeemerL2, policy_id: PolicyId, self: Transaction) {
     let Transaction {
-      inputs,
       outputs,
       mint,
       extra_signatories,
@@ -90,20 +88,9 @@ validator l2_withdrawal_intent(vault_oracle_nft: PolicyId) {
         // 1. Check intent token is burnt (exactly 1)
         let is_intent_burnt = policy_only_minted_token(mint, policy_id, "", -1)
 
-        // 2. Get hydra_account_script_hash from DexOrderBook
-        expect [vault_oracle_input] =
-          inputs_with_policy(inputs, vault_oracle_nft)
-        expect vault_oracle_datum: VaultOracleDatum =
-          input_inline_datum(vault_oracle_input)
-
-        let app_oracle_datum: AppOracleDatum =
-          get_app_oracle_datum(reference_inputs, vault_oracle_datum.app_oracle)
-
+        // 2. Get hydra_account_script_hash from DexOrderBook (directly via dex_oracle_nft)
         let DexOrderBookDatum { hydra_account_script_hash, .. }: DexOrderBookDatum =
-          dd_utils.get_dex_order_book_datum(
-            reference_inputs,
-            app_oracle_datum.dex_order_book_token,
-          )
+          dd_utils.get_dex_order_book_datum(reference_inputs, dex_oracle_nft)
 
         // 3. Check withdrawal script is validated (ProcessVaultWithdrawal redeemer)
         expect Some(w_redeemer) =
@@ -128,14 +115,10 @@ validator l2_withdrawal_intent(vault_oracle_nft: PolicyId) {
             _ -> False
           }
 
-        // 2. Get vault oracle from reference inputs to find app_oracle
-        let vault_oracle_datum: VaultOracleDatum =
-          get_vault_oracle_datum(inputs, vault_oracle_nft)
-        // 3. Get app_oracle and check operation_key signature
-        let app_oracle_datum: AppOracleDatum =
-          get_app_oracle_datum(reference_inputs, vault_oracle_datum.app_oracle)
-        let is_signed =
-          key_signed(extra_signatories, app_oracle_datum.operation_key)
+        // 2. Get DexOrderBook directly and check operation_key signature
+        let DexOrderBookDatum { operation_key, .. }: DexOrderBookDatum =
+          dd_utils.get_dex_order_book_datum(reference_inputs, dex_oracle_nft)
+        let is_signed = key_signed(extra_signatories, operation_key)
 
         no_output_check? && is_signed?
       }

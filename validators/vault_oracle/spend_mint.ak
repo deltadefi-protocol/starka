@@ -54,7 +54,6 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
       redeemers,
       extra_signatories,
       withdrawals,
-      reference_inputs,
       ..
     } = self
 

@@ -5,6 +5,7 @@ L2 withdrawal intents are created and processed inside the Hydra head. User rede
 ## Parameter
 
 - `vault_oracle_nft`: PolicyId
+- `dex_oracle_nft`: PolicyId
 
 ## Datum
 
@@ -31,8 +32,8 @@ L2 withdrawal intents are created and processed inside the Hydra head. User rede
    - Main validation logic in `hydra_account/core.ak`
 
 3. CancelIntent - Redeemer `CancelIntent`
-   - **Signed by `operation_key` from `app_oracle`**
-   - Vault Oracle referenced (not spent) to get `app_oracle`
+   - **Signed by `operation_key` from DexOrderBook**
+   - DexOrderBook referenced via `dex_oracle_nft` parameter
    - No intent tokens in outputs (batch burn supported)
    - No value refund needed (intent only contains intent token)
 

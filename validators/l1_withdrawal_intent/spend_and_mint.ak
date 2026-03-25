@@ -92,12 +92,17 @@ validator l1_withdrawal_intent(vault_oracle_nft: PolicyId) {
           shares_merkle_root,
           vault_script_hash,
           total_fee_share_collected,
+          app_oracle,
           ..
         } = vault_oracle_input_datum
 
         // Extract operator account from UserTradeAccount
         expect UserTradeAccount { account: operator_acc, .. } = operator_account
         expect VerificationKey(operator_pkh) = operator_acc.master_key
+
+        // Get app_oracle datum from reference inputs
+        let app_oracle_datum =
+          get_app_oracle_datum(reference_inputs, app_oracle)
 
         // Split mpf_actions: user actions + last action for operator fee share
         let user_action_count = list.length(indices)

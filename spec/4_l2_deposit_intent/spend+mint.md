@@ -5,6 +5,7 @@ L2 deposit intents are created and processed inside the Hydra head. User transfe
 ## Parameter
 
 - `vault_oracle_nft`: PolicyId
+- `dex_oracle_nft`: PolicyId
 
 ## Datum
 
@@ -32,8 +33,8 @@ L2 deposit intents are created and processed inside the Hydra head. User transfe
    - Main validation logic in `hydra_account/core.ak`
 
 3. CancelIntent - Redeemer `CancelIntent`
-   - **Signed by `operation_key` from `app_oracle`**
-   - Vault Oracle referenced (not spent) to get `app_oracle`
+   - **Signed by `operation_key` from DexOrderBook**
+   - DexOrderBook referenced via `dex_oracle_nft` parameter
    - No intent tokens in outputs (batch burn supported)
    - No value refund needed (tokens are in Account UTxO, not intent)
 
