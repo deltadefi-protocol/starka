@@ -26,7 +26,7 @@ fn mock_process_vault_withdrawal_redeemer() {
     [],
     [],
     SharesDelete { proof: [], old_value: #"" },
-    SharesDelete { proof: [], old_value: #"" },
+    Some(SharesDelete { proof: [], old_value: #"" }),
   )
 }
 

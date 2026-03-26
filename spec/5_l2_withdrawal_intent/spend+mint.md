@@ -37,6 +37,21 @@ L2 withdrawal intents are created and processed inside the Hydra head. User rede
    - No intent tokens in outputs (batch burn supported)
    - No value refund needed (intent only contains intent token)
 
+## ProcessVaultWithdrawal Redeemer
+
+```
+ProcessVaultWithdrawal(
+  prices_message: ByteArray,
+  signatures: List<ByteArray>,
+  token_map: TokenMap,
+  mpf_action: SharesMPFAction,
+  operator_mpf_action: Option<SharesMPFAction>,
+)
+```
+
+- `operator_mpf_action` is `Some(action)` when `fee_shares > 0` (non-operator withdrawal with profit)
+- `operator_mpf_action` is `None` when `fee_shares == 0` (operator withdrawal or no profit)
+
 ## ProcessVaultWithdrawal (hydra_account/core.ak)
 
 The main withdrawal logic is handled in the hydra_account withdrawal script:
