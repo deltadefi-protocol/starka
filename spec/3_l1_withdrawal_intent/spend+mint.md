@@ -9,7 +9,7 @@ L1 withdrawal intents allow users to withdraw funds from the Trust Me Bro vault 
 ## Datum
 
 - `withdrawer`: UserAccount - receiver of funds (contains Account with account_id, master_key, operation_key)
-- `shares_to_redeem`: `Int` - LP shares to withdraw
+- `shares_to_redeem`: `Int` - shares to withdraw
 
 ## User Action - Spend
 

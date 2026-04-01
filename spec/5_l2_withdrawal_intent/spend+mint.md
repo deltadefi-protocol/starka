@@ -1,6 +1,6 @@
 # Specification - L2 Withdrawal Intent
 
-L2 withdrawal intents are created and processed inside the Hydra head. User redeems LP shares to receive balance in their Account UTxO.
+L2 withdrawal intents are created and processed inside the Hydra head. User redeems shares to receive balance in their Account UTxO.
 
 ## Parameter
 
@@ -11,7 +11,7 @@ L2 withdrawal intents are created and processed inside the Hydra head. User rede
 
 - `vault_oracle_nft`: PolicyId - must match validator parameter
 - `withdrawer`: UserAccount - user account receiving funds (contains Account with account_id, master_key, operation_key)
-- `shares_to_redeem`: `Int` - LP shares to withdraw
+- `shares_to_redeem`: `Int` - shares to withdraw
 
 ## User Action - Spend
 

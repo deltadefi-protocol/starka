@@ -1,6 +1,6 @@
 # Specification - L2 Deposit Intent
 
-L2 deposit intents are created and processed inside the Hydra head. User transfers balance from their Account UTxO to the vault to receive LP shares.
+L2 deposit intents are created and processed inside the Hydra head. User transfers balance from their Account UTxO to the vault to receive shares.
 
 ## Parameter
 
@@ -10,7 +10,7 @@ L2 deposit intents are created and processed inside the Hydra head. User transfe
 ## Datum
 
 - `vault_oracle_nft`: PolicyId - must match validator parameter
-- `depositor`: UserAccount - user account receiving LP shares (contains Account with account_id, master_key, operation_key)
+- `depositor`: UserAccount - user account receiving shares (contains Account with account_id, master_key, operation_key)
 - `deposit_amount`: `MValue` - value being deposited (hydra token representation)
 
 ## User Action - Spend
