@@ -9,8 +9,8 @@ use cocktail.{
 use hydra_dex/types.{DexOrderBookDatum, UserTradeAccount} as dd_types
 use hydra_dex/utils as dd_utils
 use types.{
-  BurnIntentL2, CancelIntentL2, HydraAccountOperation, IntentRedeemerL2,
-  L2DepositIntentDatum, MintIntentL2, ProcessVaultDeposit,
+  BurnIntentL2, CancelIntentL2, IntentRedeemerL2, L2DepositIntentDatum,
+  MintIntentL2, ProcessHydraAccountOtherRedeemer, ProcessVaultDeposit,
 }
 
 validator l2_deposit_intent(
@@ -96,7 +96,7 @@ validator l2_deposit_intent(
         // 3. Check withdrawal script is validated (ProcessVaultDeposit redeemer)
         expect Some(w_redeemer) =
           withdrawal_redeemer(redeemers, hydra_account_script_hash)
-        expect w_redeemer: HydraAccountOperation = w_redeemer
+        expect w_redeemer: ProcessHydraAccountOtherRedeemer = w_redeemer
         let is_withdrawal_validated =
           when w_redeemer is {
             ProcessVaultDeposit { .. } -> True
