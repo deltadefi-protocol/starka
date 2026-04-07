@@ -218,6 +218,11 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
       ..
     } = self
 
+    // Get app_oracle reference input
+    expect [app_oracle_ref] = inputs_with_policy(reference_inputs, app_oracle)
+    expect InlineDatum(app_oracle_data) = app_oracle_ref.output.datum
+    expect app_oracle_datum: AppOracleDatum = app_oracle_data
+    let AppOracleDatum { hydra_info, operation_key, .. } = app_oracle_datum
     when redeemer is {
       MintVault -> {
         // One-shot: verify initial_utxo is consumed (guarantees unique policy_id)
@@ -233,12 +238,6 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
         expect vault_oracle_datum: VaultOracleDatum =
           output_inline_datum(vault_oracle_output)
 
-        // Get app_oracle reference input
-        expect [app_oracle_ref] =
-          inputs_with_policy(reference_inputs, app_oracle)
-        expect InlineDatum(app_oracle_data) = app_oracle_ref.output.datum
-        expect app_oracle_datum: AppOracleDatum = app_oracle_data
-        let AppOracleDatum { hydra_info, .. } = app_oracle_datum
         let HydraInfo { hydra_signers } = hydra_info
 
         // Verify hydra_node_pub_keys match app_oracle signers
@@ -279,13 +278,6 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
           close_operator_account
         expect VerificationKey(close_operator_pkh) =
           close_operator_acc.master_key
-
-        // Get app_oracle reference input
-        expect [app_oracle_ref] =
-          inputs_with_policy(reference_inputs, app_oracle)
-        expect InlineDatum(app_oracle_data) = app_oracle_ref.output.datum
-        expect app_oracle_datum: AppOracleDatum = app_oracle_data
-        let AppOracleDatum { operation_key, .. } = app_oracle_datum
 
         // Burn oracle NFT
         let is_burn_correct = only_minted_token(mint, policy_id, "", -1)
