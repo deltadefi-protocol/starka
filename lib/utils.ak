@@ -1,4 +1,4 @@
-use aiken/collection/list
+use aiken/collection/list.{all, has}
 use aiken/collection/pairs.{has_key}
 use aiken/crypto.{
   ScriptHash, VerificationKey, VerificationKeyHash, blake2b_224,
@@ -9,29 +9,37 @@ use cardano/assets.{Lovelace, PolicyId, Value, quantity_of}
 use cardano/transaction.{InlineDatum, Input, Redeemer, ScriptPurpose}
 use cocktail.{input_inline_datum}
 use hydra_dex/types.{AppOracleDatum} as dd_types
-use types.{BurnIntent, IntentRedeemer, VaultDatum}
+use types.{
+  BurnIntent, BurnIntentL2, IntentRedeemerL1, IntentRedeemerL2, VaultOracleDatum,
+}
 
-pub fn get_vault_datum(inputs: List<Input>, vault_nft: PolicyId) -> VaultDatum {
-  expect Some(vault_input) =
+pub fn get_vault_oracle_datum(
+  inputs: List<Input>,
+  vault_oracle_nft: PolicyId,
+) -> VaultOracleDatum {
+  expect Some(oracle_input) =
     inputs
       |> list.find(
           fn(input: Input) {
-            quantity_of(input.output.value, vault_nft, "") == 1
+            quantity_of(input.output.value, vault_oracle_nft, "") == 1
           },
         )
-  expect datum: VaultDatum = input_inline_datum(vault_input)
+  expect datum: VaultOracleDatum = input_inline_datum(oracle_input)
   datum
 }
 
-pub fn get_vault_input(inputs: List<Input>, vault_nft: PolicyId) -> Input {
-  expect Some(vault_input) =
+pub fn get_vault_oracle_input(
+  inputs: List<Input>,
+  vault_oracle_nft: PolicyId,
+) -> Input {
+  expect Some(oracle_input) =
     inputs
       |> list.find(
           fn(input: Input) {
-            quantity_of(input.output.value, vault_nft, "") == 1
+            quantity_of(input.output.value, vault_oracle_nft, "") == 1
           },
         )
-  vault_input
+  oracle_input
 }
 
 pub fn get_app_oracle_datum(
@@ -51,15 +59,28 @@ pub fn get_app_oracle_datum(
   oracle_input_datum
 }
 
-pub fn check_mint_redeemer_is_burn_intent(
+pub fn check_mint_redeemer_is_burn_intent_l1(
   mint_purpose: ScriptPurpose,
   redeemers: Pairs<ScriptPurpose, Redeemer>,
 ) -> Bool {
   expect Some(mint_redeemer_data) = redeemers |> pairs.get_first(mint_purpose)
-  expect mint_redeemer: IntentRedeemer = mint_redeemer_data
+  expect mint_redeemer: IntentRedeemerL1 = mint_redeemer_data
 
   when mint_redeemer is {
     BurnIntent(_, _, _, _) -> True
+    _ -> False
+  }
+}
+
+pub fn check_mint_redeemer_is_burn_intent_l2(
+  mint_purpose: ScriptPurpose,
+  redeemers: Pairs<ScriptPurpose, Redeemer>,
+) -> Bool {
+  expect Some(mint_redeemer_data) = redeemers |> pairs.get_first(mint_purpose)
+  expect mint_redeemer: IntentRedeemerL2 = mint_redeemer_data
+
+  when mint_redeemer is {
+    BurnIntentL2 -> True
     _ -> False
   }
 }
@@ -105,4 +126,35 @@ pub fn withdrawal_script_validated(
 
 pub fn check_any_policy_burned(mint: Value, policy_id: PolicyId) -> Bool {
   quantity_of(mint, policy_id, "") < 0
+}
+
+pub fn check_any_policy_minted(mint: Value, policy_id: PolicyId) -> Bool {
+  quantity_of(mint, policy_id, "") > 0
+}
+
+pub fn validate_hydra_signatures_from_app_oracle(
+  reference_inputs: List<Input>,
+  oracle_nft: ScriptHash,
+  extra_signatories: List<VerificationKeyHash>,
+) -> Bool {
+  let oracle_input_datum: AppOracleDatum =
+    reference_inputs |> get_app_oracle_datum(oracle_nft)
+  let hydra_required_signers: List<VerificationKeyHash> =
+    oracle_input_datum.hydra_info.hydra_signers
+  let hydra_signers_check =
+    hydra_required_signers
+      |> all(
+          fn(signer: VerificationKeyHash) { extra_signatories |> has(signer) },
+        )
+  hydra_signers_check
+}
+
+pub fn validate_hydra_signatures_with_verification_key(
+  hydra_node_pub_keys: List<VerificationKeyHash>,
+  extra_signatories: List<VerificationKeyHash>,
+) -> Bool {
+  list.all(
+    hydra_node_pub_keys,
+    fn(key) { list.has(extra_signatories, crypto.blake2b_224(key)) },
+  )
 }

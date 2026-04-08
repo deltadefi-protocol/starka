@@ -1,0 +1,13 @@
+# Specification - AccountOperation - AppVaultStakeRotation
+
+## Parameter
+
+- `vault_oracle`: PolicyId
+
+## User Action
+
+1. Rotate App Vault Stake Key
+   - Obtain `VaultOracle` from `reference_inputs`, get the vault script hash
+   - Obtain DeltaDeFi's `AppOracle`
+   - value from vault script hash == value to vault script hash
+   - Signed by DeltaDeFi operation key
