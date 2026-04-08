@@ -6,28 +6,31 @@ use cardano/address.{Script}
 use cardano/assets.{AssetName, PolicyId, Value}
 use cardano/transaction.{Input}
 use cocktail.{input_inline_datum}
+use hydra_dex/types.{Account, UserTradeAccount} as dd_types
 use price_oracle_utils.{convert_m_value_to_usd}
 use types.{
-  DepositIntentDatum, LPInsert, LPMPFAction, LPRecordEntry, LPUpdate, MValue,
+  DepositIntentDatum, MValue, SharesInsert, SharesMPFAction, SharesRecordEntry,
+  SharesUpdate,
 }
 
-pub type Scott4<a, b, c, d, result> =
-  fn(a, b, c, d) -> result
+pub type Scott5<a, b, c, d, e, result> =
+  fn(a, b, c, d, e) -> result
 
-pub fn list_foldl4(
+pub fn list_foldl5(
   self: List<x>,
   zero_a: a,
   zero_b: b,
   zero_c: c,
   zero_d: d,
-  with: fn(x, a, b, c, d, Scott4<a, b, c, d, result>) -> result,
-  return: Scott4<a, b, c, d, result>,
+  zero_e: e,
+  with: fn(x, a, b, c, d, e, Scott5<a, b, c, d, e, result>) -> result,
+  return: Scott5<a, b, c, d, e, result>,
 ) -> result {
   when self is {
-    [] -> return(zero_a, zero_b, zero_c, zero_d)
+    [] -> return(zero_a, zero_b, zero_c, zero_d, zero_e)
     [x, ..xs] -> {
-      let acc_a, acc_b, acc_c, acc_d <- with(x, zero_a, zero_b, zero_c, zero_d)
-      list_foldl4(xs, acc_a, acc_b, acc_c, acc_d, with, return)
+      let acc_a, acc_b, acc_c, acc_d, acc_e <- with(x, zero_a, zero_b, zero_c, zero_d, zero_e)
+      list_foldl5(xs, acc_a, acc_b, acc_c, acc_d, acc_e, with, return)
     }
   }
 }
@@ -62,43 +65,50 @@ pub fn combine_m_value(left_m_value: MValue, right_m_value: MValue) -> MValue {
     |> dict.to_pairs()
 }
 
-pub fn cal_lp_amount(
+// Calculate shares to mint for a deposit
+// Initial deposit (total_shares == 0): share price = 1.0, so shares = usd_value
+// Subsequent deposits: shares = (usd_value * total_shares) / vault_equity (round DOWN)
+pub fn cal_shares_amount(
   usd_value: Int,
-  vault_balance: Int,
-  total_lp: Int,
+  vault_equity: Int,
+  total_shares: Int,
 ) -> Int {
-  when total_lp is {
-    0 -> fail @"Total LP cannot be zero"
-    _ -> usd_value * total_lp / vault_balance
+  if total_shares == 0 {
+    usd_value
+  } else {
+    usd_value * total_shares / vault_equity
   }
 }
 
 // Process batched deposit intents with MPF merkle root transitions.
-// Returns (total_m_value, total_usd_value, total_lp_added, final_merkle_root)
+// Returns (total_m_value, total_usd_value, total_shares_added, operator_shares_added, final_merkle_root)
 pub fn process_batched_deposit_intent_validation(
   inputs: List<Input>,
   indices: List<Int>,
-  mpf_actions: List<LPMPFAction>,
-  vault_balance: Int,
-  total_lp: Int,
-  prices: Pairs<(PolicyId, AssetName), Int>,
+  mpf_actions: List<SharesMPFAction>,
+  vault_equity: Int,
+  total_shares: Int,
+  prices: Pairs<(PolicyId, AssetName), (Int, Int)>,
   deposit_intent_script_hash: ScriptHash,
   initial_merkle_root: ByteArray,
-) -> (MValue, Int, Int, ByteArray) {
+  operator_account: Account,
+) -> (MValue, Int, Int, Int, ByteArray) {
   let empty_m_value: MValue = []
 
-  // Accumulate: (remaining_indices_and_actions, total_m_value, total_usd_value, total_lp_added)
+  // Accumulate: (remaining_indices_and_actions, total_m_value, total_usd_value, total_shares_added, operator_shares_added)
   // We pack indices, mpf_actions, and merkle_root into the first accumulator
   let
     processed_state,
     total_intent_datum_m_value,
     total_intent_datum_usd_value,
-    total_lp_added,
+    total_shares_added,
+    operator_shares_added,
   <-
-    list_foldl4(
+    list_foldl5(
       inputs,
       (indices, mpf_actions, initial_merkle_root),
       empty_m_value,
+      0,
       0,
       0,
       fn(
@@ -106,7 +116,8 @@ pub fn process_batched_deposit_intent_validation(
         remaining_state,
         cal_intent_datum_m_value,
         cal_intent_datum_usd_value,
-        cal_lp_added,
+        cal_shares_added,
+        cal_operator_shares_added,
         return,
       ) {
         let (remaining_indices, remaining_actions, current_root) =
@@ -119,58 +130,68 @@ pub fn process_batched_deposit_intent_validation(
                 [_output_index, ..rest_of_indices] -> {
                   expect input_datum: DepositIntentDatum =
                     input_inline_datum(input)
-                  let DepositIntentDatum { lp_address, amount } = input_datum
+                  let DepositIntentDatum { depositor, deposit_amount } =
+                    input_datum
 
                   // Combine MValue
                   let new_cal_intent_datum_m_value =
-                    combine_m_value(cal_intent_datum_m_value, amount)
+                    combine_m_value(cal_intent_datum_m_value, deposit_amount)
 
                   // Calculate USD value
                   let intent_datum_usd_value =
-                    convert_m_value_to_usd(amount, prices)
+                    convert_m_value_to_usd(deposit_amount, prices)
                   let new_cal_intent_datum_usd_value =
                     cal_intent_datum_usd_value + intent_datum_usd_value
 
-                  // Calculate LP amount (round DOWN)
-                  let cal_lp =
-                    cal_lp_amount(
+                  // Calculate shares amount (round DOWN)
+                  let cal_shares =
+                    cal_shares_amount(
                       intent_datum_usd_value,
-                      vault_balance,
-                      total_lp,
+                      vault_equity,
+                      total_shares,
                     )
-                  let new_cal_lp_added = cal_lp + cal_lp_added
+                  let new_cal_shares_added = cal_shares + cal_shares_added
 
                   // Apply MPF action for this deposit
                   expect [action, ..rest_actions] = remaining_actions
-                  let mpf_key = cbor.serialise(lp_address)
+                  // Extract Account from UserAccount and use as MPF key
+                  expect UserTradeAccount { account: depositor_account, .. } =
+                    depositor
+                  let mpf_key = cbor.serialise(depositor_account)
+
+                  // Track if depositor is operator
+                  let new_cal_operator_shares_added =
+                    if depositor_account == operator_account {
+                      cal_operator_shares_added + cal_shares
+                    } else {
+                      cal_operator_shares_added
+                    }
 
                   let new_root =
                     when action is {
-                      LPInsert { proof, new_value } -> {
-                        // New depositor
-                        let expected_entry =
-                          LPRecordEntry {
-                            lp: cal_lp,
-                            cost: intent_datum_usd_value,
+                      SharesInsert { proof } -> {
+                        // New depositor - compute new_value
+                        let new_entry =
+                          SharesRecordEntry {
+                            shares: cal_shares,
+                            total_deposited: intent_datum_usd_value,
                           }
-                        let expected_value = cbor.serialise(expected_entry)
-                        expect new_value == expected_value
+                        let new_value = cbor.serialise(new_entry)
                         let trie = mpf.from_root(current_root)
                         let new_trie =
                           mpf.insert(trie, mpf_key, new_value, proof)
                         mpf.root(new_trie)
                       }
-                      LPUpdate { from, to, to_proof } -> {
-                        // Existing depositor
+                      SharesUpdate { from, to_proof } -> {
+                        // Existing depositor - compute to value
                         expect Some(from_data) = cbor.deserialise(from)
-                        expect old_entry: LPRecordEntry = from_data
-                        let expected_entry =
-                          LPRecordEntry {
-                            lp: old_entry.lp + cal_lp,
-                            cost: old_entry.cost + intent_datum_usd_value,
+                        expect old_entry: SharesRecordEntry = from_data
+                        let new_entry =
+                          SharesRecordEntry {
+                            shares: old_entry.shares + cal_shares,
+                            total_deposited: old_entry.total_deposited + intent_datum_usd_value,
                           }
-                        let expected_value = cbor.serialise(expected_entry)
-                        expect to == expected_value
+                        let to = cbor.serialise(new_entry)
                         let trie = mpf.from_root(current_root)
                         let new_trie =
                           mpf.update(trie, mpf_key, to_proof, from, to)
@@ -183,7 +204,8 @@ pub fn process_batched_deposit_intent_validation(
                     (rest_of_indices, rest_actions, new_root),
                     new_cal_intent_datum_m_value,
                     new_cal_intent_datum_usd_value,
-                    new_cal_lp_added,
+                    new_cal_shares_added,
+                    new_cal_operator_shares_added,
                   )
                 }
               }
@@ -192,7 +214,8 @@ pub fn process_batched_deposit_intent_validation(
                 remaining_state,
                 cal_intent_datum_m_value,
                 cal_intent_datum_usd_value,
-                cal_lp_added,
+                cal_shares_added,
+                cal_operator_shares_added,
               )
             }
           _ ->
@@ -200,7 +223,8 @@ pub fn process_batched_deposit_intent_validation(
               remaining_state,
               cal_intent_datum_m_value,
               cal_intent_datum_usd_value,
-              cal_lp_added,
+              cal_shares_added,
+              cal_operator_shares_added,
             )
         }
       },
@@ -211,7 +235,8 @@ pub fn process_batched_deposit_intent_validation(
       (
         total_intent_datum_m_value,
         total_intent_datum_usd_value,
-        total_lp_added,
+        total_shares_added,
+        operator_shares_added,
         final_root,
       )
     _ -> fail @"Batch deposit intent UTxOs not fully processed"

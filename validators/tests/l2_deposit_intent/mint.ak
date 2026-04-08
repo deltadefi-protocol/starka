@@ -1,171 +1,477 @@
-use aiken/cbor
-use aiken/merkle_patricia_forestry as mpf
-use cardano/address.{from_script}
-use cardano/assets.{add, from_asset, from_asset_list}
+use cardano/address.{VerificationKey, from_script}
+use cardano/assets.{add, from_asset, from_lovelace}
 use cardano/transaction.{Transaction}
-use deposit_utils.{cal_lp_amount}
 use l2_deposit_intent/spend_and_mint as l2_deposit_intent
 use mocktail.{
-  complete, mint, mock_pub_key_address, mock_pub_key_hash, mock_tx_hash,
-  mocktail_tx, required_signer_hash, tx_in, tx_in_inline_datum, tx_out,
-  tx_out_inline_datum,
+  complete, mint, mock_policy_id, mock_tx_hash, mocktail_tx, ref_tx_in,
+  ref_tx_in_inline_datum, required_signer_hash, script_withdrawal, tx_in,
+  tx_in_inline_datum, tx_out, tx_out_inline_datum, withdrawal_redeemer_value,
 }
 use tests/utils.{
-  mock_app_oracle, mock_deposit_intent_datum, mock_deposit_m_value,
-  mock_l2_deposit_intent_script_hash, mock_message, mock_node_pub_keys,
-  mock_operator_key, mock_signatures, mock_total_lp, mock_vault_cost,
-  mock_vault_nft, null_hash,
+  mock_dex_order_book_address, mock_dex_order_book_datum,
+  mock_dex_order_book_token, mock_hydra_account_script_hash,
+  mock_l2_deposit_intent_script_hash, mock_operation_key, mock_user_account,
+  mock_user_trade_account, mock_vault_nft,
 }
 use types.{
-  BurnIntent, CancelIntent, LPInsert, LPRecordEntry, MintIntent, VaultDatum,
+  BurnIntentL2, CancelIntentL2, L2DepositIntentDatum, MValue, MintIntentL2,
+  ProcessVaultDeposit, SharesInsert,
 }
 
-// ========== MintIntent ==========
-
-test test_mint_intent_success() {
-  let policy_id = mock_l2_deposit_intent_script_hash
-  let output_value =
-    from_asset_list(mock_deposit_m_value)
-      |> add(policy_id, "", 1)
-  let tx =
-    mocktail_tx()
-      |> mint(True, 1, policy_id, "")
-      |> tx_out(True, from_script(policy_id), output_value)
-      |> tx_out_inline_datum(True, mock_deposit_intent_datum)
-      |> complete()
-
-  l2_deposit_intent.l2_deposit_intent.mint(
-    mock_vault_nft,
-    MintIntent,
-    policy_id,
-    tx,
-  )
+// Fake redeemer for ProcessVaultDeposit (actual validation happens in hydra_account)
+// ProcessVaultDeposit(prices_message, signatures, token_map, mpf_action)
+fn mock_process_vault_deposit_redeemer() {
+  ProcessVaultDeposit(#"", [], [], SharesInsert { proof: [] })
 }
 
-// ========== BurnIntent ==========
+// ========== L2 MintIntent Tests ==========
+// Spec:
+// - Intent UTxO only contains the intent token (no deposit value)
+// - Deposit amount > 0 (tokens stored in Account UTxO, not intent)
+// - Different from L1: L1 requires deposit_value >= deposit_amount in datum
 
-// Same prices and calculations as L1, but no app_oracle reference input.
-// L2 derives hydra_signers from vault_datum.hydra_node_pub_keys directly.
+// Mock L2 deposit intent datum
+const mock_l2_deposit_m_value: MValue =
+  [
+    Pair("", [Pair("", 1749190790)]),
+    Pair(
+      #"c69b981db7a65e339a6d783755f85a2e03afa1cece9714c55fe4c913",
+      [Pair(#"5553444d", 143533706)],
+    ),
+  ]
 
-const deposit_usd_value = 3641915286
-
-const mock_vault_balance = 2400000000
-
-fn computed_lp() -> Int {
-  cal_lp_amount(deposit_usd_value, mock_vault_balance, mock_total_lp)
-}
-
-fn build_vault_input_datum() -> VaultDatum {
-  VaultDatum {
-    app_oracle: mock_app_oracle,
-    l1_deposit_intent_script_hash: #"",
-    l1_withdrawal_intent_script_hash: #"",
-    l2_deposit_intent_script_hash: mock_l2_deposit_intent_script_hash,
-    l2_withdrawal_intent_script_hash: #"",
-    pluggable_logic: #"",
-    vault_stake_rotation_script_hash: #"",
-    operator_key: mock_operator_key,
-    operator_charge_percentage: 0,
-    operator_min_deposit_percentage: 10,
-    hydra_node_pub_keys: mock_node_pub_keys,
-    total_lp: mock_total_lp,
-    operator_lp: 0,
-    vault_cost: mock_vault_cost,
-    lp_merkle_root: null_hash,
-    is_active: True,
+const mock_l2_deposit_intent_datum: L2DepositIntentDatum =
+  L2DepositIntentDatum {
+    vault_oracle_nft: mock_vault_nft,
+    depositor: mock_user_trade_account,
+    deposit_amount: mock_l2_deposit_m_value,
   }
+
+type MintIntentTestCase {
+  is_token_minted_correctly: Bool,
+  is_output_to_correct_address: Bool,
+  is_deposit_amount_valid: Bool,
+  is_depositor_signed: Bool,
 }
 
-test test_burn_intent_success() {
+fn mock_mint_intent_tx(test_case: MintIntentTestCase) -> Transaction {
+  let MintIntentTestCase {
+    is_token_minted_correctly,
+    is_output_to_correct_address,
+    is_deposit_amount_valid,
+    is_depositor_signed,
+  } = test_case
+
   let policy_id = mock_l2_deposit_intent_script_hash
-  let vault_input_datum = build_vault_input_datum()
+  let wrong_policy_id = mock_policy_id(999)
 
-  let cal_lp = computed_lp()
-  let lp_address = mock_pub_key_address(0, None)
-  let mpf_key = cbor.serialise(lp_address)
-  let new_entry = LPRecordEntry { lp: cal_lp, cost: deposit_usd_value }
-  let mpf_value = cbor.serialise(new_entry)
-  let new_root = mpf.root(mpf.insert(mpf.empty, mpf_key, mpf_value, []))
-
-  let vault_output_datum =
-    VaultDatum {
-      ..vault_input_datum,
-      total_lp: mock_total_lp + cal_lp,
-      vault_cost: mock_vault_cost + deposit_usd_value,
-      lp_merkle_root: new_root,
+  let output_address =
+    if is_output_to_correct_address {
+      from_script(policy_id)
+    } else {
+      from_script(wrong_policy_id)
     }
 
-  let vault_address = from_script(mock_vault_nft)
-  let vault_input_value =
-    from_asset(mock_vault_nft, "", 1) |> add("", "", 2_000_000)
-  let vault_output_value =
-    from_asset_list(mock_deposit_m_value)
-      |> add(mock_vault_nft, "", 1)
-      |> add("", "", 2_000_000)
+  let mint_amount =
+    if is_token_minted_correctly {
+      1
+    } else {
+      2
+    }
 
-  let intent_input_value =
-    from_asset_list(mock_deposit_m_value)
-      |> add(policy_id, "", 1)
+  // L2 intent output only has intent token + min ADA (no deposit value)
+  let output_value = from_lovelace(2_000_000) |> add(policy_id, "", 1)
 
-  let mpf_action = LPInsert { proof: [], new_value: mpf_value }
+  // Datum with deposit amount (or empty if testing invalid)
+  let datum =
+    if is_deposit_amount_valid {
+      mock_l2_deposit_intent_datum
+    } else {
+      L2DepositIntentDatum {
+        vault_oracle_nft: mock_vault_nft,
+        depositor: mock_user_trade_account,
+        deposit_amount: [],
+      }
+    }
 
-  // No app_oracle reference input for L2
+  // Extract PKH from depositor account's master_key
+  expect VerificationKey(depositor_pkh) = mock_user_account.master_key
+
+  mocktail_tx()
+    |> mint(True, mint_amount, policy_id, "")
+    |> tx_out(True, output_address, output_value)
+    |> tx_out_inline_datum(True, datum)
+    |> required_signer_hash(is_depositor_signed, depositor_pkh)
+    |> complete()
+}
+
+// Success: Mint intent with correct token, valid deposit amount, and depositor signature
+test s4_mint_mint_intent_success() {
   let tx =
-    mocktail_tx()
-      |> tx_in(
-          True,
-          mock_tx_hash(0),
-          0,
-          from_asset("", "", 2_000_000),
-          mock_pub_key_address(0, None),
-        )
-      |> tx_in(True, mock_tx_hash(10), 0, vault_input_value, vault_address)
-      |> tx_in_inline_datum(True, vault_input_datum)
-      |> tx_in(
-          True,
-          mock_tx_hash(20),
-          0,
-          intent_input_value,
-          from_script(policy_id),
-        )
-      |> tx_in_inline_datum(True, mock_deposit_intent_datum)
-      |> tx_out(True, vault_address, vault_output_value)
-      |> tx_out_inline_datum(True, vault_output_datum)
-      |> mint(True, -1, policy_id, "")
-      |> complete()
-
-  let redeemer =
-    BurnIntent([0], mock_message, mock_signatures, [mpf_action])
+    mock_mint_intent_tx(
+      MintIntentTestCase {
+        is_token_minted_correctly: True,
+        is_output_to_correct_address: True,
+        is_deposit_amount_valid: True,
+        is_depositor_signed: True,
+      },
+    )
 
   l2_deposit_intent.l2_deposit_intent.mint(
     mock_vault_nft,
-    redeemer,
-    policy_id,
+    mock_dex_order_book_token,
+    MintIntentL2,
+    mock_l2_deposit_intent_script_hash,
     tx,
   )
 }
 
-// ========== CancelIntent ==========
-
-test test_cancel_intent_success() {
-  let policy_id = mock_l2_deposit_intent_script_hash
-  let intent_value =
-    from_asset_list(mock_deposit_m_value)
-      |> add(policy_id, "", 1)
-  let depositor_pkh = mock_pub_key_hash(0)
-
+// Fail: Wrong mint amount (minted 2 instead of 1)
+test s4_mint_mint_intent_fail_wrong_mint_amount() {
   let tx =
-    mocktail_tx()
-      |> tx_in(True, mock_tx_hash(0), 0, intent_value, from_script(policy_id))
-      |> tx_in_inline_datum(True, mock_deposit_intent_datum)
-      |> mint(True, -1, policy_id, "")
-      |> required_signer_hash(True, depositor_pkh)
-      |> complete()
+    mock_mint_intent_tx(
+      MintIntentTestCase {
+        is_token_minted_correctly: False,
+        is_output_to_correct_address: True,
+        is_deposit_amount_valid: True,
+        is_depositor_signed: True,
+      },
+    )
+
+  !l2_deposit_intent.l2_deposit_intent.mint(
+    mock_vault_nft,
+    mock_dex_order_book_token,
+    MintIntentL2,
+    mock_l2_deposit_intent_script_hash,
+    tx,
+  )
+}
+
+// Fail: Output to wrong address (not script address)
+test s4_mint_mint_intent_fail_wrong_output_address() fail {
+  let tx =
+    mock_mint_intent_tx(
+      MintIntentTestCase {
+        is_token_minted_correctly: True,
+        is_output_to_correct_address: False,
+        is_deposit_amount_valid: True,
+        is_depositor_signed: True,
+      },
+    )
 
   l2_deposit_intent.l2_deposit_intent.mint(
     mock_vault_nft,
-    CancelIntent,
-    policy_id,
+    mock_dex_order_book_token,
+    MintIntentL2,
+    mock_l2_deposit_intent_script_hash,
+    tx,
+  )
+}
+
+// Fail: Empty deposit amount in datum
+test s4_mint_mint_intent_fail_empty_deposit_amount() {
+  let tx =
+    mock_mint_intent_tx(
+      MintIntentTestCase {
+        is_token_minted_correctly: True,
+        is_output_to_correct_address: True,
+        is_deposit_amount_valid: False,
+        is_depositor_signed: True,
+      },
+    )
+
+  !l2_deposit_intent.l2_deposit_intent.mint(
+    mock_vault_nft,
+    mock_dex_order_book_token,
+    MintIntentL2,
+    mock_l2_deposit_intent_script_hash,
+    tx,
+  )
+}
+
+// Fail: Not signed by depositor
+test s4_mint_mint_intent_fail_not_signed() {
+  let tx =
+    mock_mint_intent_tx(
+      MintIntentTestCase {
+        is_token_minted_correctly: True,
+        is_output_to_correct_address: True,
+        is_deposit_amount_valid: True,
+        is_depositor_signed: False,
+      },
+    )
+
+  !l2_deposit_intent.l2_deposit_intent.mint(
+    mock_vault_nft,
+    mock_dex_order_book_token,
+    MintIntentL2,
+    mock_l2_deposit_intent_script_hash,
+    tx,
+  )
+}
+
+// ========== L2 CancelIntent Tests ==========
+// Spec:
+// - L2DepositIntent token is burnt
+// - Signed by operation_key from DexOrderBook (NOT depositor like L1)
+// - DexOrderBook reference input required via dex_oracle_nft parameter
+// - No value refund needed (tokens are in Account UTxO, not intent)
+
+type CancelIntentTestCase {
+  is_token_burnt_correctly: Bool,
+  is_dex_order_book_ref_present: Bool,
+  is_signed_by_operation_key: Bool,
+}
+
+fn mock_cancel_intent_tx(test_case: CancelIntentTestCase) -> Transaction {
+  let CancelIntentTestCase {
+    is_token_burnt_correctly,
+    is_dex_order_book_ref_present,
+    is_signed_by_operation_key,
+  } = test_case
+
+  let policy_id = mock_l2_deposit_intent_script_hash
+
+  let burn_amount =
+    if is_token_burnt_correctly {
+      -1
+    } else {
+      -2
+    }
+
+  // L2 intent input only has intent token + min ADA
+  let input_value = from_lovelace(2_000_000) |> add(policy_id, "", 1)
+
+  // DexOrderBook reference input
+  let dex_order_book_ref_value =
+    from_asset(mock_dex_order_book_token, "", 1) |> add("", "", 2_000_000)
+
+  mocktail_tx()
+    // L2 Intent input
+    |> tx_in(True, mock_tx_hash(0), 0, input_value, from_script(policy_id))
+    |> tx_in_inline_datum(True, mock_l2_deposit_intent_datum)
+    // DexOrderBook reference input (required to get operation_key)
+    |> ref_tx_in(
+        is_dex_order_book_ref_present,
+        mock_tx_hash(40),
+        0,
+        dex_order_book_ref_value,
+        mock_dex_order_book_address,
+      )
+    |> ref_tx_in_inline_datum(
+        is_dex_order_book_ref_present,
+        mock_dex_order_book_datum,
+      )
+    // Burn intent token
+    |> mint(True, burn_amount, policy_id, "")
+    // Signed by operation_key (not depositor like L1)
+    |> required_signer_hash(is_signed_by_operation_key, mock_operation_key)
+    |> complete()
+}
+
+// Success: Cancel intent with correct burn and operation_key signature
+test s4_mint_cancel_intent_success() {
+  let tx =
+    mock_cancel_intent_tx(
+      CancelIntentTestCase {
+        is_token_burnt_correctly: True,
+        is_dex_order_book_ref_present: True,
+        is_signed_by_operation_key: True,
+      },
+    )
+
+  l2_deposit_intent.l2_deposit_intent.mint(
+    mock_vault_nft,
+    mock_dex_order_book_token,
+    CancelIntentL2,
+    mock_l2_deposit_intent_script_hash,
+    tx,
+  )
+}
+
+// Fail: Missing dex order book reference input
+test s4_mint_cancel_intent_fail_no_dex_order_book_ref() fail {
+  let tx =
+    mock_cancel_intent_tx(
+      CancelIntentTestCase {
+        is_token_burnt_correctly: True,
+        is_dex_order_book_ref_present: False,
+        is_signed_by_operation_key: True,
+      },
+    )
+
+  l2_deposit_intent.l2_deposit_intent.mint(
+    mock_vault_nft,
+    mock_dex_order_book_token,
+    CancelIntentL2,
+    mock_l2_deposit_intent_script_hash,
+    tx,
+  )
+}
+
+// Fail: Not signed by operation_key
+test s4_mint_cancel_intent_fail_not_signed() {
+  let tx =
+    mock_cancel_intent_tx(
+      CancelIntentTestCase {
+        is_token_burnt_correctly: True,
+        is_dex_order_book_ref_present: True,
+        is_signed_by_operation_key: False,
+      },
+    )
+
+  !l2_deposit_intent.l2_deposit_intent.mint(
+    mock_vault_nft,
+    mock_dex_order_book_token,
+    CancelIntentL2,
+    mock_l2_deposit_intent_script_hash,
+    tx,
+  )
+}
+
+// ========== L2 BurnIntentL2 Tests ==========
+// Spec:
+// - Intent token is burnt (exactly 1)
+// - Withdrawal script is validated (hydra_account ProcessVaultDeposit)
+// - DexOrderBook reference required via dex_oracle_nft parameter
+// - No batching in L2 (single intent per tx)
+
+type BurnIntentTestCase {
+  is_token_burnt_correctly: Bool,
+  is_dex_order_book_ref_present: Bool,
+  is_withdrawal_validated: Bool,
+}
+
+fn mock_burn_intent_tx(test_case: BurnIntentTestCase) -> Transaction {
+  let BurnIntentTestCase {
+    is_token_burnt_correctly,
+    is_dex_order_book_ref_present,
+    is_withdrawal_validated,
+  } = test_case
+
+  let policy_id = mock_l2_deposit_intent_script_hash
+
+  let burn_amount =
+    if is_token_burnt_correctly {
+      -1
+    } else {
+      1
+    }
+
+  // L2 intent input only has intent token + min ADA
+  let input_value = from_lovelace(2_000_000) |> add(policy_id, "", 1)
+
+  // DexOrderBook reference input
+  let dex_order_book_ref_value =
+    from_asset(mock_dex_order_book_token, "", 1) |> add("", "", 2_000_000)
+
+  mocktail_tx()
+    // L2 Intent input
+    |> tx_in(True, mock_tx_hash(0), 0, input_value, from_script(policy_id))
+    |> tx_in_inline_datum(True, mock_l2_deposit_intent_datum)
+    // DexOrderBook reference input (required to get hydra_account_script_hash)
+    |> ref_tx_in(
+        is_dex_order_book_ref_present,
+        mock_tx_hash(40),
+        0,
+        dex_order_book_ref_value,
+        mock_dex_order_book_address,
+      )
+    |> ref_tx_in_inline_datum(
+        is_dex_order_book_ref_present,
+        mock_dex_order_book_datum,
+      )
+    // Burn intent token
+    |> mint(True, burn_amount, policy_id, "")
+    // Withdrawal script validated (hydra_account ProcessVaultDeposit)
+    |> script_withdrawal(
+        is_withdrawal_validated,
+        mock_hydra_account_script_hash,
+        0,
+      )
+    |> withdrawal_redeemer_value(
+        is_withdrawal_validated,
+        mock_process_vault_deposit_redeemer(),
+      )
+    |> complete()
+}
+
+// Success: Burn intent with withdrawal script validated
+test s4_mint_burn_intent_success() {
+  let tx =
+    mock_burn_intent_tx(
+      BurnIntentTestCase {
+        is_token_burnt_correctly: True,
+        is_dex_order_book_ref_present: True,
+        is_withdrawal_validated: True,
+      },
+    )
+
+  l2_deposit_intent.l2_deposit_intent.mint(
+    mock_vault_nft,
+    mock_dex_order_book_token,
+    BurnIntentL2,
+    mock_l2_deposit_intent_script_hash,
+    tx,
+  )
+}
+
+// Fail: Wrong burn amount
+test s4_mint_burn_intent_fail_wrong_burn_amount() {
+  let tx =
+    mock_burn_intent_tx(
+      BurnIntentTestCase {
+        is_token_burnt_correctly: False,
+        is_dex_order_book_ref_present: True,
+        is_withdrawal_validated: True,
+      },
+    )
+
+  !l2_deposit_intent.l2_deposit_intent.mint(
+    mock_vault_nft,
+    mock_dex_order_book_token,
+    BurnIntentL2,
+    mock_l2_deposit_intent_script_hash,
+    tx,
+  )
+}
+
+// Fail: Missing withdrawal script validation
+test s4_mint_burn_intent_fail_no_withdrawal_validated() fail {
+  let tx =
+    mock_burn_intent_tx(
+      BurnIntentTestCase {
+        is_token_burnt_correctly: True,
+        is_dex_order_book_ref_present: True,
+        is_withdrawal_validated: False,
+      },
+    )
+
+  l2_deposit_intent.l2_deposit_intent.mint(
+    mock_vault_nft,
+    mock_dex_order_book_token,
+    BurnIntentL2,
+    mock_l2_deposit_intent_script_hash,
+    tx,
+  )
+}
+
+// Fail: Missing dex order book reference
+test s4_mint_burn_intent_fail_no_dex_order_book() fail {
+  let tx =
+    mock_burn_intent_tx(
+      BurnIntentTestCase {
+        is_token_burnt_correctly: True,
+        is_dex_order_book_ref_present: False,
+        is_withdrawal_validated: True,
+      },
+    )
+
+  l2_deposit_intent.l2_deposit_intent.mint(
+    mock_vault_nft,
+    mock_dex_order_book_token,
+    BurnIntentL2,
+    mock_l2_deposit_intent_script_hash,
     tx,
   )
 }
