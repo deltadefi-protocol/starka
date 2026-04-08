@@ -1,19 +1,19 @@
 use aiken/collection/list
 use aiken/merkle_patricia_forestry as mpf
 use cardano/address.{Script, VerificationKey, from_script}
-use cardano/assets.{PolicyId}
+use cardano/assets.{PolicyId, flatten}
 use cardano/transaction.{
-  InlineDatum, Mint, Output, OutputReference, Transaction, find_input,
+  InlineDatum, Input, Mint, Output, OutputReference, Transaction, find_input,
 }
 use cocktail.{
-  input_inline_datum, inputs_at_with_policy, inputs_with_policy,
+  group_inputs_2, group_outputs_2, input_inline_datum, inputs_with_policy,
   only_minted_token, output_inline_datum, outputs_at_with_policy,
 }
 use hydra_dex/types.{AppOracleDatum, HydraInfo, UserTradeAccount} as dd_types
 use types.{
-  CloseVault, HydraCommit, HydraDecommit, MintVault, PluggableLogic,
+  BurnVault, CloseVault, HydraCommit, HydraDecommit, MintVault, PluggableLogic,
   ProcessL1Deposit, ProcessL1Withdrawal, ProcessL2Deposit, ProcessL2Withdrawal,
-  UpdateConfig, VaultOracleDatum, VaultOracleMintRedeemer,
+  UpdateConfig, VaultConfig, VaultOracleDatum, VaultOracleMintRedeemer,
   VaultOracleSpendRedeemer,
 }
 use utils.{
@@ -24,32 +24,65 @@ use utils.{
 
 validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
   spend(
-    datum: Option<VaultOracleDatum>,
+    datum: Option<Data>,
     redeemer: VaultOracleSpendRedeemer,
     input: OutputReference,
     self: Transaction,
   ) {
-    expect Some(vault_oracle_datum) = datum
-    let VaultOracleDatum {
+    let (
+      vault_config_datum,
+      is_config,
+      total_shares,
+      operator_shares,
+      total_deposited,
+      shares_merkle_root,
+      total_fee_share_collected,
+    ) =
+      when datum is {
+        Some(d) ->
+          if d is VaultOracleDatum {
+            (
+              VaultConfig {
+                app_oracle: d.app_oracle,
+                l1_deposit_intent_script_hash: d.l1_deposit_intent_script_hash,
+                l1_withdrawal_intent_script_hash: d.l1_withdrawal_intent_script_hash,
+                l2_deposit_intent_script_hash: d.l2_deposit_intent_script_hash,
+                l2_withdrawal_intent_script_hash: d.l2_withdrawal_intent_script_hash,
+                pluggable_logic: d.pluggable_logic,
+                operator_account: d.operator_account,
+                hydra_node_pub_keys: d.hydra_node_pub_keys,
+              },
+              False,
+              d.total_shares,
+              d.operator_shares,
+              d.total_deposited,
+              d.shares_merkle_root,
+              d.total_fee_share_collected,
+            )
+          } else if d is VaultConfig {
+            (d, True, 0, 0, 0, "", 0)
+          } else {
+            fail @"Invalid datum type for vault oracle input"
+          }
+        _ -> fail @"Vault Oracle datum must be present"
+      }
+
+    let VaultConfig {
       l1_deposit_intent_script_hash,
       l1_withdrawal_intent_script_hash,
       l2_deposit_intent_script_hash,
       l2_withdrawal_intent_script_hash,
       hydra_node_pub_keys,
       pluggable_logic,
-      total_shares,
-      operator_shares,
-      total_deposited,
-      shares_merkle_root,
-      total_fee_share_collected,
       ..
-    } = vault_oracle_datum
+    } = vault_config_datum
     let Transaction {
       inputs,
       outputs,
       redeemers,
       extra_signatories,
       withdrawals,
+      mint,
       ..
     } = self
 
@@ -109,12 +142,16 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
           output_inline_datum(oracle_output)
 
         // State fields must remain unchanged
-        let is_state_unchanged = and {
-            oracle_output_datum.total_shares == total_shares,
-            oracle_output_datum.operator_shares == operator_shares,
-            oracle_output_datum.total_deposited == total_deposited,
-            oracle_output_datum.shares_merkle_root == shares_merkle_root,
-            oracle_output_datum.total_fee_share_collected == total_fee_share_collected,
+        let is_state_unchanged =
+          when is_config is {
+            True -> and {
+                oracle_output_datum.total_shares == total_shares,
+                oracle_output_datum.operator_shares == operator_shares,
+                oracle_output_datum.total_deposited == total_deposited,
+                oracle_output_datum.shares_merkle_root == shares_merkle_root,
+                oracle_output_datum.total_fee_share_collected == total_fee_share_collected,
+              }
+            False -> True
           }
 
         // Validate operator_fee_rate_bp
@@ -122,6 +159,19 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
           oracle_output_datum.operator_fee_rate_bp >= 0 && oracle_output_datum.operator_fee_rate_bp <= 100
 
         all_hydra_signed? && is_state_unchanged? && is_charge_valid?
+      }
+      BurnVault -> {
+        expect Some(own_input) = find_input(inputs, input)
+        expect Script(own_hash) = own_input.output.address.payment_credential
+        let are_oracles_burnt =
+          when
+            flatten(mint)
+              |> list.filter(fn(asset) { asset.1st == own_hash })
+          is {
+            [(_, _, minted_quantity)] -> minted_quantity == -2
+            _ -> False
+          }
+        are_oracles_burnt?
       }
     }
   }
@@ -152,16 +202,46 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
           list.any(inputs, fn(input) { input.output_reference == initial_utxo })
 
         // Exactly 1 NFT minted
-        let is_mint_correct = only_minted_token(mint, policy_id, "", 1)
+        let is_mint_correct = only_minted_token(mint, policy_id, "", 2)
 
         // Oracle NFT minted to own script address with initial datum
-        expect [vault_oracle_output] =
-          outputs_at_with_policy(outputs, from_script(policy_id), policy_id)
+        let (vault_config_outputs, vault_oracle_outputs, _) =
+          group_outputs_2(
+            outputs,
+            fn(output: Output) {
+              if output.address == from_script(policy_id) {
+                let datum = output_inline_datum(output)
+                if datum is VaultConfig {
+                  True
+                } else {
+                  False
+                }
+              } else {
+                False
+              }
+            },
+            fn(output: Output) {
+              if output.address == from_script(policy_id) {
+                let datum = output_inline_datum(output)
+                if datum is VaultOracleDatum {
+                  True
+                } else {
+                  False
+                }
+              } else {
+                False
+              }
+            },
+          )
+
+        expect [vault_oracle_output] = vault_oracle_outputs
         expect vault_oracle_datum: VaultOracleDatum =
           output_inline_datum(vault_oracle_output)
 
+        expect [vault_config_output] = vault_config_outputs
+        expect vault_config_datum: VaultConfig =
+          output_inline_datum(vault_config_output)
         let HydraInfo { hydra_signers } = hydra_info
-
         // Verify hydra_node_pub_keys match app_oracle signers
         let are_keys_valid =
           verify_pub_keys(vault_oracle_datum.hydra_node_pub_keys, hydra_signers)
@@ -178,14 +258,53 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
             vault_oracle_datum.operator_fee_rate_bp <= 10000,
           }
 
+        let is_config_matching = and {
+            vault_oracle_datum.app_oracle == vault_config_datum.app_oracle,
+            vault_oracle_datum.l1_deposit_intent_script_hash == vault_config_datum.l1_deposit_intent_script_hash,
+            vault_oracle_datum.l1_withdrawal_intent_script_hash == vault_config_datum.l1_withdrawal_intent_script_hash,
+            vault_oracle_datum.l2_deposit_intent_script_hash == vault_config_datum.l2_deposit_intent_script_hash,
+            vault_oracle_datum.l2_withdrawal_intent_script_hash == vault_config_datum.l2_withdrawal_intent_script_hash,
+            vault_oracle_datum.pluggable_logic == vault_config_datum.pluggable_logic,
+            vault_oracle_datum.operator_account == vault_config_datum.operator_account,
+            vault_oracle_datum.hydra_node_pub_keys == vault_config_datum.hydra_node_pub_keys,
+          }
         // No signatures required (anyone can create a vault)
-        is_utxo_consumed? && is_mint_correct? && is_initial_state_correct? && are_keys_valid?
+        is_utxo_consumed? && is_mint_correct? && is_initial_state_correct? && are_keys_valid? && is_config_matching?
       }
 
       CloseVault -> {
         // Get oracle input
-        expect [vault_oracle_input] =
-          inputs_at_with_policy(inputs, from_script(policy_id), policy_id)
+
+        let (vault_config_inputs, vault_oracle_inputs, _) =
+          group_inputs_2(
+            inputs,
+            fn(input: Input) {
+              if input.output.address == from_script(policy_id) {
+                let datum = input_inline_datum(input)
+                if datum is VaultConfig {
+                  True
+                } else {
+                  False
+                }
+              } else {
+                False
+              }
+            },
+            fn(input: Input) {
+              if input.output.address == from_script(policy_id) {
+                let datum = input_inline_datum(input)
+                if datum is VaultOracleDatum {
+                  True
+                } else {
+                  False
+                }
+              } else {
+                False
+              }
+            },
+          )
+
+        expect [vault_oracle_input] = vault_oracle_inputs
         expect vault_oracle_datum: VaultOracleDatum =
           input_inline_datum(vault_oracle_input)
         let VaultOracleDatum {
@@ -195,6 +314,8 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
           ..
         } = vault_oracle_datum
 
+        expect [_] = vault_config_inputs
+
         // Extract operator account from UserTradeAccount
         expect UserTradeAccount { account: close_operator_acc, .. } =
           close_operator_account
@@ -202,7 +323,7 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
           close_operator_acc.master_key
 
         // Burn oracle NFT
-        let is_burn_correct = only_minted_token(mint, policy_id, "", -1)
+        let is_burn_correct = only_minted_token(mint, policy_id, "", -2)
 
         // Verify conditions
         let is_total_shares_zero = total_shares == 0

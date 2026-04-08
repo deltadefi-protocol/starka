@@ -10,7 +10,8 @@ use cardano/transaction.{InlineDatum, Input, Redeemer, ScriptPurpose}
 use cocktail.{input_inline_datum}
 use hydra_dex/types.{AppOracleDatum} as dd_types
 use types.{
-  BurnIntent, BurnIntentL2, IntentRedeemerL1, IntentRedeemerL2, VaultOracleDatum,
+  BurnIntent, BurnIntentL2, IntentRedeemerL1, IntentRedeemerL2, VaultConfig,
+  VaultOracleDatum,
 }
 
 pub fn get_vault_oracle_datum(
@@ -40,6 +41,37 @@ pub fn get_vault_oracle_input(
           },
         )
   oracle_input
+}
+
+pub fn get_vault_config(
+  inputs: List<Input>,
+  vault_oracle_nft: PolicyId,
+) -> VaultConfig {
+  expect Some(oracle_input) =
+    inputs
+      |> list.find(
+          fn(input: Input) {
+            quantity_of(input.output.value, vault_oracle_nft, "") == 1
+          },
+        )
+
+  let datum = input_inline_datum(oracle_input)
+  if datum is VaultOracleDatum {
+    VaultConfig {
+      app_oracle: datum.app_oracle,
+      l1_deposit_intent_script_hash: datum.l1_deposit_intent_script_hash,
+      l1_withdrawal_intent_script_hash: datum.l1_withdrawal_intent_script_hash,
+      l2_deposit_intent_script_hash: datum.l2_deposit_intent_script_hash,
+      l2_withdrawal_intent_script_hash: datum.l2_withdrawal_intent_script_hash,
+      pluggable_logic: datum.pluggable_logic,
+      operator_account: datum.operator_account,
+      hydra_node_pub_keys: datum.hydra_node_pub_keys,
+    }
+  } else if datum is VaultConfig {
+    datum
+  } else {
+    fail @"Invalid datum type for vault oracle input"
+  }
 }
 
 pub fn get_app_oracle_datum(

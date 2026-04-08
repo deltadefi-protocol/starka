@@ -14,6 +14,18 @@ pub type MintPolarity {
   RBurn
 }
 
+pub type VaultConfig {
+  // Config (all updatable via UpdateConfig)
+  app_oracle: PolicyId,
+  l1_deposit_intent_script_hash: ByteArray,
+  l1_withdrawal_intent_script_hash: ByteArray,
+  l2_deposit_intent_script_hash: ByteArray,
+  l2_withdrawal_intent_script_hash: ByteArray,
+  pluggable_logic: ByteArray,
+  operator_account: UserAccount,
+  hydra_node_pub_keys: List<VerificationKey>,
+}
+
 // Vault Oracle Datum — holds config + state, commits to Hydra
 pub type VaultOracleDatum {
   // Config (all updatable via UpdateConfig)
@@ -54,6 +66,7 @@ pub type VaultOracleSpendRedeemer {
   HydraDecommit
   PluggableLogic
   UpdateConfig
+  BurnVault
 }
 
 // Vault spend redeemer — fund management validator

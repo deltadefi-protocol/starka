@@ -58,10 +58,11 @@ fn run_process_intent(
   test_case: ProcessIntentTestCase,
 ) -> Bool {
   let tx = mock_process_intent_tx(intent_script_hash, test_case)
+  let datum: Data = mock_vault_oracle_datum
   vault_oracle.vault_oracle.spend(
     mock_initial_utxo,
     mock_app_oracle,
-    Some(mock_vault_oracle_datum),
+    Some(datum),
     redeemer,
     mock_utxo_ref(0, 0),
     tx,
@@ -153,10 +154,12 @@ fn mock_hydra_commit_tx(test_case: HydraCommitTestCase) -> Transaction {
 
 fn run_hydra_commit(test_case: HydraCommitTestCase) -> Bool {
   let tx = mock_hydra_commit_tx(test_case)
+  let datum: Data = mock_vault_oracle_datum
+
   vault_oracle.vault_oracle.spend(
     mock_initial_utxo,
     mock_app_oracle,
-    Some(mock_vault_oracle_datum),
+    Some(datum),
     HydraCommit,
     mock_utxo_ref(0, 0),
     tx,
@@ -252,10 +255,12 @@ fn mock_hydra_decommit_tx(test_case: HydraDecommitTestCase) -> Transaction {
 
 fn run_hydra_decommit(test_case: HydraDecommitTestCase) -> Bool {
   let tx = mock_hydra_decommit_tx(test_case)
+  let datum: Data = mock_vault_oracle_datum
+
   vault_oracle.vault_oracle.spend(
     mock_initial_utxo,
     mock_app_oracle,
-    Some(mock_vault_oracle_datum),
+    Some(datum),
     HydraDecommit,
     mock_utxo_ref(0, 0),
     tx,
@@ -328,10 +333,12 @@ fn mock_pluggable_logic_tx(test_case: PluggableLogicTestCase) -> Transaction {
 
 fn run_pluggable_logic(test_case: PluggableLogicTestCase) -> Bool {
   let tx = mock_pluggable_logic_tx(test_case)
+  let datum: Data = mock_vault_oracle_datum
+
   vault_oracle.vault_oracle.spend(
     mock_initial_utxo,
     mock_app_oracle,
-    Some(mock_vault_oracle_datum),
+    Some(datum),
     PluggableLogic,
     mock_utxo_ref(0, 0),
     tx,
@@ -470,10 +477,12 @@ fn mock_update_config_tx(test_case: UpdateConfigTestCase) -> Transaction {
 
 fn run_update_config(test_case: UpdateConfigTestCase) -> Bool {
   let tx = mock_update_config_tx(test_case)
+  let datum: Data = mock_vault_oracle_datum
+
   vault_oracle.vault_oracle.spend(
     mock_initial_utxo,
     mock_app_oracle,
-    Some(mock_vault_oracle_datum),
+    Some(datum),
     UpdateConfig,
     mock_utxo_ref(0, 0),
     tx,
