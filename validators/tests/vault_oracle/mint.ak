@@ -13,22 +13,26 @@ use tests/utils.{
   mock_l1_withdrawal_intent_script_hash, mock_l2_deposit_intent_script_hash,
   mock_l2_withdrawal_intent_script_hash, mock_node_pub_keys, mock_operation_key,
   mock_operator_account, mock_operator_inner_account, mock_operator_key,
-  mock_pluggable_logic, mock_vault_nft, mock_vault_oracle_datum,
-  mock_vault_script_hash, mock_vault_stake_rotation_script_hash, null_hash,
+  mock_pluggable_logic, mock_vault_config_datum, mock_vault_nft,
+  mock_vault_oracle_datum, mock_vault_script_hash,
+  mock_vault_stake_rotation_script_hash, null_hash,
 }
-use types.{CloseVault, MintVault, VaultOracleDatum}
+use types.{CloseVault, MintVault, VaultConfig, VaultOracleDatum}
 use vault_oracle/spend_mint as vault_oracle
 
 // ========== MintVault Test Case ==========
-// MintVault is a simple one-shot minting policy:
+// MintVault is a split oracle minting policy:
 // - Consume initial_utxo (one-shot guarantee)
-// - Mint exactly 1 NFT
-// - Output datum has initial state = 0 (total_shares=0, shares_merkle_root=null_hash, etc.)
+// - Mint exactly 2 NFTs (same token name, distinguished by datum type)
+// - Output Config Oracle (VaultConfig) and State Oracle (VaultOracleDatum)
+// - State Oracle: all state fields = 0, shares_merkle_root = null_hash
+// - Config fields must match between both datums
 // - No signatures required (anyone can create a vault)
 
 type MintVaultTestCase {
   is_initial_utxo_consumed: Bool,
   is_oracle_nft_minted: Bool,
+  is_config_output_present: Bool,
   is_total_shares_zero: Bool,
   is_operator_shares_zero: Bool,
   is_total_deposited_zero: Bool,
@@ -38,12 +42,14 @@ type MintVaultTestCase {
   is_app_oracle_correct: Bool,
   is_app_oracle_referenced: Bool,
   is_hydra_keys_valid: Bool,
+  is_config_matching: Bool,
 }
 
 fn default_mint_vault_test_case() -> MintVaultTestCase {
   MintVaultTestCase {
     is_initial_utxo_consumed: True,
     is_oracle_nft_minted: True,
+    is_config_output_present: True,
     is_total_shares_zero: True,
     is_operator_shares_zero: True,
     is_total_deposited_zero: True,
@@ -53,10 +59,13 @@ fn default_mint_vault_test_case() -> MintVaultTestCase {
     is_app_oracle_correct: True,
     is_app_oracle_referenced: True,
     is_hydra_keys_valid: True,
+    is_config_matching: True,
   }
 }
 
-fn mock_mint_vault_datum(test_case: MintVaultTestCase) -> VaultOracleDatum {
+fn mock_mint_vault_datums(
+  test_case: MintVaultTestCase,
+) -> (VaultOracleDatum, VaultConfig) {
   let MintVaultTestCase {
     is_total_shares_zero,
     is_operator_shares_zero,
@@ -66,6 +75,7 @@ fn mock_mint_vault_datum(test_case: MintVaultTestCase) -> VaultOracleDatum {
     is_charge_percentage_valid,
     is_app_oracle_correct,
     is_hydra_keys_valid,
+    is_config_matching,
     ..
   } = test_case
 
@@ -105,7 +115,7 @@ fn mock_mint_vault_datum(test_case: MintVaultTestCase) -> VaultOracleDatum {
       100
     }
 
-  let operator_fee_rate_bp =
+  let operator_charge_percentage =
     if is_charge_percentage_valid {
       10
     } else {
@@ -128,42 +138,75 @@ fn mock_mint_vault_datum(test_case: MintVaultTestCase) -> VaultOracleDatum {
       [#"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
     }
 
-  VaultOracleDatum {
-    app_oracle,
-    vault_script_hash: mock_vault_script_hash,
-    l1_deposit_intent_script_hash: mock_l1_deposit_intent_script_hash,
-    l1_withdrawal_intent_script_hash: mock_l1_withdrawal_intent_script_hash,
-    l2_deposit_intent_script_hash: mock_l2_deposit_intent_script_hash,
-    l2_withdrawal_intent_script_hash: mock_l2_withdrawal_intent_script_hash,
-    pluggable_logic: mock_pluggable_logic,
-    vault_stake_rotation_script_hash: mock_vault_stake_rotation_script_hash,
-    operator_account: mock_operator_account,
-    operator_fee_rate_bp,
-    operator_min_deposit_rate_bp: 10,
-    hydra_node_pub_keys,
-    is_active: True,
-    total_shares,
-    operator_shares,
-    total_deposited,
-    shares_merkle_root,
-    total_fee_share_collected,
-  }
+  let vault_oracle_datum =
+    VaultOracleDatum {
+      app_oracle,
+      vault_script_hash: mock_vault_script_hash,
+      l1_deposit_intent_script_hash: mock_l1_deposit_intent_script_hash,
+      l1_withdrawal_intent_script_hash: mock_l1_withdrawal_intent_script_hash,
+      l2_deposit_intent_script_hash: mock_l2_deposit_intent_script_hash,
+      l2_withdrawal_intent_script_hash: mock_l2_withdrawal_intent_script_hash,
+      pluggable_logic: mock_pluggable_logic,
+      vault_stake_rotation_script_hash: mock_vault_stake_rotation_script_hash,
+      operator_account: mock_operator_account,
+      operator_charge_percentage,
+      operator_min_deposit_percentage: 10,
+      hydra_node_pub_keys,
+      is_active: True,
+      total_shares,
+      operator_shares,
+      total_deposited,
+      shares_merkle_root,
+      total_fee_share_collected,
+    }
+
+  // Config datum - should match state oracle's config fields
+  let vault_config_datum =
+    if is_config_matching {
+      VaultConfig {
+        app_oracle,
+        l1_deposit_intent_script_hash: mock_l1_deposit_intent_script_hash,
+        l1_withdrawal_intent_script_hash: mock_l1_withdrawal_intent_script_hash,
+        l2_deposit_intent_script_hash: mock_l2_deposit_intent_script_hash,
+        l2_withdrawal_intent_script_hash: mock_l2_withdrawal_intent_script_hash,
+        pluggable_logic: mock_pluggable_logic,
+        operator_account: mock_operator_account,
+        hydra_node_pub_keys,
+      }
+    } else {
+      // Mismatched config - use different pluggable_logic
+      VaultConfig {
+        app_oracle,
+        l1_deposit_intent_script_hash: mock_l1_deposit_intent_script_hash,
+        l1_withdrawal_intent_script_hash: mock_l1_withdrawal_intent_script_hash,
+        l2_deposit_intent_script_hash: mock_l2_deposit_intent_script_hash,
+        l2_withdrawal_intent_script_hash: mock_l2_withdrawal_intent_script_hash,
+        pluggable_logic: #"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        operator_account: mock_operator_account,
+        hydra_node_pub_keys,
+      }
+    }
+
+  (vault_oracle_datum, vault_config_datum)
 }
 
 fn mock_mint_vault_tx(test_case: MintVaultTestCase) -> Transaction {
   let MintVaultTestCase {
     is_initial_utxo_consumed,
     is_oracle_nft_minted,
+    is_config_output_present,
     is_app_oracle_referenced,
     ..
   } = test_case
 
-  let vault_datum = mock_mint_vault_datum(test_case)
+  let (vault_oracle_datum, vault_config_datum) = mock_mint_vault_datums(test_case)
   let vault_nft_policy = mock_vault_nft
 
   let app_oracle_value =
     from_asset(mock_app_oracle, "", 1) |> add("", "", 2_000_000)
   let vault_oracle_output_value =
+    from_asset(vault_nft_policy, "", 1) |> add("", "", 2_000_000)
+  let vault_config_output_value =
     from_asset(vault_nft_policy, "", 1) |> add("", "", 2_000_000)
 
   // Initial utxo index - use 99,0 to match mock_initial_utxo, or different if not consumed
@@ -174,9 +217,10 @@ fn mock_mint_vault_tx(test_case: MintVaultTestCase) -> Transaction {
       999
     }
 
+  // Mint 2 NFTs for split oracle (or 0 if not minting)
   let mint_quantity =
     if is_oracle_nft_minted {
-      1
+      2
     } else {
       0
     }
@@ -199,11 +243,18 @@ fn mock_mint_vault_tx(test_case: MintVaultTestCase) -> Transaction {
         from_asset("", "", 2_000_000),
         mock_pub_key_address(0, None),
       )
-    // Mint vault oracle NFT
+    // Mint vault oracle NFTs (2 for split oracle)
     |> mint(True, mint_quantity, vault_nft_policy, "")
-    // Vault oracle output
+    // Config Oracle output (VaultConfig datum)
+    |> tx_out(
+        is_config_output_present,
+        from_script(vault_nft_policy),
+        vault_config_output_value,
+      )
+    |> tx_out_inline_datum(is_config_output_present, vault_config_datum)
+    // State Oracle output (VaultOracleDatum)
     |> tx_out(True, from_script(vault_nft_policy), vault_oracle_output_value)
-    |> tx_out_inline_datum(True, vault_datum)
+    |> tx_out_inline_datum(True, vault_oracle_datum)
     |> complete()
 }
 
@@ -324,10 +375,29 @@ test s0_mint_fail_mint_vault_with_invalid_hydra_keys() {
   !run_mint_vault(test_case)
 }
 
+test s0_mint_fail_mint_vault_without_config_output() fail {
+  let test_case =
+    MintVaultTestCase {
+      ..default_mint_vault_test_case(),
+      is_config_output_present: False,
+    }
+  run_mint_vault(test_case)
+}
+
+test s0_mint_fail_mint_vault_with_mismatched_config() {
+  let test_case =
+    MintVaultTestCase {
+      ..default_mint_vault_test_case(),
+      is_config_matching: False,
+    }
+  !run_mint_vault(test_case)
+}
+
 // ========== CloseVault Test Case ==========
 
 type CloseVaultTestCase {
-  is_oracle_input_present: Bool,
+  is_state_oracle_input_present: Bool,
+  is_config_oracle_input_present: Bool,
   is_oracle_nft_burnt: Bool,
   is_app_oracle_referenced: Bool,
   is_total_shares_zero: Bool,
@@ -338,7 +408,8 @@ type CloseVaultTestCase {
 
 fn default_close_vault_test_case() -> CloseVaultTestCase {
   CloseVaultTestCase {
-    is_oracle_input_present: True,
+    is_state_oracle_input_present: True,
+    is_config_oracle_input_present: True,
     is_oracle_nft_burnt: True,
     is_app_oracle_referenced: True,
     is_total_shares_zero: True,
@@ -348,7 +419,7 @@ fn default_close_vault_test_case() -> CloseVaultTestCase {
   }
 }
 
-fn mock_close_vault_datum(test_case: CloseVaultTestCase) -> VaultOracleDatum {
+fn mock_close_vault_state_datum(test_case: CloseVaultTestCase) -> VaultOracleDatum {
   let CloseVaultTestCase { is_total_shares_zero, is_merkle_empty, .. } =
     test_case
 
@@ -379,7 +450,8 @@ fn mock_close_vault_datum(test_case: CloseVaultTestCase) -> VaultOracleDatum {
 
 fn mock_close_vault_tx(test_case: CloseVaultTestCase) -> Transaction {
   let CloseVaultTestCase {
-    is_oracle_input_present,
+    is_state_oracle_input_present,
+    is_config_oracle_input_present,
     is_oracle_nft_burnt,
     is_app_oracle_referenced,
     is_operator_signed,
@@ -388,7 +460,7 @@ fn mock_close_vault_tx(test_case: CloseVaultTestCase) -> Transaction {
   } = test_case
 
   let vault_nft_policy = mock_vault_nft
-  let close_vault_datum = mock_close_vault_datum(test_case)
+  let close_vault_state_datum = mock_close_vault_state_datum(test_case)
 
   let app_oracle_value =
     from_asset(mock_app_oracle, "", 1) |> add("", "", 2_000_000)
@@ -405,17 +477,26 @@ fn mock_close_vault_tx(test_case: CloseVaultTestCase) -> Transaction {
         mock_app_oracle_address,
       )
     |> ref_tx_in_inline_datum(is_app_oracle_referenced, mock_app_oracle_datum)
-    // Vault oracle input
+    // Config Oracle input (VaultConfig datum)
     |> tx_in(
-        is_oracle_input_present,
+        is_config_oracle_input_present,
         mock_tx_hash(1),
         0,
         vault_oracle_input_value,
         from_script(vault_nft_policy),
       )
-    |> tx_in_inline_datum(is_oracle_input_present, close_vault_datum)
-    // Burn vault oracle NFT
-    |> mint(is_oracle_nft_burnt, -1, vault_nft_policy, "")
+    |> tx_in_inline_datum(is_config_oracle_input_present, mock_vault_config_datum)
+    // State Oracle input (VaultOracleDatum)
+    |> tx_in(
+        is_state_oracle_input_present,
+        mock_tx_hash(1),
+        1,
+        vault_oracle_input_value,
+        from_script(vault_nft_policy),
+      )
+    |> tx_in_inline_datum(is_state_oracle_input_present, close_vault_state_datum)
+    // Burn both oracle NFTs (-2)
+    |> mint(is_oracle_nft_burnt, -2, vault_nft_policy, "")
     // Signatures
     |> required_signer_hash(is_operator_signed, mock_operator_key)
     |> required_signer_hash(is_operation_signed, mock_operation_key)
@@ -440,11 +521,20 @@ test s0_mint_success_close_vault() {
   run_close_vault(test_case)
 }
 
-test s0_mint_fail_close_vault_without_oracle_input() fail {
+test s0_mint_fail_close_vault_without_state_oracle_input() fail {
   let test_case =
     CloseVaultTestCase {
       ..default_close_vault_test_case(),
-      is_oracle_input_present: False,
+      is_state_oracle_input_present: False,
+    }
+  run_close_vault(test_case)
+}
+
+test s0_mint_fail_close_vault_without_config_oracle_input() fail {
+  let test_case =
+    CloseVaultTestCase {
+      ..default_close_vault_test_case(),
+      is_config_oracle_input_present: False,
     }
   run_close_vault(test_case)
 }

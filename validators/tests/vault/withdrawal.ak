@@ -7,7 +7,7 @@ use mocktail.{
 }
 use tests/utils.{
   mock_app_oracle, mock_app_oracle_address, mock_app_oracle_datum,
-  mock_operation_key, mock_operator_key, mock_vault_nft, mock_vault_oracle_datum,
+  mock_operator_key, mock_vault_nft, mock_vault_oracle_datum,
 }
 use vault/spend_withdrawal as vault
 
@@ -17,7 +17,6 @@ type WithdrawTestCase {
   is_vault_oracle_referenced: Bool,
   is_app_oracle_referenced: Bool,
   is_operator_signed: Bool,
-  is_operation_signed: Bool,
 }
 
 fn default_withdraw_test_case() -> WithdrawTestCase {
@@ -25,7 +24,6 @@ fn default_withdraw_test_case() -> WithdrawTestCase {
     is_vault_oracle_referenced: True,
     is_app_oracle_referenced: True,
     is_operator_signed: True,
-    is_operation_signed: False,
   }
 }
 
@@ -34,7 +32,6 @@ fn mock_withdraw_tx(test_case: WithdrawTestCase) -> Transaction {
     is_vault_oracle_referenced,
     is_app_oracle_referenced,
     is_operator_signed,
-    is_operation_signed,
   } = test_case
 
   let vault_oracle_address = from_script(mock_vault_nft)
@@ -66,7 +63,6 @@ fn mock_withdraw_tx(test_case: WithdrawTestCase) -> Transaction {
     |> ref_tx_in_inline_datum(is_app_oracle_referenced, mock_app_oracle_datum)
     // Signatures
     |> required_signer_hash(is_operator_signed, mock_operator_key)
-    |> required_signer_hash(is_operation_signed, mock_operation_key)
     |> complete()
 }
 
@@ -81,22 +77,11 @@ test s1_withdraw_success_with_operator_signed() {
   run_withdraw(default_withdraw_test_case())
 }
 
-test s1_withdraw_success_with_operation_signed() {
-  let test_case =
-    WithdrawTestCase {
-      ..default_withdraw_test_case(),
-      is_operator_signed: False,
-      is_operation_signed: True,
-    }
-  run_withdraw(test_case)
-}
-
 test s1_withdraw_success_with_both_signed() {
   let test_case =
     WithdrawTestCase {
       ..default_withdraw_test_case(),
       is_operator_signed: True,
-      is_operation_signed: True,
     }
   run_withdraw(test_case)
 }
@@ -115,7 +100,6 @@ test s1_withdraw_fail_without_any_signature() {
     WithdrawTestCase {
       ..default_withdraw_test_case(),
       is_operator_signed: False,
-      is_operation_signed: False,
     }
   !run_withdraw(test_case)
 }
