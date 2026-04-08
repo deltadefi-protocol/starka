@@ -1,23 +1,20 @@
-use aiken/cbor
 use aiken/collection/list
 use aiken/merkle_patricia_forestry as mpf
 use cardano/address.{Script, VerificationKey, from_script}
-use cardano/assets.{PolicyId, from_asset_list}
+use cardano/assets.{PolicyId}
 use cardano/transaction.{
   InlineDatum, Mint, Output, OutputReference, Transaction, find_input,
 }
 use cocktail.{
-  get_all_value_to_script, input_inline_datum, inputs_at_with_policy,
-  inputs_with_policy, only_minted_token, output_inline_datum,
-  outputs_at_with_policy, value_geq,
+  input_inline_datum, inputs_at_with_policy, inputs_with_policy,
+  only_minted_token, output_inline_datum, outputs_at_with_policy,
 }
 use hydra_dex/types.{AppOracleDatum, HydraInfo, UserTradeAccount} as dd_types
-use price_oracle_utils.{convert_m_value_to_usd, verify_prices_oracle_messages}
 use types.{
-  CloseVault, HydraCommit, HydraDecommit, L1InitialDeposit, MintVault,
-  PluggableLogic, ProcessL1Deposit, ProcessL1Withdrawal, ProcessL2Deposit,
-  ProcessL2Withdrawal, SharesRecordEntry, UpdateConfig, VaultOracleDatum,
-  VaultOracleMintRedeemer, VaultOracleSpendRedeemer,
+  CloseVault, HydraCommit, HydraDecommit, MintVault, PluggableLogic,
+  ProcessL1Deposit, ProcessL1Withdrawal, ProcessL2Deposit, ProcessL2Withdrawal,
+  UpdateConfig, VaultOracleDatum, VaultOracleMintRedeemer,
+  VaultOracleSpendRedeemer,
 }
 use utils.{
   check_mint_redeemer_is_burn_intent_l1, check_mint_redeemer_is_burn_intent_l2,
@@ -40,7 +37,6 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
       l2_withdrawal_intent_script_hash,
       hydra_node_pub_keys,
       pluggable_logic,
-      vault_script_hash,
       total_shares,
       operator_shares,
       total_deposited,
@@ -58,80 +54,6 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
     } = self
 
     when redeemer is {
-      L1InitialDeposit {
-        depositor,
-        initial_deposit,
-        prices_message,
-        signatures,
-        initial_shares_proof,
-      } -> {
-        // Precondition: vault is empty/new
-        expect total_shares == 0
-
-        // Verify prices message
-        let (_, prices, is_prices_verified) =
-          verify_prices_oracle_messages(
-            prices_message,
-            inputs,
-            hydra_node_pub_keys,
-            signatures,
-          )
-
-        // Compute total_deposited from initial_deposit and prices
-        let computed_total_deposited =
-          convert_m_value_to_usd(initial_deposit, prices)
-
-        // Genesis rule: initial_shares = total_deposited (share price = 1.0)
-        let initial_shares = computed_total_deposited
-
-        // Compute initial merkle root via MPF insert
-        let mpf_key = cbor.serialise(depositor)
-        let initial_entry =
-          SharesRecordEntry {
-            shares: initial_shares,
-            total_deposited: computed_total_deposited,
-          }
-        let mpf_value = cbor.serialise(initial_entry)
-        let computed_root =
-          mpf.root(
-            mpf.insert(mpf.empty, mpf_key, mpf_value, initial_shares_proof),
-          )
-
-        // Get oracle output
-        expect Some(own_input) = find_input(inputs, input)
-        expect Script(own_hash) = own_input.output.address.payment_credential
-        expect [oracle_output] =
-          outputs_at_with_policy(outputs, from_script(own_hash), own_hash)
-        expect oracle_output_datum: VaultOracleDatum =
-          output_inline_datum(oracle_output)
-
-        // Validate output datum state fields
-        let is_datum_correct = and {
-            oracle_output_datum.total_shares == initial_shares,
-            oracle_output_datum.operator_shares == 0,
-            oracle_output_datum.total_deposited == computed_total_deposited,
-            oracle_output_datum.shares_merkle_root == computed_root,
-            oracle_output_datum.total_fee_share_collected == 0,
-          }
-
-        // Initial deposit sent to vault_script_hash
-        let is_deposit_in_vault =
-          value_geq(
-            get_all_value_to_script(outputs, vault_script_hash),
-            from_asset_list(initial_deposit),
-          )
-
-        // Anyone can do initial deposit (no signature required)
-        and {
-          (initial_shares > 0)?,
-          is_prices_verified?,
-          is_datum_correct?,
-          is_deposit_in_vault?,
-        }
-      }
-
-      // L2InitialDeposit is handled by HydraAccount validator (ProcessVaultDeposit with total_shares == 0)
-      // See deltadefi-scripts/validators/hydra_account/vault_deposit.ak
       ProcessL1Deposit -> {
         let mint_purpose = Mint(l1_deposit_intent_script_hash)
         check_mint_redeemer_is_burn_intent_l1(mint_purpose, redeemers)?

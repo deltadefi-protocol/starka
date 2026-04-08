@@ -62,50 +62,39 @@ The mint policy is a simple one-time minting policy (similar to `app_oracle/orac
 
 ## User Action - Spend
 
-1. L1InitialDeposit - `L1InitialDeposit { depositor, initial_deposit, prices_message, signatures, initial_shares_proof }`
-   - **Precondition**: `total_shares == 0` (vault is empty/new)
-   - `app_oracle` is referenced to obtain `hydra_signers`
-   - Verify `hydra_node_pub_keys` in output datum match `app_oracle`
-   - Verify `prices` message signatures using `hydra_signers`
-   - **Price format**: `Pairs<(PolicyId, AssetName), (Int, Int)>` where tuple is `(price, scale)`
-   - **USD calculation**: `usd_value = Σ(amount * price / 10^scale)` for each asset
-   - Calculate `initial_shares` from `initial_deposit` USD value (share price = 1.0)
-   - Initial state: `total_shares = initial_shares`, `operator_shares = 0`, `total_deposited = initial_shares`
-   - `shares_merkle_root`: computed from inserting depositor's initial shares entry (key = `cbor.serialise(depositor)`)
-   - `initial_deposit` value goes to Vault UTxO (separate from Oracle)
-   - **Anyone can perform initial deposit (no signature required)**
+> **Note**: Initial deposits (both L1 and L2) are handled by the respective intent validators when `total_shares == 0`. This follows the pattern in `hydra_account/vault_deposit.ak` where initial deposit is treated as a regular deposit with share price = 1.0.
 
-2. ProcessL1Deposit
+1. ProcessL1Deposit
    - `L1DepositIntent` token is burnt with `BurnIntent` redeemer
    - All validation delegated to L1 deposit intent mint validator
    - Vault UTxO spent in same transaction (funds flow: User → Vault → AppVault)
 
-3. ProcessL1Withdrawal
+2. ProcessL1Withdrawal
    - `L1WithdrawalIntent` token is burnt with `BurnIntent` redeemer
    - All validation delegated to L1 withdrawal intent mint validator
    - Vault UTxO spent in same transaction (funds flow: Vault account → Vault → User)
 
-4. ProcessL2Deposit
+3. ProcessL2Deposit
    - `L2DepositIntent` token is burnt with `BurnIntent` redeemer
    - All validation delegated to L2 deposit intent mint validator
    - Transfers balance from user's Account UTxO to vault's Account UTxO
 
-5. ProcessL2Withdrawal
+4. ProcessL2Withdrawal
    - `L2WithdrawalIntent` token is burnt with `BurnIntent` redeemer
    - All validation delegated to L2 withdrawal intent mint validator
    - Transfers balance from vault's Account UTxO to user's Account UTxO
 
-6. HydraCommit
+5. HydraCommit
    - All `hydra_node_pub_keys` sign the transaction
 
-7. HydraDecommit
+6. HydraDecommit
    - All `hydra_node_pub_keys` sign the transaction
    - Input and output equal
 
-8. PluggableLogic (arbitrage vault)
+7. PluggableLogic (arbitrage vault)
    - Withdrawal Script `pluggable_logic` is validated
 
-9. UpdateConfig
+8. UpdateConfig
 
 - **Signed by all `hydra_node_pub_keys`**
 - All config fields can be modified
@@ -135,11 +124,13 @@ To upgrade any script (vault, intents, etc.):
 **Path A: L1 Initial Deposit**
 
 ```
-MintOracle -> L1InitialDeposit -> L1 deposits -> HydraCommit -> L2 ops -> HydraDecommit -> L1 withdrawals -> CloseVault
+MintOracle -> L1 deposit (first deposit when total_shares == 0) -> L1 deposits -> HydraCommit -> L2 ops -> HydraDecommit -> L1 withdrawals -> CloseVault
 ```
 
 **Path B: L2 Initial Deposit**
 
 ```
-MintOracle -> HydraCommit -> L2InitialDeposit -> L2 ops -> HydraDecommit -> L1 withdrawals -> CloseVault
+MintOracle -> HydraCommit -> L2 deposit (first deposit when total_shares == 0) -> L2 ops -> HydraDecommit -> L1 withdrawals -> CloseVault
 ```
+
+> Initial deposits use the same flow as regular deposits. When `total_shares == 0`, the share price is 1.0 (shares = USD value).
