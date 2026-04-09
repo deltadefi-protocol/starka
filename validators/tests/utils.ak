@@ -194,7 +194,7 @@ pub const mock_total_deposited = 2000000000
 
 pub const mock_operator_shares = 0
 
-pub const mock_operator_charge_percentage = 0
+pub const mock_operator_fee_rate_bp = 0
 
 // ========== USDM constants ==========
 
@@ -239,7 +239,7 @@ pub const mock_vault_oracle_datum: VaultOracleDatum =
     pluggable_logic: mock_pluggable_logic,
     vault_stake_rotation_script_hash: mock_vault_stake_rotation_script_hash,
     operator_account: mock_operator_account,
-    operator_charge_percentage: mock_operator_charge_percentage,
+    operator_fee_rate_bp: mock_operator_fee_rate_bp,
     operator_min_deposit_percentage: 10,
     hydra_node_pub_keys: mock_node_pub_keys,
     is_active: True,

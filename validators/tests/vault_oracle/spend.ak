@@ -708,7 +708,7 @@ fn mock_update_config_output_datum(
       mock_vault_oracle_datum.total_fee_share_collected + 1
     }
 
-  let operator_charge_percentage =
+  let operator_fee_rate_bp =
     if is_charge_percentage_valid {
       50
     } else {
@@ -722,7 +722,7 @@ fn mock_update_config_output_datum(
     total_deposited: total_deposited,
     shares_merkle_root: shares_merkle_root,
     total_fee_share_collected: total_fee_share_collected,
-    operator_charge_percentage: operator_charge_percentage,
+    operator_fee_rate_bp: operator_fee_rate_bp,
   }
 }
 

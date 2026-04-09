@@ -49,7 +49,7 @@ use withdraw_utils.{convert_shares_to_usd}
 //              = 1_250_000_000_000_000 * 2_400_000_000 / 3_000_000_000_000_000
 //              = 1_000_000_000 USD
 // - cost_basis = 1_000_000_000 (no profit, so fee = 0)
-// - With operator_charge_percentage = 0, fee = 0 anyway
+// - With operator_fee_rate_bp = 0, fee = 0 anyway
 // - user_receives = gross_value = 1_000_000_000 USD
 // - In ADA (price=2): 500_000_000 ADA
 
@@ -73,7 +73,7 @@ fn computed_gross_value() -> Int {
 }
 
 fn computed_user_receives() -> Int {
-  // fee = 0 since operator_charge_percentage = 0
+  // fee = 0 since operator_fee_rate_bp = 0
   computed_gross_value()
 }
 
@@ -102,7 +102,7 @@ fn build_vault_oracle_output_datum(
   is_correct: Bool,
 ) -> VaultOracleDatum {
   if is_correct {
-    // With operator_charge_percentage = 0, fee = 0 and fee_shares = 0
+    // With operator_fee_rate_bp = 0, fee = 0 and fee_shares = 0
     // Withdrawer is non-operator, so operator_shares_withdrawn = 0
     // operator_shares = operator_shares - operator_shares_withdrawn + fee_shares
     //                = 0 - 0 + 0 = 0
@@ -523,7 +523,7 @@ fn build_operator_vault_oracle_output_datum(
   // After withdrawal:
   // - total_shares decreases by shares_to_redeem
   // - operator_shares decreases by shares_to_redeem (operator is withdrawing)
-  // - No fee since operator_charge_percentage = 0
+  // - No fee since operator_fee_rate_bp = 0
   let new_total_shares = operator_test_total_shares - operator_shares_to_redeem
   let new_operator_shares = operator_shares - operator_shares_to_redeem
 
@@ -584,13 +584,7 @@ fn mock_operator_burn_intent_tx(operator_shares: Int) -> Transaction {
         mock_pub_key_address(99, None),
       )
     // Vault Oracle input
-    |> tx_in(
-        True,
-        mock_tx_hash(10),
-        0,
-        vault_oracle_input_value,
-        vault_address,
-      )
+    |> tx_in(True, mock_tx_hash(10), 0, vault_oracle_input_value, vault_address)
     |> tx_in_inline_datum(
         True,
         build_operator_vault_oracle_input_datum(operator_shares),

@@ -57,17 +57,20 @@ ProcessVaultWithdrawal(
 The main withdrawal logic is handled in the hydra_account withdrawal script:
 
 **Inputs:**
+
 - Vault Oracle (with `vault_oracle_nft`)
 - L2 Withdrawal Intent (single intent, no batching)
 - Vault's Account UTxO
 - Withdrawer's Account UTxO
 
 **Outputs:**
+
 - Vault Oracle (updated)
 - Vault's Account UTxO (balance decreased)
 - Withdrawer's Account UTxO (balance increased)
 
 **Validation:**
+
 1. **Signed by `operation_key` from `app_oracle` OR `operator_account.account.master_key` from vault oracle**
 2. **NO withdrawer signature required** (user already signed at MintIntent)
 3. Verify `prices` message using `hydra_node_pub_keys` from Oracle datum
@@ -78,8 +81,8 @@ The main withdrawal logic is handled in the hydra_account withdrawal script:
    - `cost_basis` from merkle proof
    - Fee calculation (skipped if withdrawer is operator):
      - If `withdrawer == operator_account`: `fee = 0`, `fee_shares = 0` (economically neutral)
-     - Otherwise: `fee = max(0, (gross_value - cost_basis) * operator_charge_percentage / 100)` (round UP)
-   - `fee_shares = fee * total_shares / vault_equity` (round UP, or 0 if operator)
+     - Otherwise: `fee = max(0, (gross_value - cost_basis) * operator_fee_rate_bp / 10000)` (round DOWN)
+   - `fee_shares = fee * total_shares / vault_equity` (round DOWN, or 0 if operator)
    - `net_payout = gross_value - fee` (full gross_value if operator)
 5. Update Vault Oracle datum:
    - `total_shares = total_shares - shares_to_redeem + fee_shares`
@@ -104,18 +107,18 @@ Vault's Account UTxO → (ProcessVaultWithdrawal) → User's Account UTxO
 
 ## Signing Summary
 
-| Action | Signed By |
-|--------|-----------|
-| MintIntent | **User** (withdrawer.master_key) |
-| BurnIntent | `operation_key` OR `operator_account.account.master_key` (via ProcessVaultWithdrawal) |
-| CancelIntent | `operation_key` |
+| Action       | Signed By                                                                             |
+| ------------ | ------------------------------------------------------------------------------------- |
+| MintIntent   | **User** (withdrawer.master_key)                                                      |
+| BurnIntent   | `operation_key` OR `operator_account.account.master_key` (via ProcessVaultWithdrawal) |
+| CancelIntent | `operation_key`                                                                       |
 
 ## Validation Rules (ref: vault-spec 4.6)
 
 1. `shares_to_redeem > 0` AND `shares_to_redeem <= user_shares_balance` (from merkle proof)
 2. `share_price` computed from current `vault_equity / total_shares`
 3. `gross_profit = max(0, gross_value - cost_basis)` (never negative)
-4. `fee = gross_profit * operator_charge_percentage / 100` (round UP)
+4. `fee = gross_profit * operator_fee_rate_bp / 10000` (round DOWN)
 5. `fee_shares` correctly computed and added to operator merkle record
 6. `net_payout = gross_value - fee` transferred to user's Account
 7. Sufficient balance in vault's Account to cover net_payout

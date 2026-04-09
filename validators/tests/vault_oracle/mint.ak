@@ -105,7 +105,7 @@ fn mock_mint_vault_datum(test_case: MintVaultTestCase) -> VaultOracleDatum {
       100
     }
 
-  let operator_charge_percentage =
+  let operator_fee_rate_bp =
     if is_charge_percentage_valid {
       10
     } else {
@@ -138,7 +138,7 @@ fn mock_mint_vault_datum(test_case: MintVaultTestCase) -> VaultOracleDatum {
     pluggable_logic: mock_pluggable_logic,
     vault_stake_rotation_script_hash: mock_vault_stake_rotation_script_hash,
     operator_account: mock_operator_account,
-    operator_charge_percentage,
+    operator_fee_rate_bp,
     operator_min_deposit_percentage: 10,
     hydra_node_pub_keys,
     is_active: True,
