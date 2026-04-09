@@ -110,7 +110,7 @@ The mint policy is a simple one-time minting policy (similar to `app_oracle/orac
 - **Signed by all `hydra_node_pub_keys`**
 - All config fields can be modified
 - Constraints:
-  - `operator_fee_rate_bp` must be >= 0 and <= 100
+  - `operator_fee_rate_bp` must be >= 0 and <= 10000
   - `hydra_node_pub_keys` must match `app_oracle` signers (if `app_oracle` changed)
 - State fields unchanged
 

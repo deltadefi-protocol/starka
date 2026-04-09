@@ -254,7 +254,7 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
             vault_oracle_datum.shares_merkle_root == mpf.root(mpf.empty),
             vault_oracle_datum.total_fee_share_collected == 0,
             vault_oracle_datum.operator_fee_rate_bp >= 0,
-            vault_oracle_datum.operator_fee_rate_bp <= 100,
+            vault_oracle_datum.operator_fee_rate_bp <= 10000,
           }
 
         // No signatures required (anyone can create a vault)
