@@ -2,10 +2,10 @@
 
 Split oracle design: two NFTs under the same policy, distinguished by datum type.
 
-| Oracle | Datum Type | Location | Purpose |
-|--------|------------|----------|---------|
-| **Config Oracle** | `VaultConfig` | Always L1 | Config for L1 operations |
-| **State Oracle** | `VaultOracleDatum` | L1 or L2 (Hydra) | Config copy + state |
+| Oracle            | Datum Type         | Location         | Purpose                  |
+| ----------------- | ------------------ | ---------------- | ------------------------ |
+| **Config Oracle** | `VaultConfig`      | Always L1        | Config for L1 operations |
+| **State Oracle**  | `VaultOracleDatum` | L1 or L2 (Hydra) | Config copy + state      |
 
 Both oracles share the same `policy_id` and token name `""`. Config may diverge between the two - this is acceptable.
 
@@ -45,8 +45,8 @@ VaultOracleDatum {
   pluggable_logic: ByteArray,
   vault_stake_rotation_script_hash: ByteArray,
   operator_account: UserAccount,
-  operator_charge_percentage: Int,
-  operator_min_deposit_percentage: Int,
+  operator_fee_rate_bp: Int,
+  operator_min_deposit_rate_bp: Int,
   hydra_node_pub_keys: List<VerificationKey>,
   is_active: Bool,
 
@@ -84,7 +84,7 @@ Each depositor has one entry in the shares merkle tree:
   - `l2_deposit_intent_script_hash`, `l2_withdrawal_intent_script_hash`
   - `pluggable_logic`, `operator_account`, `hydra_node_pub_keys`
 - State Oracle: all state fields = 0, `shares_merkle_root = null_hash`
-- `operator_charge_percentage` must be >= 0 and <= 100
+- `operator_fee_rate_bp` must be >= 0 and <= 100
 - No signatures required (anyone can create a vault)
 
 ### CloseVault - `CloseVault`
@@ -139,7 +139,7 @@ The spend handler accepts both `VaultConfig` and `VaultOracleDatum` as datum, di
    - All config fields can be modified
    - State fields can be modified (no restriction when spending State Oracle)
    - Constraints:
-     - `operator_charge_percentage` must be >= 0 and <= 100
+     - `operator_fee_rate_bp` must be >= 0 and <= 100
 
 9. **BurnVault**
    - Oracle NFT is being burnt (minted_quantity < 0)
@@ -154,7 +154,7 @@ The Config Oracle stays on L1 and supports these actions:
    - All config fields can be modified
    - **State fields in output must remain unchanged** (0 values)
    - Constraints:
-     - `operator_charge_percentage` must be >= 0 and <= 100
+     - `operator_fee_rate_bp` must be >= 0 and <= 100
 
 2. **PluggableLogic** (L1 pluggable logic)
    - Withdrawal Script `pluggable_logic` is validated
@@ -185,13 +185,14 @@ To upgrade any script (vault, intents, etc.):
 
 The two oracles' config may diverge:
 
-| Scenario | Config Oracle (L1) | State Oracle (L2) | Impact |
-|----------|-------------------|-------------------|--------|
-| Update pluggable_logic on L1 | Updated | Old | L1 uses new logic, L2 uses old |
-| Update pluggable_logic on L2 | Old | Updated | L1 uses old logic, L2 uses new |
-| Update both | Updated | Updated | Both in sync |
+| Scenario                     | Config Oracle (L1) | State Oracle (L2) | Impact                         |
+| ---------------------------- | ------------------ | ----------------- | ------------------------------ |
+| Update pluggable_logic on L1 | Updated            | Old               | L1 uses new logic, L2 uses old |
+| Update pluggable_logic on L2 | Old                | Updated           | L1 uses old logic, L2 uses new |
+| Update both                  | Updated            | Updated           | Both in sync                   |
 
 **Design Choice**: Divergence is acceptable because:
+
 1. L1 and L2 operations are independent
 2. Operator can sync manually via UpdateConfig on both if needed
 3. Simplifies implementation (no cross-layer sync required)

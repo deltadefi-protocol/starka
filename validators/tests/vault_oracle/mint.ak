@@ -115,11 +115,11 @@ fn mock_mint_vault_datums(
       100
     }
 
-  let operator_charge_percentage =
+  let operator_fee_rate_bp =
     if is_charge_percentage_valid {
       10
     } else {
-      101
+      10001
     }
 
   let app_oracle =
@@ -149,8 +149,8 @@ fn mock_mint_vault_datums(
       pluggable_logic: mock_pluggable_logic,
       vault_stake_rotation_script_hash: mock_vault_stake_rotation_script_hash,
       operator_account: mock_operator_account,
-      operator_charge_percentage,
-      operator_min_deposit_percentage: 10,
+      operator_fee_rate_bp,
+      operator_min_deposit_rate_bp: 10,
       hydra_node_pub_keys,
       is_active: True,
       total_shares,
@@ -199,7 +199,8 @@ fn mock_mint_vault_tx(test_case: MintVaultTestCase) -> Transaction {
     ..
   } = test_case
 
-  let (vault_oracle_datum, vault_config_datum) = mock_mint_vault_datums(test_case)
+  let (vault_oracle_datum, vault_config_datum) =
+    mock_mint_vault_datums(test_case)
   let vault_nft_policy = mock_vault_nft
 
   let app_oracle_value =
@@ -419,7 +420,9 @@ fn default_close_vault_test_case() -> CloseVaultTestCase {
   }
 }
 
-fn mock_close_vault_state_datum(test_case: CloseVaultTestCase) -> VaultOracleDatum {
+fn mock_close_vault_state_datum(
+  test_case: CloseVaultTestCase,
+) -> VaultOracleDatum {
   let CloseVaultTestCase { is_total_shares_zero, is_merkle_empty, .. } =
     test_case
 
@@ -485,7 +488,10 @@ fn mock_close_vault_tx(test_case: CloseVaultTestCase) -> Transaction {
         vault_oracle_input_value,
         from_script(vault_nft_policy),
       )
-    |> tx_in_inline_datum(is_config_oracle_input_present, mock_vault_config_datum)
+    |> tx_in_inline_datum(
+        is_config_oracle_input_present,
+        mock_vault_config_datum,
+      )
     // State Oracle input (VaultOracleDatum)
     |> tx_in(
         is_state_oracle_input_present,
@@ -494,7 +500,10 @@ fn mock_close_vault_tx(test_case: CloseVaultTestCase) -> Transaction {
         vault_oracle_input_value,
         from_script(vault_nft_policy),
       )
-    |> tx_in_inline_datum(is_state_oracle_input_present, close_vault_state_datum)
+    |> tx_in_inline_datum(
+        is_state_oracle_input_present,
+        close_vault_state_datum,
+      )
     // Burn both oracle NFTs (-2)
     |> mint(is_oracle_nft_burnt, -2, vault_nft_policy, "")
     // Signatures

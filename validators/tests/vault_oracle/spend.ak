@@ -434,7 +434,7 @@ fn mock_update_config_state_oracle_output_datum(
     ..mock_vault_oracle_datum,
     total_shares: mock_vault_oracle_datum.total_shares + 100,
     operator_shares: mock_vault_oracle_datum.operator_shares + 10,
-    operator_charge_percentage: operator_charge_percentage,
+    operator_fee_rate_bp: operator_fee_rate_bp,
   }
 }
 
@@ -551,7 +551,7 @@ fn mock_update_config_config_oracle_output_datum(
     ..
   } = test_case
 
-  let operator_charge_percentage =
+  let operator_fee_rate_bp =
     if is_charge_percentage_valid {
       50
     } else {
