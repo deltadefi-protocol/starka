@@ -139,7 +139,7 @@ fn mock_mint_vault_datum(test_case: MintVaultTestCase) -> VaultOracleDatum {
     vault_stake_rotation_script_hash: mock_vault_stake_rotation_script_hash,
     operator_account: mock_operator_account,
     operator_fee_rate_bp,
-    operator_min_deposit_percentage: 10,
+    operator_min_deposit_rate_bp: 10,
     hydra_node_pub_keys,
     is_active: True,
     total_shares,

@@ -454,10 +454,10 @@ test s3_mint_burn_intent_fail_not_authorized() {
 
 // ========== Operator Min Deposit Percentage Tests ==========
 // These tests verify that when the operator withdraws, they must maintain
-// at least operator_min_deposit_percentage of total_shares.
+// at least operator_min_deposit_rate_bp of total_shares.
 //
 // Test scenario:
-// - operator_min_deposit_percentage = 10 (from mock_vault_oracle_datum)
+// - operator_min_deposit_rate_bp = 10 (from mock_vault_oracle_datum)
 // - Operator is the withdrawer (uses mock_operator_account)
 // - Test values chosen to produce integer results with mock_vault_equity/prices
 //

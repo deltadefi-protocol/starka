@@ -21,7 +21,7 @@ The Vault Oracle UTxO holds config and shares state. This is the only UTxO commi
 - `pluggable_logic`: ByteArray
 - `operator_account`: UserAccount (contains Account with master_key, operation_key, account_id)
 - `operator_fee_rate_bp`: Int
-- `operator_min_deposit_percentage`: Int
+- `operator_min_deposit_rate_bp`: Int
 - `is_active`: Bool - whether the vault accepts new deposits
 
 ### State (mutable)
