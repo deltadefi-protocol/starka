@@ -5,7 +5,7 @@ use hydra_dex/types.{Account, UserTradeAccount} as dd_types
 use mocktail.{mock_output, mock_pub_key_address, mock_utxo_ref}
 use tests/utils.{
   mock_l1_withdrawal_intent_script_hash, mock_l2_withdrawal_intent_script_hash,
-  mock_operator_charge_percentage, mock_total_shares, mock_vault_equity,
+  mock_operator_fee_rate_bp, mock_total_shares, mock_vault_equity,
 }
 use types.{MValue, WithdrawalIntentDatum}
 use withdraw_utils.{
@@ -199,7 +199,7 @@ fn user_receives_a() -> Int {
     cal_per_user_operator_fee(
       gross,
       cost_basis,
-      mock_operator_charge_percentage,
+      mock_operator_fee_rate_bp,
     )
   gross - fee
 }
@@ -212,7 +212,7 @@ fn user_receives_b() -> Int {
     cal_per_user_operator_fee(
       gross,
       cost_basis,
-      mock_operator_charge_percentage,
+      mock_operator_fee_rate_bp,
     )
   gross - fee
 }
@@ -225,7 +225,7 @@ fn user_receives_c() -> Int {
     cal_per_user_operator_fee(
       gross,
       cost_basis,
-      mock_operator_charge_percentage,
+      mock_operator_fee_rate_bp,
     )
   gross - fee
 }
@@ -381,7 +381,7 @@ const expected_total_user_receives =
 //       mpf_actions,  // TODO: provide merkle proof actions
 //       mock_vault_equity,
 //       mock_total_shares,
-//       mock_operator_charge_percentage,
+//       mock_operator_fee_rate_bp,
 //       prices,
 //       mock_l1_withdrawal_intent_script_hash,
 //       initial_merkle_root,  // TODO: provide initial root
@@ -423,7 +423,7 @@ const expected_total_user_receives =
 //       l2_transfer_amounts(),
 //       mock_vault_equity,
 //       mock_total_shares,
-//       mock_operator_charge_percentage,
+//       mock_operator_fee_rate_bp,
 //       prices,
 //       mock_l2_withdrawal_intent_script_hash,
 //       initial_merkle_root,  // TODO: provide initial root
@@ -443,7 +443,7 @@ const expected_total_user_receives =
 //       l2_incorrect_transfer_amounts(),  // Wrong order causes mismatch
 //       mock_vault_equity,
 //       mock_total_shares,
-//       mock_operator_charge_percentage,
+//       mock_operator_fee_rate_bp,
 //       prices,
 //       mock_l2_withdrawal_intent_script_hash,
 //       initial_merkle_root,  // TODO: provide initial root
@@ -463,7 +463,7 @@ const expected_total_user_receives =
 //       extra_transfers,
 //       mock_vault_equity,
 //       mock_total_shares,
-//       mock_operator_charge_percentage,
+//       mock_operator_fee_rate_bp,
 //       prices,
 //       mock_l2_withdrawal_intent_script_hash,
 //       initial_merkle_root,  // TODO: provide initial root
