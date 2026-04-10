@@ -165,6 +165,7 @@ fn mock_mint_vault_datums(
     if is_config_matching {
       VaultConfig {
         app_oracle,
+        vault_script_hash: mock_vault_script_hash,
         l1_deposit_intent_script_hash: mock_l1_deposit_intent_script_hash,
         l1_withdrawal_intent_script_hash: mock_l1_withdrawal_intent_script_hash,
         l2_deposit_intent_script_hash: mock_l2_deposit_intent_script_hash,
@@ -177,6 +178,7 @@ fn mock_mint_vault_datums(
       // Mismatched config - use different pluggable_logic
       VaultConfig {
         app_oracle,
+        vault_script_hash: mock_vault_script_hash,
         l1_deposit_intent_script_hash: mock_l1_deposit_intent_script_hash,
         l1_withdrawal_intent_script_hash: mock_l1_withdrawal_intent_script_hash,
         l2_deposit_intent_script_hash: mock_l2_deposit_intent_script_hash,

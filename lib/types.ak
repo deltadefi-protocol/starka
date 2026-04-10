@@ -17,6 +17,7 @@ pub type MintPolarity {
 pub type VaultConfig {
   // Config (all updatable via UpdateConfig)
   app_oracle: PolicyId,
+  vault_script_hash: ByteArray,
   l1_deposit_intent_script_hash: ByteArray,
   l1_withdrawal_intent_script_hash: ByteArray,
   l2_deposit_intent_script_hash: ByteArray,

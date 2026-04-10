@@ -45,7 +45,7 @@ validator vault(vault_oracle: PolicyId) {
         let vault_config: VaultConfig =
           get_vault_config(reference_inputs, vault_oracle)
 
-        let VaultConfig { app_oracle, .. } = vault_config
+        let VaultConfig { app_oracle, vault_script_hash, .. } = vault_config
         // Obtain DeltaDeFi's AppOracleDatum
         let app_oracle_datum: AppOracleDatum =
           get_app_oracle_datum(reference_inputs, app_oracle)
@@ -53,7 +53,7 @@ validator vault(vault_oracle: PolicyId) {
         check_any_policy_minted(
           mint,
           app_oracle_datum.app_deposit_request_token,
-        )?
+        ) && withdrawal_script_validated(withdrawals, vault_script_hash)?
       }
       StakeRotation -> {
         // Withdrawal Script vault_stake_rotation is validated

@@ -21,6 +21,7 @@ Simplified config with only shared fields needed for L1 operations.
 ```
 VaultConfig {
   app_oracle: PolicyId,
+  vault_script_hash: ByteArray,
   l1_deposit_intent_script_hash: ByteArray,
   l1_withdrawal_intent_script_hash: ByteArray,
   l2_deposit_intent_script_hash: ByteArray,

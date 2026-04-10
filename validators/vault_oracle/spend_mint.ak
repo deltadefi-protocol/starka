@@ -44,6 +44,7 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
             (
               VaultConfig {
                 app_oracle: d.app_oracle,
+                vault_script_hash: d.vault_script_hash,
                 l1_deposit_intent_script_hash: d.l1_deposit_intent_script_hash,
                 l1_withdrawal_intent_script_hash: d.l1_withdrawal_intent_script_hash,
                 l2_deposit_intent_script_hash: d.l2_deposit_intent_script_hash,
@@ -260,6 +261,7 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
 
         let is_config_matching = and {
             vault_oracle_datum.app_oracle == vault_config_datum.app_oracle,
+            vault_oracle_datum.vault_script_hash == vault_config_datum.vault_script_hash,
             vault_oracle_datum.l1_deposit_intent_script_hash == vault_config_datum.l1_deposit_intent_script_hash,
             vault_oracle_datum.l1_withdrawal_intent_script_hash == vault_config_datum.l1_withdrawal_intent_script_hash,
             vault_oracle_datum.l2_deposit_intent_script_hash == vault_config_datum.l2_deposit_intent_script_hash,

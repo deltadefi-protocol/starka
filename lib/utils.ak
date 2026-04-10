@@ -59,6 +59,7 @@ pub fn get_vault_config(
   if datum is VaultOracleDatum {
     VaultConfig {
       app_oracle: datum.app_oracle,
+      vault_script_hash: datum.vault_script_hash,
       l1_deposit_intent_script_hash: datum.l1_deposit_intent_script_hash,
       l1_withdrawal_intent_script_hash: datum.l1_withdrawal_intent_script_hash,
       l2_deposit_intent_script_hash: datum.l2_deposit_intent_script_hash,

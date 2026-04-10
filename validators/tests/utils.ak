@@ -254,6 +254,7 @@ pub const mock_vault_oracle_datum: VaultOracleDatum =
 pub const mock_vault_config_datum: VaultConfig =
   VaultConfig {
     app_oracle: mock_app_oracle,
+    vault_script_hash: mock_vault_script_hash,
     l1_deposit_intent_script_hash: mock_l1_deposit_intent_script_hash,
     l1_withdrawal_intent_script_hash: mock_l1_withdrawal_intent_script_hash,
     l2_deposit_intent_script_hash: mock_l2_deposit_intent_script_hash,
