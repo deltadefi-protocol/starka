@@ -3,21 +3,19 @@ use cardano/assets.{add, from_asset}
 use cardano/transaction.{Mint, Transaction}
 use mocktail.{
   add_redeemer, complete, mint, mock_tx_hash, mock_utxo_ref, mocktail_tx,
-  required_signer_hash, script_withdrawal, tx_in, tx_in_inline_datum, tx_out,
-  tx_out_inline_datum,
+  required_signer_hash, tx_in, tx_in_inline_datum, tx_out, tx_out_inline_datum,
 }
 use tests/utils.{
   mock_app_oracle, mock_hydra_signer_1, mock_hydra_signer_2, mock_hydra_signer_3,
   mock_initial_utxo, mock_l1_deposit_intent_script_hash,
   mock_l1_withdrawal_intent_script_hash, mock_l2_deposit_intent_script_hash,
-  mock_l2_withdrawal_intent_script_hash, mock_pluggable_logic,
-  mock_vault_config_datum, mock_vault_nft, mock_vault_oracle_datum,
+  mock_l2_withdrawal_intent_script_hash, mock_vault_config_datum, mock_vault_nft,
+  mock_vault_oracle_datum,
 }
 use types.{
   BurnIntent, BurnIntentL2, BurnVault, CancelIntent, CancelIntentL2, HydraCommit,
-  HydraDecommit, PluggableLogic, ProcessL1Deposit, ProcessL1Withdrawal,
-  ProcessL2Deposit, ProcessL2Withdrawal, UpdateConfig, VaultOracleDatum,
-  VaultOracleSpendRedeemer,
+  HydraDecommit, ProcessL1Deposit, ProcessL1Withdrawal, ProcessL2Deposit,
+  ProcessL2Withdrawal, UpdateConfig, VaultOracleDatum, VaultOracleSpendRedeemer,
 }
 use vault_oracle/spend_mint as vault_oracle
 
@@ -346,54 +344,6 @@ test s0_spend_fail_hydra_decommit_when_input_not_equal_output() {
       is_input_equal_output: False,
     }
   !run_hydra_decommit(test_case)
-}
-
-// ========== PluggableLogic Test Case ==========
-
-type PluggableLogicTestCase {
-  is_withdrawal_script_validated: Bool,
-}
-
-fn default_pluggable_logic_test_case() -> PluggableLogicTestCase {
-  PluggableLogicTestCase { is_withdrawal_script_validated: True }
-}
-
-fn mock_pluggable_logic_tx(test_case: PluggableLogicTestCase) -> Transaction {
-  let PluggableLogicTestCase { is_withdrawal_script_validated } = test_case
-
-  mocktail_tx()
-    |> script_withdrawal(
-        is_withdrawal_script_validated,
-        mock_pluggable_logic,
-        0,
-      )
-    |> complete()
-}
-
-fn run_pluggable_logic(test_case: PluggableLogicTestCase) -> Bool {
-  let tx = mock_pluggable_logic_tx(test_case)
-  let datum: Data = mock_vault_oracle_datum
-
-  vault_oracle.vault_oracle.spend(
-    mock_initial_utxo,
-    mock_app_oracle,
-    Some(datum),
-    PluggableLogic,
-    mock_utxo_ref(0, 0),
-    tx,
-  )
-}
-
-// ========== PluggableLogic Tests ==========
-
-test s0_spend_success_pluggable_logic() {
-  run_pluggable_logic(default_pluggable_logic_test_case())
-}
-
-test s0_spend_fail_pluggable_logic_without_withdrawal_script() {
-  let test_case =
-    PluggableLogicTestCase { is_withdrawal_script_validated: False }
-  !run_pluggable_logic(test_case)
 }
 
 // ========== UpdateConfig Test Case (State Oracle) ==========

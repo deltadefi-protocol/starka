@@ -29,7 +29,13 @@ pub fn list_foldl5(
   when self is {
     [] -> return(zero_a, zero_b, zero_c, zero_d, zero_e)
     [x, ..xs] -> {
-      let acc_a, acc_b, acc_c, acc_d, acc_e <- with(x, zero_a, zero_b, zero_c, zero_d, zero_e)
+      let
+        acc_a,
+        acc_b,
+        acc_c,
+        acc_d,
+        acc_e,
+      <- with(x, zero_a, zero_b, zero_c, zero_d, zero_e)
       list_foldl5(xs, acc_a, acc_b, acc_c, acc_d, acc_e, with, return)
     }
   }
@@ -157,7 +163,7 @@ pub fn process_batched_deposit_intent_validation(
                   // Extract Account from UserAccount and use as MPF key
                   expect UserTradeAccount { account: depositor_account, .. } =
                     depositor
-                  let mpf_key = cbor.serialise(depositor_account)
+                  let mpf_key = cbor.serialise(depositor)
 
                   // Track if depositor is operator
                   let new_cal_operator_shares_added =

@@ -1,6 +1,6 @@
 use aiken/collection/list
 use cardano/address.{Script, VerificationKey, from_script}
-use cardano/assets.{PolicyId, flatten}
+use cardano/assets.{PolicyId, quantity_of}
 use cardano/transaction.{OutputReference, Transaction, find_input}
 use cocktail.{
   key_signed, output_inline_datum, outputs_at_with_policy, outputs_with_policy,
@@ -30,14 +30,7 @@ validator l2_deposit_intent(
     expect Script(own_hash) = own_input.output.address.payment_credential
 
     // Check that intent token is being burnt
-    let is_intent_burnt =
-      when
-        flatten(mint)
-          |> list.filter(fn(asset) { asset.1st == own_hash })
-      is {
-        [(_, _, minted_quantity)] -> minted_quantity < 0
-        _ -> False
-      }
+    let is_intent_burnt = quantity_of(mint, own_hash, "") < 0
     is_intent_burnt?
   }
 

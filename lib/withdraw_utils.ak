@@ -2,7 +2,6 @@ use aiken/cbor
 use aiken/collection/list
 use aiken/collection/pairs
 use aiken/crypto.{ScriptHash}
-use aiken/math
 use aiken/merkle_patricia_forestry as mpf
 use cardano/address.{Script}
 use cardano/assets.{AssetName, PolicyId, Value}
@@ -13,6 +12,7 @@ use types.{
   SharesDelete, SharesInsert, SharesMPFAction, SharesRecordEntry, SharesUpdate,
   WithdrawalIntentDatum,
 }
+use utils.{pow10}
 
 pub type Scott6<a, b, c, d, e, f, result> =
   fn(a, b, c, d, e, f) -> result
@@ -42,11 +42,6 @@ pub fn list_foldl6(
       list_foldl6(xs, acc_a, acc_b, acc_c, acc_d, acc_e, acc_f, with, return)
     }
   }
-}
-
-// Power of 10: returns 10^n
-fn pow10(n: Int) -> Int {
-  math.pow(10, n)
 }
 
 pub fn convert_shares_to_usd(
@@ -167,7 +162,7 @@ pub fn process_batched_withdrawal_intent_validation(
                   // Extract Account from UserAccount and use as MPF key
                   expect UserTradeAccount { account: withdrawer_acc, .. } =
                     withdrawer
-                  let mpf_key = cbor.serialise(withdrawer_acc)
+                  let mpf_key = cbor.serialise(withdrawer)
 
                   // Track if withdrawer is operator
                   let new_cal_operator_shares_withdrawn =

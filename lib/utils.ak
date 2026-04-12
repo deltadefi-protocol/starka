@@ -4,6 +4,7 @@ use aiken/crypto.{
   ScriptHash, VerificationKey, VerificationKeyHash, blake2b_224,
   verify_ed25519_signature,
 }
+use aiken/math
 use cardano/address.{Credential, Script}
 use cardano/assets.{Lovelace, PolicyId, Value, quantity_of}
 use cardano/transaction.{InlineDatum, Input, Redeemer, ScriptPurpose}
@@ -190,4 +191,8 @@ pub fn validate_hydra_signatures_with_verification_key(
     hydra_node_pub_keys,
     fn(key) { list.has(extra_signatories, crypto.blake2b_224(key)) },
   )
+}
+
+pub fn pow10(n: Int) -> Int {
+  math.pow(10, n)
 }

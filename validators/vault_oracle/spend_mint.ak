@@ -11,15 +11,14 @@ use cocktail.{
 }
 use hydra_dex/types.{AppOracleDatum, HydraInfo, UserTradeAccount} as dd_types
 use types.{
-  BurnVault, CloseVault, HydraCommit, HydraDecommit, MintVault, PluggableLogic,
-  ProcessL1Deposit, ProcessL1Withdrawal, ProcessL2Deposit, ProcessL2Withdrawal,
-  UpdateConfig, VaultConfig, VaultOracleDatum, VaultOracleMintRedeemer,
+  BurnVault, CloseVault, HydraCommit, HydraDecommit, MintVault, ProcessL1Deposit,
+  ProcessL1Withdrawal, ProcessL2Deposit, ProcessL2Withdrawal, UpdateConfig,
+  VaultConfig, VaultOracleDatum, VaultOracleMintRedeemer,
   VaultOracleSpendRedeemer,
 }
 use utils.{
   check_mint_redeemer_is_burn_intent_l1, check_mint_redeemer_is_burn_intent_l2,
   validate_hydra_signatures_with_verification_key, verify_pub_keys,
-  withdrawal_script_validated,
 }
 
 validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
@@ -74,19 +73,13 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
       l2_deposit_intent_script_hash,
       l2_withdrawal_intent_script_hash,
       hydra_node_pub_keys,
-      pluggable_logic,
       ..
     } = vault_config_datum
-    let Transaction {
-      inputs,
-      outputs,
-      redeemers,
-      extra_signatories,
-      withdrawals,
-      mint,
-      ..
-    } = self
+    let Transaction { inputs, outputs, redeemers, extra_signatories, mint, .. } =
+      self
 
+    expect Some(own_input) = find_input(inputs, input)
+    expect Script(own_hash) = own_input.output.address.payment_credential
     when redeemer is {
       ProcessL1Deposit -> {
         let mint_purpose = Mint(l1_deposit_intent_script_hash)
@@ -113,7 +106,6 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
         all_hydra_signed?
       }
       HydraDecommit -> {
-        expect Some(own_input) = find_input(inputs, input)
         let is_input_equal_output =
           list.any(outputs, fn(output: Output) { output == own_input.output })
 
@@ -124,8 +116,6 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
           )
         all_hydra_signed? && is_input_equal_output?
       }
-      PluggableLogic ->
-        withdrawal_script_validated(withdrawals, pluggable_logic)
       UpdateConfig -> {
         // Require all hydra_node_pub_keys signatures
         let all_hydra_signed =
@@ -135,35 +125,32 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
           )
 
         // Get oracle output
-        expect Some(own_input) = find_input(inputs, input)
-        expect Script(own_hash) = own_input.output.address.payment_credential
         expect [oracle_output] =
           outputs_at_with_policy(outputs, from_script(own_hash), own_hash)
-        expect oracle_output_datum: VaultOracleDatum =
-          output_inline_datum(oracle_output)
+        let oracle_output_datum = output_inline_datum(oracle_output)
 
-        // State fields must remain unchanged
-        let is_state_unchanged =
-          when is_config is {
-            True -> and {
-                oracle_output_datum.total_shares == total_shares,
-                oracle_output_datum.operator_shares == operator_shares,
-                oracle_output_datum.total_deposited == total_deposited,
-                oracle_output_datum.shares_merkle_root == shares_merkle_root,
-                oracle_output_datum.total_fee_share_collected == total_fee_share_collected,
-              }
-            False -> True
+        let datum_check =
+          if oracle_output_datum is VaultOracleDatum {
+            and {
+              oracle_output_datum.total_shares == total_shares,
+              oracle_output_datum.operator_shares == operator_shares,
+              oracle_output_datum.total_deposited == total_deposited,
+              oracle_output_datum.shares_merkle_root == shares_merkle_root,
+              oracle_output_datum.total_fee_share_collected == total_fee_share_collected,
+              oracle_output_datum.operator_fee_rate_bp >= 0,
+              oracle_output_datum.operator_fee_rate_bp <= 10000,
+              !is_config,
+            }
+          } else if oracle_output_datum is VaultConfig {
+            is_config
+          } else {
+            fail @"Invalid datum type for vault oracle input"
           }
 
         // Validate operator_fee_rate_bp
-        let is_charge_valid =
-          oracle_output_datum.operator_fee_rate_bp >= 0 && oracle_output_datum.operator_fee_rate_bp <= 100
-
-        all_hydra_signed? && is_state_unchanged? && is_charge_valid?
+        all_hydra_signed? && datum_check?
       }
       BurnVault -> {
-        expect Some(own_input) = find_input(inputs, input)
-        expect Script(own_hash) = own_input.output.address.payment_credential
         let are_oracles_burnt =
           when
             flatten(mint)

@@ -65,7 +65,6 @@ pub type VaultOracleSpendRedeemer {
   ProcessL2Withdrawal
   HydraCommit
   HydraDecommit
-  PluggableLogic
   UpdateConfig
   BurnVault
 }
