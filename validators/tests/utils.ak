@@ -12,7 +12,7 @@ use mocktail.{
 }
 use types.{
   DepositIntentDatum, L2DepositIntentDatum, L2WithdrawalIntentDatum, MValue,
-  SharesRecordEntry, VaultOracleDatum, WithdrawalIntentDatum,
+  SharesRecordEntry, VaultConfig, VaultOracleDatum, WithdrawalIntentDatum,
 }
 
 // ========== Null hash (empty MPF trie root) ==========
@@ -248,6 +248,20 @@ pub const mock_vault_oracle_datum: VaultOracleDatum =
     total_deposited: mock_total_deposited,
     shares_merkle_root: null_hash,
     total_fee_share_collected: 0,
+  }
+
+// Config Oracle datum (simplified, L1 only)
+pub const mock_vault_config_datum: VaultConfig =
+  VaultConfig {
+    app_oracle: mock_app_oracle,
+    vault_script_hash: mock_vault_script_hash,
+    l1_deposit_intent_script_hash: mock_l1_deposit_intent_script_hash,
+    l1_withdrawal_intent_script_hash: mock_l1_withdrawal_intent_script_hash,
+    l2_deposit_intent_script_hash: mock_l2_deposit_intent_script_hash,
+    l2_withdrawal_intent_script_hash: mock_l2_withdrawal_intent_script_hash,
+    pluggable_logic: mock_pluggable_logic,
+    operator_account: mock_operator_account,
+    hydra_node_pub_keys: mock_node_pub_keys,
   }
 
 // ========== DexOrderBook datum ==========

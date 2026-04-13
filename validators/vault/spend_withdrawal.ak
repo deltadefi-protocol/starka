@@ -4,12 +4,13 @@ use cardano/transaction.{Mint, OutputReference, Transaction}
 use cocktail.{key_signed}
 use hydra_dex/types.{AppOracleDatum, UserTradeAccount} as dd_types
 use types.{
-  DepositIntoDeltaDeFi, ProcessWithdrawal, StakeRotation, VaultOracleDatum,
-  VaultPluggableLogic, VaultSpendRedeemer,
+  DepositIntoDeltaDeFi, ProcessWithdrawal, StakeRotation, VaultConfig,
+  VaultOracleDatum, VaultPluggableLogic, VaultSpendRedeemer,
 }
 use utils.{
   check_any_policy_minted, check_mint_redeemer_is_burn_intent_l1,
-  get_app_oracle_datum, get_vault_oracle_datum, withdrawal_script_validated,
+  get_app_oracle_datum, get_vault_config, get_vault_oracle_datum,
+  withdrawal_script_validated,
 }
 
 validator vault(vault_oracle: PolicyId) {
@@ -41,10 +42,10 @@ validator vault(vault_oracle: PolicyId) {
         check_mint_redeemer_is_burn_intent_l1(mint_purpose, redeemers)?
       }
       DepositIntoDeltaDeFi -> {
-        let vault_oracle_datum: VaultOracleDatum =
-          get_vault_oracle_datum(reference_inputs, vault_oracle)
+        let vault_config: VaultConfig =
+          get_vault_config(reference_inputs, vault_oracle)
 
-        let VaultOracleDatum { app_oracle, .. } = vault_oracle_datum
+        let VaultConfig { app_oracle, vault_script_hash, .. } = vault_config
         // Obtain DeltaDeFi's AppOracleDatum
         let app_oracle_datum: AppOracleDatum =
           get_app_oracle_datum(reference_inputs, app_oracle)
@@ -52,7 +53,7 @@ validator vault(vault_oracle: PolicyId) {
         check_any_policy_minted(
           mint,
           app_oracle_datum.app_deposit_request_token,
-        )?
+        ) && withdrawal_script_validated(withdrawals, vault_script_hash)?
       }
       StakeRotation -> {
         // Withdrawal Script vault_stake_rotation is validated
@@ -68,10 +69,10 @@ validator vault(vault_oracle: PolicyId) {
       }
       VaultPluggableLogic -> {
         // Withdrawal Script pluggable_logic is validated
-        let vault_oracle_datum: VaultOracleDatum =
-          get_vault_oracle_datum(reference_inputs, vault_oracle)
+        let vault_config: VaultConfig =
+          get_vault_config(reference_inputs, vault_oracle)
 
-        let VaultOracleDatum { pluggable_logic, .. } = vault_oracle_datum
+        let VaultConfig { pluggable_logic, .. } = vault_config
         withdrawal_script_validated(withdrawals, pluggable_logic)
       }
     }
@@ -81,10 +82,10 @@ validator vault(vault_oracle: PolicyId) {
     let Transaction { reference_inputs, extra_signatories, .. } = self
 
     // Get vault oracle datum from inputs
-    let vault_oracle_datum: VaultOracleDatum =
-      get_vault_oracle_datum(reference_inputs, vault_oracle)
+    let vault_config: VaultConfig =
+      get_vault_config(reference_inputs, vault_oracle)
 
-    let VaultOracleDatum { operator_account, .. } = vault_oracle_datum
+    let VaultConfig { operator_account, .. } = vault_config
 
     // Extract operator PKH from UserTradeAccount
     expect UserTradeAccount { account: operator_acc, .. } = operator_account
