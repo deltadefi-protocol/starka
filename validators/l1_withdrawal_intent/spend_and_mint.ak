@@ -86,8 +86,8 @@ validator l1_withdrawal_intent(vault_oracle_nft: PolicyId) {
           total_shares,
           total_deposited,
           operator_shares,
-          operator_charge_percentage,
-          operator_min_deposit_percentage,
+          operator_fee_rate_bp,
+          operator_min_deposit_rate_bp,
           operator_account,
           shares_merkle_root,
           vault_script_hash,
@@ -124,7 +124,7 @@ validator l1_withdrawal_intent(vault_oracle_nft: PolicyId) {
             user_mpf_actions,
             vault_equity,
             total_shares,
-            operator_charge_percentage,
+            operator_fee_rate_bp,
             prices,
             policy_id,
             shares_merkle_root,
@@ -187,11 +187,11 @@ validator l1_withdrawal_intent(vault_oracle_nft: PolicyId) {
           }
 
         // 8. Verify operator maintains minimum deposit percentage when withdrawing
-        // Check: new_operator_shares * 100 >= new_total_shares * operator_min_deposit_percentage
+        // Check: new_operator_shares * 10000 >= new_total_shares * operator_min_deposit_rate_bp
         // Only enforced when operator is withdrawing (operator_shares_withdrawn > 0)
         let operator_min_deposit_check =
           if operator_shares_withdrawn > 0 {
-            new_operator_shares * 100 >= new_total_shares * operator_min_deposit_percentage
+            new_operator_shares * 10000 >= new_total_shares * operator_min_deposit_rate_bp
           } else {
             True
           }

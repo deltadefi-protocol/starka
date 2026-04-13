@@ -1,16 +1,11 @@
 use aiken/cbor
 use aiken/collection/list
 use aiken/collection/pairs
-use aiken/math
 use cardano/assets.{AssetName, PolicyId, Value}
 use cardano/transaction.{Input}
 use cocktail.{verify_signatures}
 use types.{MValue, Message}
-
-// Power of 10: returns 10^n
-fn pow10(n: Int) -> Int {
-  math.pow(10, n)
-}
+use utils.{pow10}
 
 pub fn verify_prices_oracle_messages(
   prices_message: ByteArray,

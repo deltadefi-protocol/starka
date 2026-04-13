@@ -2,7 +2,6 @@ use aiken/cbor
 use aiken/collection/list
 use aiken/collection/pairs
 use aiken/crypto.{ScriptHash}
-use aiken/math
 use aiken/merkle_patricia_forestry as mpf
 use cardano/address.{Script}
 use cardano/assets.{AssetName, PolicyId, Value}
@@ -13,11 +12,7 @@ use types.{
   SharesDelete, SharesInsert, SharesMPFAction, SharesRecordEntry, SharesUpdate,
   WithdrawalIntentDatum,
 }
-
-// Power of 10: returns 10^n
-fn pow10(n: Int) -> Int {
-  math.pow(10, n)
-}
+use utils.{pow10}
 
 pub type Scott6<a, b, c, d, e, f, result> =
   fn(a, b, c, d, e, f) -> result
@@ -57,28 +52,23 @@ pub fn convert_shares_to_usd(
   shares_amount * vault_equity / total_shares
 }
 
-// Round UP: ceil(a * b / c) = (a * b + c - 1) / c
-fn ceil_div(numerator: Int, denominator: Int) -> Int {
-  ( numerator + denominator - 1 ) / denominator
-}
-
 pub fn cal_per_user_operator_fee(
   withdrawal_value: Int,
   cost_basis: Int,
-  operator_charge_percentage: Int,
+  operator_fee_rate_bp: Int,
 ) -> Int {
   let profit = withdrawal_value - cost_basis
   if profit <= 0 {
     0
   } else {
-    // Round UP — fee never underpaid
-    ceil_div(profit * operator_charge_percentage, 100)
+    // Round DOWN — fee never overpaid
+    profit * operator_fee_rate_bp / 10000
   }
 }
 
 pub fn compute_fee_shares(fee: Int, total_shares: Int, vault_equity: Int) -> Int {
-  // Round UP — protects operator
-  ceil_div(fee * total_shares, vault_equity)
+  // Round DOWN
+  fee * total_shares / vault_equity
 }
 
 // USD calculation: usd_value = Σ(amount * price / 10^scale) for each asset
@@ -108,7 +98,7 @@ pub fn process_batched_withdrawal_intent_validation(
   mpf_actions: List<SharesMPFAction>,
   vault_equity: Int,
   total_shares: Int,
-  operator_charge_percentage: Int,
+  operator_fee_rate_bp: Int,
   prices: Pairs<(PolicyId, AssetName), (Int, Int)>,
   withdrawal_intent_script_hash: ScriptHash,
   initial_merkle_root: ByteArray,
@@ -172,7 +162,7 @@ pub fn process_batched_withdrawal_intent_validation(
                   // Extract Account from UserAccount and use as MPF key
                   expect UserTradeAccount { account: withdrawer_acc, .. } =
                     withdrawer
-                  let mpf_key = cbor.serialise(withdrawer_acc)
+                  let mpf_key = cbor.serialise(withdrawer)
 
                   // Track if withdrawer is operator
                   let new_cal_operator_shares_withdrawn =
@@ -225,9 +215,10 @@ pub fn process_batched_withdrawal_intent_validation(
                         cal_per_user_operator_fee(
                           gross_value,
                           cost_basis,
-                          operator_charge_percentage,
+                          operator_fee_rate_bp,
                         )
-                      let fs = compute_fee_shares(fee, total_shares, vault_equity)
+                      let fs =
+                        compute_fee_shares(fee, total_shares, vault_equity)
                       (fs, gross_value - fee)
                     }
 

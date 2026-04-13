@@ -2,6 +2,8 @@
 
 L1 deposit intents allow users to deposit funds to the Trust Me Bro vault on L1. The vault then performs a regular deposit (AppDeposit) to AppVault, increasing the vault's account balance.
 
+> **Initial Deposits**: When `total_shares == 0`, this is treated as an initial deposit with share price = 1.0 (shares = USD value). This follows the pattern in `hydra_account/vault_deposit.ak` where initial deposit is handled inline within the deposit flow.
+
 ## Parameter
 
 - `vault_oracle_nft`: PolicyId
@@ -65,12 +67,13 @@ User funds → L1DepositIntent → Vault → AppVault (regular deposit)
 
 1. `deposit_amount > 0` (non-empty MValue)
 2. Deposit value actually transferred to vault
-3. `shares_minted` computed correctly:
-   - Initial deposit (`total_shares == 0`): `shares = usd_value`
-   - Regular deposit: `shares = usd_value * total_shares / vault_equity`
+3. `shares_minted` computed correctly (via `cal_shares_amount` in `deposit_utils.ak`):
+   - **Initial deposit** (`total_shares == 0`): `shares = usd_value` (share price = 1.0)
+   - **Regular deposit**: `shares = usd_value * total_shares / vault_equity` (round DOWN)
 4. `new_total_shares = old_total_shares + shares_minted`
 5. `new_total_deposited = old_total_deposited + usd_value`
 6. Depositor shares record updated correctly in merkle tree
+7. For initial deposit: `operator_shares` remains 0 (unless operator is the depositor)
 
 > **Asset Flexibility**: Script accepts ANY asset. Backend restricts accepted assets (e.g., USDC only). Scripts should never change; backend rules can evolve.
 

@@ -14,6 +14,19 @@ pub type MintPolarity {
   RBurn
 }
 
+pub type VaultConfig {
+  // Config (all updatable via UpdateConfig)
+  app_oracle: PolicyId,
+  vault_script_hash: ByteArray,
+  l1_deposit_intent_script_hash: ByteArray,
+  l1_withdrawal_intent_script_hash: ByteArray,
+  l2_deposit_intent_script_hash: ByteArray,
+  l2_withdrawal_intent_script_hash: ByteArray,
+  pluggable_logic: ByteArray,
+  operator_account: UserAccount,
+  hydra_node_pub_keys: List<VerificationKey>,
+}
+
 // Vault Oracle Datum — holds config + state, commits to Hydra
 pub type VaultOracleDatum {
   // Config (all updatable via UpdateConfig)
@@ -26,8 +39,8 @@ pub type VaultOracleDatum {
   pluggable_logic: ByteArray,
   vault_stake_rotation_script_hash: ByteArray,
   operator_account: UserAccount,
-  operator_charge_percentage: Int,
-  operator_min_deposit_percentage: Int,
+  operator_fee_rate_bp: Int,
+  operator_min_deposit_rate_bp: Int,
   hydra_node_pub_keys: List<VerificationKey>,
   is_active: Bool,
   // State (mutable)
@@ -45,23 +58,15 @@ pub type VaultOracleMintRedeemer {
 }
 
 // Vault Oracle spend redeemer
-// Note: L2InitialDeposit is handled by HydraAccount validator (ProcessVaultDeposit with total_shares == 0)
 pub type VaultOracleSpendRedeemer {
-  L1InitialDeposit {
-    depositor: UserAccount,
-    initial_deposit: MValue,
-    prices_message: ByteArray,
-    signatures: List<ByteArray>,
-    initial_shares_proof: Proof,
-  }
   ProcessL1Deposit
   ProcessL1Withdrawal
   ProcessL2Deposit
   ProcessL2Withdrawal
   HydraCommit
   HydraDecommit
-  PluggableLogic
   UpdateConfig
+  BurnVault
 }
 
 // Vault spend redeemer — fund management validator
