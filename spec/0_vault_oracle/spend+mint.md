@@ -20,8 +20,8 @@ The Vault Oracle UTxO holds config and shares state. This is the only UTxO commi
 - `hydra_node_pub_keys`: List\<VerificationKey\>
 - `pluggable_logic`: ByteArray
 - `operator_account`: UserAccount (contains Account with master_key, operation_key, account_id)
-- `operator_charge_percentage`: Int
-- `operator_min_deposit_percentage`: Int
+- `operator_fee_rate_bp`: Int
+- `operator_min_deposit_rate_bp`: Int
 - `is_active`: Bool - whether the vault accepts new deposits
 
 ### State (mutable)
@@ -110,7 +110,7 @@ The mint policy is a simple one-time minting policy (similar to `app_oracle/orac
 - **Signed by all `hydra_node_pub_keys`**
 - All config fields can be modified
 - Constraints:
-  - `operator_charge_percentage` must be >= 0 and <= 100
+  - `operator_fee_rate_bp` must be >= 0 and <= 10000
   - `hydra_node_pub_keys` must match `app_oracle` signers (if `app_oracle` changed)
 - State fields unchanged
 

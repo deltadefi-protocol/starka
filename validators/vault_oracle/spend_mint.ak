@@ -195,9 +195,9 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
             oracle_output_datum.total_fee_share_collected == total_fee_share_collected,
           }
 
-        // Validate operator_charge_percentage
+        // Validate operator_fee_rate_bp
         let is_charge_valid =
-          oracle_output_datum.operator_charge_percentage >= 0 && oracle_output_datum.operator_charge_percentage <= 100
+          oracle_output_datum.operator_fee_rate_bp >= 0 && oracle_output_datum.operator_fee_rate_bp <= 100
 
         all_hydra_signed? && is_state_unchanged? && is_charge_valid?
       }
@@ -253,8 +253,8 @@ validator vault_oracle(initial_utxo: OutputReference, app_oracle: PolicyId) {
             vault_oracle_datum.total_deposited == 0,
             vault_oracle_datum.shares_merkle_root == mpf.root(mpf.empty),
             vault_oracle_datum.total_fee_share_collected == 0,
-            vault_oracle_datum.operator_charge_percentage >= 0,
-            vault_oracle_datum.operator_charge_percentage <= 100,
+            vault_oracle_datum.operator_fee_rate_bp >= 0,
+            vault_oracle_datum.operator_fee_rate_bp <= 10000,
           }
 
         // No signatures required (anyone can create a vault)

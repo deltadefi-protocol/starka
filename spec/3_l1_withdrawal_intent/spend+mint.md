@@ -45,8 +45,8 @@ L1 withdrawal intents allow users to withdraw funds from the Trust Me Bro vault 
        - Note: `to` value is computed from updated shares + total_deposited, not passed in redeemer
        - Fee calculation (skipped if withdrawer is operator):
          - If `withdrawer == operator_account`: `fee = 0`, `fee_shares = 0` (economically neutral)
-         - Otherwise: `fee = max(0, (gross_value - cost_basis) * operator_charge_percentage / 100)` (round UP)
-       - Fee shares: `fee_shares = fee * total_shares / vault_equity` (round UP, or 0 if operator)
+         - Otherwise: `fee = max(0, (gross_value - cost_basis) * operator_fee_rate_bp / 10000)` (round DOWN)
+       - Fee shares: `fee_shares = fee * total_shares / vault_equity` (round DOWN, or 0 if operator)
        - Net payout: `net_payout = gross_value - fee` (full gross_value if operator)
      - After all withdrawals, apply operator fee share action if `total_fee_shares > 0`
      - Verify `computed_final_root == expected_final_root`
@@ -68,7 +68,7 @@ Vault's account balance (HydraWithdrawal) → Vault → User
 1. `shares_to_redeem > 0` AND `shares_to_redeem <= user_shares_balance` (from merkle proof)
 2. `share_price` computed from current `vault_equity / total_shares`
 3. `gross_profit = max(0, gross_value - cost_basis)` (never negative)
-4. `fee = gross_profit * operator_charge_percentage / 100` (round UP)
+4. `fee = gross_profit * operator_fee_rate_bp / 10000` (round DOWN)
 5. `fee_shares` correctly computed and added to operator merkle record
 6. `net_payout = gross_value - fee` actually sent to user
 7. Sufficient value in vault to cover net_payout
