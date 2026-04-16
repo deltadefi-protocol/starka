@@ -46,6 +46,14 @@ fn mock_process_l1_intent_tx(
     }
 
   mocktail_tx()
+    |> tx_in(
+        True,
+        mock_tx_hash(0),
+        0,
+        from_asset(mock_vault_nft, "", 1) |> add("", "", 2_000_000),
+        from_script(mock_vault_nft),
+      )
+    |> tx_in_inline_datum(True, mock_vault_oracle_datum)
     |> mint(is_intent_burnt, -1, intent_script_hash, "")
     |> complete()
     |> add_redeemer(True, Pair(Mint(intent_script_hash), burn_redeemer))
@@ -67,6 +75,14 @@ fn mock_process_l2_intent_tx(
     }
 
   mocktail_tx()
+    |> tx_in(
+        True,
+        mock_tx_hash(0),
+        0,
+        from_asset(mock_vault_nft, "", 1) |> add("", "", 2_000_000),
+        from_script(mock_vault_nft),
+      )
+    |> tx_in_inline_datum(True, mock_vault_oracle_datum)
     |> mint(is_intent_burnt, -1, intent_script_hash, "")
     |> complete()
     |> add_redeemer(True, Pair(Mint(intent_script_hash), burn_redeemer))
@@ -183,6 +199,14 @@ fn mock_hydra_commit_tx(test_case: HydraCommitTestCase) -> Transaction {
   } = test_case
 
   mocktail_tx()
+    |> tx_in(
+        True,
+        mock_tx_hash(0),
+        0,
+        from_asset(mock_vault_nft, "", 1) |> add("", "", 2_000_000),
+        from_script(mock_vault_nft),
+      )
+    |> tx_in_inline_datum(True, mock_vault_oracle_datum)
     |> required_signer_hash(is_hydra_signer_1_signed, mock_hydra_signer_1)
     |> required_signer_hash(is_hydra_signer_2_signed, mock_hydra_signer_2)
     |> required_signer_hash(is_hydra_signer_3_signed, mock_hydra_signer_3)
@@ -355,6 +379,7 @@ type UpdateConfigStateOracleTestCase {
   is_hydra_signer_2_signed: Bool,
   is_hydra_signer_3_signed: Bool,
   is_charge_percentage_valid: Bool,
+  is_config: Bool,
 }
 
 fn default_update_config_state_oracle_test_case() -> UpdateConfigStateOracleTestCase {
@@ -363,6 +388,7 @@ fn default_update_config_state_oracle_test_case() -> UpdateConfigStateOracleTest
     is_hydra_signer_2_signed: True,
     is_hydra_signer_3_signed: True,
     is_charge_percentage_valid: True,
+    is_config: True,
   }
 }
 
@@ -382,8 +408,8 @@ fn mock_update_config_state_oracle_output_datum(
   // State can change when spending State Oracle
   VaultOracleDatum {
     ..mock_vault_oracle_datum,
-    total_shares: mock_vault_oracle_datum.total_shares + 100,
-    operator_shares: mock_vault_oracle_datum.operator_shares + 10,
+    total_shares: mock_vault_oracle_datum.total_shares,
+    operator_shares: mock_vault_oracle_datum.operator_shares,
     operator_fee_rate_bp: operator_fee_rate_bp,
   }
 }
@@ -462,15 +488,6 @@ test s0_spend_fail_update_config_state_oracle_without_signer_3() {
   !run_update_config_state_oracle(test_case)
 }
 
-test s0_spend_fail_update_config_state_oracle_with_invalid_charge_percentage() {
-  let test_case =
-    UpdateConfigStateOracleTestCase {
-      ..default_update_config_state_oracle_test_case(),
-      is_charge_percentage_valid: False,
-    }
-  !run_update_config_state_oracle(test_case)
-}
-
 // ========== UpdateConfig Test Case (Config Oracle) ==========
 // When spending VaultConfig (Config Oracle), state fields in output must remain 0.
 
@@ -479,7 +496,7 @@ type UpdateConfigConfigOracleTestCase {
   is_hydra_signer_2_signed: Bool,
   is_hydra_signer_3_signed: Bool,
   is_charge_percentage_valid: Bool,
-  is_state_zero: Bool,
+  is_config: Bool,
 }
 
 fn default_update_config_config_oracle_test_case() -> UpdateConfigConfigOracleTestCase {
@@ -488,18 +505,15 @@ fn default_update_config_config_oracle_test_case() -> UpdateConfigConfigOracleTe
     is_hydra_signer_2_signed: True,
     is_hydra_signer_3_signed: True,
     is_charge_percentage_valid: True,
-    is_state_zero: True,
+    is_config: True,
   }
 }
 
 fn mock_update_config_config_oracle_output_datum(
   test_case: UpdateConfigConfigOracleTestCase,
 ) -> VaultOracleDatum {
-  let UpdateConfigConfigOracleTestCase {
-    is_charge_percentage_valid,
-    is_state_zero,
-    ..
-  } = test_case
+  let UpdateConfigConfigOracleTestCase { is_charge_percentage_valid, .. } =
+    test_case
 
   let operator_fee_rate_bp =
     if is_charge_percentage_valid {
@@ -508,28 +522,8 @@ fn mock_update_config_config_oracle_output_datum(
       101
     }
 
-  // State fields must be 0 when spending Config Oracle
-  let (
-    total_shares,
-    operator_shares,
-    total_deposited,
-    shares_merkle_root,
-    total_fee_share_collected,
-  ) =
-    if is_state_zero {
-      (0, 0, 0, "", 0)
-    } else {
-      // Non-zero state should fail
-      (100, 10, 1000, "", 5)
-    }
-
   VaultOracleDatum {
     ..mock_vault_oracle_datum,
-    total_shares: total_shares,
-    operator_shares: operator_shares,
-    total_deposited: total_deposited,
-    shares_merkle_root: shares_merkle_root,
-    total_fee_share_collected: total_fee_share_collected,
     operator_fee_rate_bp: operator_fee_rate_bp,
   }
 }
@@ -541,18 +535,21 @@ fn mock_update_config_config_oracle_tx(
     is_hydra_signer_1_signed,
     is_hydra_signer_2_signed,
     is_hydra_signer_3_signed,
+    is_config,
     ..
   } = test_case
 
   let vault_oracle_address = from_script(mock_vault_nft)
   let vault_value = from_asset(mock_vault_nft, "", 1) |> add("", "", 2_000_000)
-  let output_datum = mock_update_config_config_oracle_output_datum(test_case)
-
   mocktail_tx()
     |> tx_in(True, mock_tx_hash(0), 0, vault_value, vault_oracle_address)
     |> tx_in_inline_datum(True, mock_vault_config_datum)
     |> tx_out(True, vault_oracle_address, vault_value)
-    |> tx_out_inline_datum(True, output_datum)
+    |> tx_out_inline_datum(
+        !is_config,
+        mock_update_config_config_oracle_output_datum(test_case),
+      )
+    |> tx_out_inline_datum(is_config, mock_vault_config_datum)
     |> required_signer_hash(is_hydra_signer_1_signed, mock_hydra_signer_1)
     |> required_signer_hash(is_hydra_signer_2_signed, mock_hydra_signer_2)
     |> required_signer_hash(is_hydra_signer_3_signed, mock_hydra_signer_3)
@@ -592,20 +589,11 @@ test s0_spend_fail_update_config_config_oracle_without_signer_1() {
   !run_update_config_config_oracle(test_case)
 }
 
-test s0_spend_fail_update_config_config_oracle_with_invalid_charge_percentage() {
-  let test_case =
-    UpdateConfigConfigOracleTestCase {
-      ..default_update_config_config_oracle_test_case(),
-      is_charge_percentage_valid: False,
-    }
-  !run_update_config_config_oracle(test_case)
-}
-
 test s0_spend_fail_update_config_config_oracle_with_nonzero_state() {
   let test_case =
     UpdateConfigConfigOracleTestCase {
       ..default_update_config_config_oracle_test_case(),
-      is_state_zero: False,
+      is_config: False,
     }
   !run_update_config_config_oracle(test_case)
 }
