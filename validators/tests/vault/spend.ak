@@ -10,7 +10,7 @@ use tests/utils.{
   mock_app_deposit_request_token, mock_app_oracle, mock_app_oracle_address,
   mock_app_oracle_datum, mock_l1_withdrawal_intent_script_hash,
   mock_pluggable_logic, mock_vault_nft, mock_vault_oracle_datum,
-  mock_vault_stake_rotation_script_hash,
+  mock_vault_script_hash, mock_vault_stake_rotation_script_hash,
 }
 use types.{
   BurnIntent, CancelIntent, DepositIntoDeltaDeFi, ProcessWithdrawal,
@@ -158,6 +158,7 @@ fn mock_deposit_into_deltadefi_tx(
       )
     |> ref_tx_in_inline_datum(is_app_oracle_referenced, mock_app_oracle_datum)
     |> mint(is_deposit_request_minted, 1, mock_app_deposit_request_token, "")
+    |> script_withdrawal(True, mock_vault_script_hash, 0)
     |> complete()
 }
 
