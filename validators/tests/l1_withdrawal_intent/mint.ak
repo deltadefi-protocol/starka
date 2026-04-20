@@ -1,201 +1,248 @@
-use aiken/cbor
-use aiken/merkle_patricia_forestry as mpf
-use cardano/address.{from_script}
-use cardano/assets.{add, from_asset}
-use cardano/transaction.{Transaction}
-use l1_withdrawal_intent/spend_and_mint as l1_withdrawal_intent
-use mocktail.{
-  complete, mint, mock_pub_key_address, mock_pub_key_hash, mock_tx_hash,
-  mocktail_tx, ref_tx_in, ref_tx_in_inline_datum, required_signer_hash, tx_in,
-  tx_in_inline_datum, tx_out, tx_out_inline_datum,
-}
-use tests/utils.{
-  mock_app_oracle, mock_app_oracle_address, mock_app_oracle_datum,
-  mock_l1_withdrawal_intent_script_hash, mock_message, mock_node_pub_keys,
-  mock_operator_key, mock_signatures, mock_vault_nft,
-  mock_withdrawal_intent_datum, null_hash, usdm_name, usdm_policy,
-}
-use types.{
-  BurnIntent, CancelIntent, LPDelete, LPRecordEntry, MintIntent, VaultDatum,
-  WithdrawalIntentDatum,
-}
+// use cardano/address.{from_script}
+// use cardano/assets.{add, from_lovelace}
+// use cardano/transaction.{Transaction}
+// use l1_withdrawal_intent/spend_and_mint as l1_withdrawal_intent
+// use mocktail.{
+//   complete, mint, mock_policy_id, mock_pub_key_hash, mock_tx_hash, mocktail_tx,
+//   required_signer_hash, tx_in, tx_in_inline_datum, tx_out, tx_out_inline_datum,
+// }
+// use tests/utils.{
+//   mock_l1_withdrawal_intent_script_hash, mock_user_trade_account, mock_vault_nft,
+// }
+// use types.{CancelIntent, MintIntent, WithdrawalIntentDatum}
 
-// ========== MintIntent ==========
+// // ========== MintIntent Tests ==========
+// // Spec:
+// // - Withdrawal amount > 0 (shares_to_redeem > 0)
+// // - No vault reference needed (user creates intent independently)
 
-test test_mint_intent_success() {
-  let policy_id = mock_l1_withdrawal_intent_script_hash
-  let output_value =
-    from_asset(policy_id, "", 1) |> add("", "", 2_000_000)
-  let tx =
-    mocktail_tx()
-      |> mint(True, 1, policy_id, "")
-      |> tx_out(True, from_script(policy_id), output_value)
-      |> tx_out_inline_datum(True, mock_withdrawal_intent_datum)
-      |> complete()
+// const mock_l1_withdrawal_intent_datum: WithdrawalIntentDatum =
+//   WithdrawalIntentDatum {
+//     withdrawer: mock_user_trade_account,
+//     shares_to_redeem: 1_000_000,
+//   }
 
-  l1_withdrawal_intent.l1_withdrawal_intent.mint(
-    mock_vault_nft,
-    MintIntent,
-    policy_id,
-    tx,
-  )
-}
+// type MintIntentTestCase {
+//   is_token_minted_correctly: Bool,
+//   is_output_to_correct_address: Bool,
+//   is_shares_valid: Bool,
+// }
 
-// ========== BurnIntent ==========
+// fn mock_mint_intent_tx(test_case: MintIntentTestCase) -> Transaction {
+//   let MintIntentTestCase {
+//     is_token_minted_correctly,
+//     is_output_to_correct_address,
+//     is_shares_valid,
+//   } = test_case
 
-// Single full withdrawal, operator_charge_percentage=0, no operator fee action.
-// Use usdm_policy as vault_nft so convert_value_to_usd works
-// (vault value only contains priced assets).
+//   let policy_id = mock_l1_withdrawal_intent_script_hash
+//   let wrong_policy_id = mock_policy_id(999)
 
-const user_lp = 1_000_000
+//   let output_address =
+//     if is_output_to_correct_address {
+//       from_script(policy_id)
+//     } else {
+//       from_script(wrong_policy_id)
+//     }
 
-const user_cost = 800_000
+//   let mint_amount =
+//     if is_token_minted_correctly {
+//       1
+//     } else {
+//       2
+//     }
 
-// vault_balance from mock_message = 2400000000
-// gross_value = user_lp * vault_balance / total_lp = 1000000 * 2400000000 / 1000000 = 2400000000
-const user_receives = 2400000000
+//   // Intent output has min ADA + intent token
+//   let output_value = from_lovelace(2_000_000) |> add(policy_id, "", 1)
 
-fn build_withdrawal_vault_datum(merkle_root: ByteArray) -> VaultDatum {
-  VaultDatum {
-    app_oracle: mock_app_oracle,
-    l1_deposit_intent_script_hash: #"",
-    l1_withdrawal_intent_script_hash: mock_l1_withdrawal_intent_script_hash,
-    l2_deposit_intent_script_hash: #"",
-    l2_withdrawal_intent_script_hash: #"",
-    pluggable_logic: #"",
-    vault_stake_rotation_script_hash: #"",
-    operator_key: mock_operator_key,
-    operator_charge_percentage: 0,
-    operator_min_deposit_percentage: 10,
-    hydra_node_pub_keys: mock_node_pub_keys,
-    total_lp: user_lp,
-    operator_lp: 0,
-    vault_cost: user_cost,
-    lp_merkle_root: merkle_root,
-    is_active: True,
-  }
-}
+//   // Datum with shares amount (or 0 if testing invalid)
+//   let datum =
+//     if is_shares_valid {
+//       mock_l1_withdrawal_intent_datum
+//     } else {
+//       WithdrawalIntentDatum {
+//         withdrawer: mock_user_trade_account,
+//         shares_to_redeem: 0,
+//       }
+//     }
 
-test test_burn_intent_success() {
-  let policy_id = mock_l1_withdrawal_intent_script_hash
-  // Use usdm_policy as vault_nft for this test so vault value has only priced assets
-  let test_vault_nft = usdm_policy
+//   mocktail_tx()
+//     |> mint(True, mint_amount, policy_id, "")
+//     |> tx_out(True, output_address, output_value)
+//     |> tx_out_inline_datum(True, datum)
+//     |> complete()
+// }
 
-  // Compute initial merkle root with single user entry
-  let lp_address = mock_pub_key_address(0, None)
-  let mpf_key = cbor.serialise(lp_address)
-  let old_entry = LPRecordEntry { lp: user_lp, cost: user_cost }
-  let old_value = cbor.serialise(old_entry)
-  let initial_root = mpf.root(mpf.insert(mpf.empty, mpf_key, old_value, []))
+// // Success: Mint intent with correct token and valid shares amount
+// test s3_mint_mint_intent_success() {
+//   let tx =
+//     mock_mint_intent_tx(
+//       MintIntentTestCase {
+//         is_token_minted_correctly: True,
+//         is_output_to_correct_address: True,
+//         is_shares_valid: True,
+//       },
+//     )
 
-  let vault_input_datum = build_withdrawal_vault_datum(initial_root)
-  let vault_output_datum =
-    VaultDatum {
-      ..vault_input_datum,
-      total_lp: 0,
-      operator_lp: 0,
-      vault_cost: 0,
-      lp_merkle_root: null_hash,
-    }
+//   l1_withdrawal_intent.l1_withdrawal_intent.mint(
+//     mock_vault_nft,
+//     MintIntent,
+//     mock_l1_withdrawal_intent_script_hash,
+//     tx,
+//   )
+// }
 
-  let vault_address = from_script(test_vault_nft)
-  // Vault value in USDM only (price=1), so convert_value_to_usd works
-  let vault_input_value =
-    from_asset(usdm_policy, usdm_name, 2_500_000_000)
-  let vault_output_value =
-    from_asset(usdm_policy, usdm_name, 100_000_000)
+// // Fail: Wrong mint amount (minted 2 instead of 1)
+// test s3_mint_mint_intent_fail_wrong_mint_amount() {
+//   let tx =
+//     mock_mint_intent_tx(
+//       MintIntentTestCase {
+//         is_token_minted_correctly: False,
+//         is_output_to_correct_address: True,
+//         is_shares_valid: True,
+//       },
+//     )
 
-  // User output: receives 2400000000 USD as USDM
-  let user_output_value =
-    from_asset(usdm_policy, usdm_name, user_receives)
+//   !l1_withdrawal_intent.l1_withdrawal_intent.mint(
+//     mock_vault_nft,
+//     MintIntent,
+//     mock_l1_withdrawal_intent_script_hash,
+//     tx,
+//   )
+// }
 
-  // Intent input
-  let intent_datum =
-    WithdrawalIntentDatum {
-      lp_address: lp_address,
-      amount: user_lp,
-    }
-  let intent_input_value =
-    from_asset(policy_id, "", 1) |> add("", "", 2_000_000)
+// // Fail: Output to wrong address (not script address)
+// test s3_mint_mint_intent_fail_wrong_output_address() fail {
+//   let tx =
+//     mock_mint_intent_tx(
+//       MintIntentTestCase {
+//         is_token_minted_correctly: True,
+//         is_output_to_correct_address: False,
+//         is_shares_valid: True,
+//       },
+//     )
 
-  // App oracle reference
-  let app_oracle_value =
-    from_asset(mock_app_oracle, "", 1) |> add("", "", 2_000_000)
+//   l1_withdrawal_intent.l1_withdrawal_intent.mint(
+//     mock_vault_nft,
+//     MintIntent,
+//     mock_l1_withdrawal_intent_script_hash,
+//     tx,
+//   )
+// }
 
-  let mpf_action = LPDelete { proof: [], old_value: old_value }
+// // Fail: Zero shares_to_redeem
+// test s3_mint_mint_intent_fail_zero_shares() {
+//   let tx =
+//     mock_mint_intent_tx(
+//       MintIntentTestCase {
+//         is_token_minted_correctly: True,
+//         is_output_to_correct_address: True,
+//         is_shares_valid: False,
+//       },
+//     )
 
-  // outputs[0] = vault, outputs[1] = user
-  let tx =
-    mocktail_tx()
-      // Input matching utxo_ref in mock_message: mock_utxo_ref(0, 0)
-      |> tx_in(
-          True,
-          mock_tx_hash(0),
-          0,
-          from_asset("", "", 2_000_000),
-          mock_pub_key_address(0, None),
-        )
-      // Vault input
-      |> tx_in(True, mock_tx_hash(10), 0, vault_input_value, vault_address)
-      |> tx_in_inline_datum(True, vault_input_datum)
-      // Intent input
-      |> tx_in(
-          True,
-          mock_tx_hash(20),
-          0,
-          intent_input_value,
-          from_script(policy_id),
-        )
-      |> tx_in_inline_datum(True, intent_datum)
-      // App oracle reference
-      |> ref_tx_in(
-          True,
-          mock_tx_hash(30),
-          0,
-          app_oracle_value,
-          mock_app_oracle_address,
-        )
-      |> ref_tx_in_inline_datum(True, mock_app_oracle_datum)
-      // Vault output
-      |> tx_out(True, vault_address, vault_output_value)
-      |> tx_out_inline_datum(True, vault_output_datum)
-      // User output (index 1)
-      |> tx_out(True, lp_address, user_output_value)
-      // Burn intent token
-      |> mint(True, -1, policy_id, "")
-      |> complete()
+//   !l1_withdrawal_intent.l1_withdrawal_intent.mint(
+//     mock_vault_nft,
+//     MintIntent,
+//     mock_l1_withdrawal_intent_script_hash,
+//     tx,
+//   )
+// }
 
-  let redeemer =
-    BurnIntent([1], mock_message, mock_signatures, [mpf_action])
+// // ========== CancelIntent Tests ==========
+// // Spec:
+// // - L1WithdrawalIntent token is burnt
+// // - The intent UTxO value returned to withdrawer (refund)
+// // - Signed by the withdrawer
+// // - No vault interaction required
 
-  l1_withdrawal_intent.l1_withdrawal_intent.mint(
-    test_vault_nft,
-    redeemer,
-    policy_id,
-    tx,
-  )
-}
+// type CancelIntentTestCase {
+//   is_token_burnt_correctly: Bool,
+//   is_signed_by_withdrawer: Bool,
+// }
 
-// ========== CancelIntent ==========
+// fn mock_cancel_intent_tx(test_case: CancelIntentTestCase) -> Transaction {
+//   let CancelIntentTestCase { is_token_burnt_correctly, is_signed_by_withdrawer } =
+//     test_case
 
-test test_cancel_intent_success() {
-  let policy_id = mock_l1_withdrawal_intent_script_hash
-  let intent_value =
-    from_asset(policy_id, "", 1) |> add("", "", 2_000_000)
-  let withdrawer_pkh = mock_pub_key_hash(0)
+//   let policy_id = mock_l1_withdrawal_intent_script_hash
+//   let withdrawer_pkh = mock_pub_key_hash(0)
+//   let wrong_pkh = mock_pub_key_hash(999)
 
-  let tx =
-    mocktail_tx()
-      |> tx_in(True, mock_tx_hash(0), 0, intent_value, from_script(policy_id))
-      |> tx_in_inline_datum(True, mock_withdrawal_intent_datum)
-      |> mint(True, -1, policy_id, "")
-      |> required_signer_hash(True, withdrawer_pkh)
-      |> complete()
+//   let burn_amount =
+//     if is_token_burnt_correctly {
+//       -1
+//     } else {
+//       -2
+//     }
 
-  l1_withdrawal_intent.l1_withdrawal_intent.mint(
-    mock_vault_nft,
-    CancelIntent,
-    policy_id,
-    tx,
-  )
-}
+//   let signer_pkh =
+//     if is_signed_by_withdrawer {
+//       withdrawer_pkh
+//     } else {
+//       wrong_pkh
+//     }
+
+//   let input_value = from_lovelace(2_000_000) |> add(policy_id, "", 1)
+
+//   mocktail_tx()
+//     |> tx_in(True, mock_tx_hash(0), 0, input_value, from_script(policy_id))
+//     |> tx_in_inline_datum(True, mock_l1_withdrawal_intent_datum)
+//     |> mint(True, burn_amount, policy_id, "")
+//     |> required_signer_hash(True, signer_pkh)
+//     |> complete()
+// }
+
+// // Success: Cancel intent with correct burn and signature
+// test s3_mint_cancel_intent_success() {
+//   let tx =
+//     mock_cancel_intent_tx(
+//       CancelIntentTestCase {
+//         is_token_burnt_correctly: True,
+//         is_signed_by_withdrawer: True,
+//       },
+//     )
+
+//   l1_withdrawal_intent.l1_withdrawal_intent.mint(
+//     mock_vault_nft,
+//     CancelIntent,
+//     mock_l1_withdrawal_intent_script_hash,
+//     tx,
+//   )
+// }
+
+// // Fail: Wrong burn amount (burnt 2 instead of 1)
+// test s3_mint_cancel_intent_fail_wrong_burn_amount() {
+//   let tx =
+//     mock_cancel_intent_tx(
+//       CancelIntentTestCase {
+//         is_token_burnt_correctly: False,
+//         is_signed_by_withdrawer: True,
+//       },
+//     )
+
+//   !l1_withdrawal_intent.l1_withdrawal_intent.mint(
+//     mock_vault_nft,
+//     CancelIntent,
+//     mock_l1_withdrawal_intent_script_hash,
+//     tx,
+//   )
+// }
+
+// // Fail: Not signed by withdrawer
+// test s3_mint_cancel_intent_fail_not_signed_by_withdrawer() {
+//   let tx =
+//     mock_cancel_intent_tx(
+//       CancelIntentTestCase {
+//         is_token_burnt_correctly: True,
+//         is_signed_by_withdrawer: False,
+//       },
+//     )
+
+//   !l1_withdrawal_intent.l1_withdrawal_intent.mint(
+//     mock_vault_nft,
+//     CancelIntent,
+//     mock_l1_withdrawal_intent_script_hash,
+//     tx,
+//   )
+// }

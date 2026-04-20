@@ -3,115 +3,120 @@ use aiken/collection/list
 use aiken/collection/pairs
 use aiken/crypto.{ScriptHash}
 use aiken/merkle_patricia_forestry as mpf
-use cardano/address.{Address, Script}
+use cardano/address.{Script}
 use cardano/assets.{AssetName, PolicyId, Value}
 use cardano/transaction.{Input, Output}
 use cocktail.{input_inline_datum}
+use hydra_dex/types.{Account, UserTradeAccount} as dd_types
 use types.{
-  LPDelete, LPInsert, LPMPFAction, LPRecordEntry, LPUpdate,
+  SharesDelete, SharesInsert, SharesMPFAction, SharesRecordEntry, SharesUpdate,
   WithdrawalIntentDatum,
 }
+use utils.{pow10}
 
-pub type Scott5<a, b, c, d, e, result> =
-  fn(a, b, c, d, e) -> result
+pub type Scott6<a, b, c, d, e, f, result> =
+  fn(a, b, c, d, e, f) -> result
 
-pub fn list_foldl5(
+pub fn list_foldl6(
   self: List<x>,
   zero_a: a,
   zero_b: b,
   zero_c: c,
   zero_d: d,
   zero_e: e,
-  with: fn(x, a, b, c, d, e, Scott5<a, b, c, d, e, result>) -> result,
-  return: Scott5<a, b, c, d, e, result>,
+  zero_f: f,
+  with: fn(x, a, b, c, d, e, f, Scott6<a, b, c, d, e, f, result>) -> result,
+  return: Scott6<a, b, c, d, e, f, result>,
 ) -> result {
   when self is {
-    [] -> return(zero_a, zero_b, zero_c, zero_d, zero_e)
+    [] -> return(zero_a, zero_b, zero_c, zero_d, zero_e, zero_f)
     [x, ..xs] -> {
-      let acc_a, acc_b, acc_c, acc_d, acc_e <-
-        with(x, zero_a, zero_b, zero_c, zero_d, zero_e)
-      list_foldl5(xs, acc_a, acc_b, acc_c, acc_d, acc_e, with, return)
+      let
+        acc_a,
+        acc_b,
+        acc_c,
+        acc_d,
+        acc_e,
+        acc_f,
+      <- with(x, zero_a, zero_b, zero_c, zero_d, zero_e, zero_f)
+      list_foldl6(xs, acc_a, acc_b, acc_c, acc_d, acc_e, acc_f, with, return)
     }
   }
 }
 
-pub fn convert_lp_to_usd(
-  lp_amount: Int,
-  total_lp: Int,
-  vault_balance: Int,
+pub fn convert_shares_to_usd(
+  shares_amount: Int,
+  total_shares: Int,
+  vault_equity: Int,
 ) -> Int {
-  lp_amount * vault_balance / total_lp
-}
-
-// Round UP: ceil(a * b / c) = (a * b + c - 1) / c
-fn ceil_div(numerator: Int, denominator: Int) -> Int {
-  ( numerator + denominator - 1 ) / denominator
+  shares_amount * vault_equity / total_shares
 }
 
 pub fn cal_per_user_operator_fee(
   withdrawal_value: Int,
   cost_basis: Int,
-  operator_charge_percentage: Int,
+  operator_fee_rate_bp: Int,
 ) -> Int {
   let profit = withdrawal_value - cost_basis
   if profit <= 0 {
     0
   } else {
-    // Round UP — fee never underpaid
-    ceil_div(profit * operator_charge_percentage, 100)
+    // Round DOWN — fee never overpaid
+    profit * operator_fee_rate_bp / 10000
   }
 }
 
-pub fn compute_fee_lp(
-  fee: Int,
-  total_lp: Int,
-  vault_balance: Int,
-) -> Int {
-  // Round UP — protects operator
-  ceil_div(fee * total_lp, vault_balance)
+pub fn compute_fee_shares(fee: Int, total_shares: Int, vault_equity: Int) -> Int {
+  // Round DOWN
+  fee * total_shares / vault_equity
 }
 
-pub fn check_output_value_equal_to_lp_usd_value(
+// USD calculation: usd_value = Σ(amount * price / 10^scale) for each asset
+pub fn check_output_value_equal_to_shares_usd_value(
   output_value: Value,
-  lp_usd_value: Int,
-  prices: Pairs<(PolicyId, AssetName), Int>,
+  shares_usd_value: Int,
+  prices: Pairs<(PolicyId, AssetName), (Int, Int)>,
 ) -> Bool {
   assets.reduce(
     output_value,
     0,
     fn(policy_id, asset_name, amount, acc) {
-      expect Some(price) = prices |> pairs.get_first((policy_id, asset_name))
+      expect Some((price, scale)) =
+        prices |> pairs.get_first((policy_id, asset_name))
 
-      acc + amount * price
+      acc + amount * price / pow10(scale)
     },
-  ) == lp_usd_value
+  ) == shares_usd_value
 }
 
 // Process batched withdrawal intents with MPF merkle root transitions.
-// Returns (total_lp_amount, total_user_receives, total_fee_lp, total_cost_removed, final_merkle_root)
+// Returns (total_shares_amount, total_user_receives, total_fee_shares, total_cost_removed, operator_shares_withdrawn, final_merkle_root)
 pub fn process_batched_withdrawal_intent_validation(
   inputs: List<Input>,
   outputs: List<Output>,
   indices: List<Int>,
-  mpf_actions: List<LPMPFAction>,
-  vault_balance: Int,
-  total_lp: Int,
-  operator_charge_percentage: Int,
-  prices: Pairs<(PolicyId, AssetName), Int>,
+  mpf_actions: List<SharesMPFAction>,
+  vault_equity: Int,
+  total_shares: Int,
+  operator_fee_rate_bp: Int,
+  prices: Pairs<(PolicyId, AssetName), (Int, Int)>,
   withdrawal_intent_script_hash: ScriptHash,
   initial_merkle_root: ByteArray,
-) -> (Int, Int, Int, Int, ByteArray) {
-  // Accumulate: (state_triple, total_lp, total_user_receives, total_fee_lp, total_cost_removed)
+  operator_account: Account,
+) -> (Int, Int, Int, Int, Int, ByteArray) {
+  // Accumulate: (state_triple, total_shares, total_user_receives, total_fee_shares, total_cost_removed, operator_shares_withdrawn)
   let
     processed_state,
-    total_intent_datum_lp_amount,
+    total_intent_datum_shares_amount,
     total_user_receives,
-    total_fee_lp,
+    total_fee_shares,
     total_cost_removed,
+    operator_shares_withdrawn,
   <-
-    list_foldl5(
+    list_foldl6(
       inputs,
       (indices, mpf_actions, initial_merkle_root),
+      0,
       0,
       0,
       0,
@@ -119,10 +124,11 @@ pub fn process_batched_withdrawal_intent_validation(
       fn(
         input,
         remaining_state,
-        cal_intent_datum_lp_amount,
+        cal_intent_datum_shares_amount,
         cal_user_receives,
-        cal_fee_lp,
+        cal_fee_shares,
         cal_cost_removed,
+        cal_operator_shares_withdrawn,
         return,
       ) {
         let (remaining_indices, remaining_actions, current_root) =
@@ -137,46 +143,61 @@ pub fn process_batched_withdrawal_intent_validation(
                   expect input_datum: WithdrawalIntentDatum =
                     input_inline_datum(input)
 
-                  let WithdrawalIntentDatum { lp_address, amount } =
+                  let WithdrawalIntentDatum { withdrawer, shares_to_redeem } =
                     input_datum
 
-                  let new_cal_intent_datum_lp_amount =
-                    cal_intent_datum_lp_amount + amount
+                  let new_cal_intent_datum_shares_amount =
+                    cal_intent_datum_shares_amount + shares_to_redeem
 
                   // Calculate gross value
                   let gross_value =
-                    convert_lp_to_usd(amount, total_lp, vault_balance)
+                    convert_shares_to_usd(
+                      shares_to_redeem,
+                      total_shares,
+                      vault_equity,
+                    )
 
                   // Apply MPF action and compute cost_basis
                   expect [action, ..rest_actions] = remaining_actions
-                  let mpf_key = cbor.serialise(lp_address)
+                  // Extract Account from UserAccount and use as MPF key
+                  expect UserTradeAccount { account: withdrawer_acc, .. } =
+                    withdrawer
+                  let mpf_key = cbor.serialise(withdrawer)
+
+                  // Track if withdrawer is operator
+                  let new_cal_operator_shares_withdrawn =
+                    if withdrawer_acc == operator_account {
+                      cal_operator_shares_withdrawn + shares_to_redeem
+                    } else {
+                      cal_operator_shares_withdrawn
+                    }
 
                   let (cost_basis, new_root) =
                     when action is {
-                      LPDelete { proof, old_value } -> {
+                      SharesDelete { proof, old_value } -> {
                         // Total withdrawal
                         expect Some(old_data) = cbor.deserialise(old_value)
-                        expect old_entry: LPRecordEntry = old_data
-                        expect amount == old_entry.lp
-                        let cb = old_entry.cost
+                        expect old_entry: SharesRecordEntry = old_data
+                        expect shares_to_redeem == old_entry.shares
+                        let cb = old_entry.total_deposited
                         let trie = mpf.from_root(current_root)
                         let new_trie =
                           mpf.delete(trie, mpf_key, old_value, proof)
                         (cb, mpf.root(new_trie))
                       }
-                      LPUpdate { from, to, to_proof } -> {
-                        // Partial withdrawal
+                      SharesUpdate { from, to_proof } -> {
+                        // Partial withdrawal - compute to value
                         expect Some(from_data) = cbor.deserialise(from)
-                        expect old_entry: LPRecordEntry = from_data
-                        expect old_entry.lp >= amount
-                        let cb = old_entry.cost * amount / old_entry.lp
-                        let expected_entry =
-                          LPRecordEntry {
-                            lp: old_entry.lp - amount,
-                            cost: old_entry.cost - cb,
+                        expect old_entry: SharesRecordEntry = from_data
+                        expect old_entry.shares >= shares_to_redeem
+                        let cb =
+                          old_entry.total_deposited * shares_to_redeem / old_entry.shares
+                        let new_entry =
+                          SharesRecordEntry {
+                            shares: old_entry.shares - shares_to_redeem,
+                            total_deposited: old_entry.total_deposited - cb,
                           }
-                        let expected_value = cbor.serialise(expected_entry)
-                        expect to == expected_value
+                        let to = cbor.serialise(new_entry)
                         let trie = mpf.from_root(current_root)
                         let new_trie =
                           mpf.update(trie, mpf_key, to_proof, from, to)
@@ -185,34 +206,40 @@ pub fn process_batched_withdrawal_intent_validation(
                       _ -> fail @"Invalid MPF action for withdrawal"
                     }
 
-                  // Fee calculation (round UP)
-                  let fee =
-                    cal_per_user_operator_fee(
-                      gross_value,
-                      cost_basis,
-                      operator_charge_percentage,
-                    )
-                  let fee_lp = compute_fee_lp(fee, total_lp, vault_balance)
-                  let user_receives = gross_value - fee
+                  // Skip fee when operator withdraws (economically neutral - operator paying fee to themselves)
+                  let (fee_shares, user_receives) =
+                    if withdrawer_acc == operator_account {
+                      (0, gross_value)
+                    } else {
+                      let fee =
+                        cal_per_user_operator_fee(
+                          gross_value,
+                          cost_basis,
+                          operator_fee_rate_bp,
+                        )
+                      let fs =
+                        compute_fee_shares(fee, total_shares, vault_equity)
+                      (fs, gross_value - fee)
+                    }
 
                   let new_cal_user_receives = cal_user_receives + user_receives
-                  let new_cal_fee_lp = cal_fee_lp + fee_lp
+                  let new_cal_fee_shares = cal_fee_shares + fee_shares
 
-                  // Check output value and address
                   let output_check =
-                    check_output_value_equal_to_lp_usd_value(
+                    check_output_value_equal_to_shares_usd_value(
                       out_utxo.value,
                       user_receives,
                       prices,
-                    ) && out_utxo.address == lp_address
+                    ) && out_utxo.address.payment_credential == withdrawer_acc.master_key
 
                   if output_check {
                     return(
                       (rest_of_indices, rest_actions, new_root),
-                      new_cal_intent_datum_lp_amount,
+                      new_cal_intent_datum_shares_amount,
                       new_cal_user_receives,
-                      new_cal_fee_lp,
+                      new_cal_fee_shares,
                       cal_cost_removed + cost_basis,
+                      new_cal_operator_shares_withdrawn,
                     )
                   } else {
                     fail @"Withdrawal intent output incorrect"
@@ -222,19 +249,21 @@ pub fn process_batched_withdrawal_intent_validation(
             } else {
               return(
                 remaining_state,
-                cal_intent_datum_lp_amount,
+                cal_intent_datum_shares_amount,
                 cal_user_receives,
-                cal_fee_lp,
+                cal_fee_shares,
                 cal_cost_removed,
+                cal_operator_shares_withdrawn,
               )
             }
           _ ->
             return(
               remaining_state,
-              cal_intent_datum_lp_amount,
+              cal_intent_datum_shares_amount,
               cal_user_receives,
-              cal_fee_lp,
+              cal_fee_shares,
               cal_cost_removed,
+              cal_operator_shares_withdrawn,
             )
         }
       },
@@ -243,10 +272,11 @@ pub fn process_batched_withdrawal_intent_validation(
   when remaining_indices is {
     [] ->
       (
-        total_intent_datum_lp_amount,
+        total_intent_datum_shares_amount,
         total_user_receives,
-        total_fee_lp,
+        total_fee_shares,
         total_cost_removed,
+        operator_shares_withdrawn,
         final_root,
       )
     _ -> fail @"Batch withdrawal intent UTxOs not fully processed"
@@ -256,32 +286,35 @@ pub fn process_batched_withdrawal_intent_validation(
 // Apply operator fee share MPF action after all user withdrawals
 pub fn apply_operator_fee_share(
   current_root: ByteArray,
-  total_fee_lp: Int,
-  operator_address: Address,
-  operator_action: LPMPFAction,
+  total_fee_shares: Int,
+  operator_account: Account,
+  operator_action: SharesMPFAction,
 ) -> ByteArray {
-  if total_fee_lp <= 0 {
+  if total_fee_shares <= 0 {
     current_root
   } else {
-    let mpf_key = cbor.serialise(operator_address)
+    // Use Account directly as MPF key
+    let mpf_key = cbor.serialise(operator_account)
     when operator_action is {
-      LPInsert { proof, new_value } -> {
-        // Operator has no existing entry
-        let expected_entry = LPRecordEntry { lp: total_fee_lp, cost: 0 }
-        let expected_value = cbor.serialise(expected_entry)
-        expect new_value == expected_value
+      SharesInsert { proof } -> {
+        // Operator has no existing entry - compute new_value
+        let new_entry =
+          SharesRecordEntry { shares: total_fee_shares, total_deposited: 0 }
+        let new_value = cbor.serialise(new_entry)
         let trie = mpf.from_root(current_root)
         let new_trie = mpf.insert(trie, mpf_key, new_value, proof)
         mpf.root(new_trie)
       }
-      LPUpdate { from, to, to_proof } -> {
-        // Operator has existing entry — add fee shares, cost unchanged
+      SharesUpdate { from, to_proof } -> {
+        // Operator has existing entry — add fee shares, total_deposited unchanged
         expect Some(from_data) = cbor.deserialise(from)
-        expect old_entry: LPRecordEntry = from_data
-        let expected_entry =
-          LPRecordEntry { lp: old_entry.lp + total_fee_lp, cost: old_entry.cost }
-        let expected_value = cbor.serialise(expected_entry)
-        expect to == expected_value
+        expect old_entry: SharesRecordEntry = from_data
+        let new_entry =
+          SharesRecordEntry {
+            shares: old_entry.shares + total_fee_shares,
+            total_deposited: old_entry.total_deposited,
+          }
+        let to = cbor.serialise(new_entry)
         let trie = mpf.from_root(current_root)
         let new_trie = mpf.update(trie, mpf_key, to_proof, from, to)
         mpf.root(new_trie)
